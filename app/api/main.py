@@ -1,31 +1,40 @@
-from fastapi import FastAPI
+import os
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from app.rag.chain import build_chain
-
-app = FastAPI(title="RAG Bidding Assistant", version="0.1.0")
-
-chain = build_chain(k=5)
+from app.core.logging import setup_logging
+from app.core.config import settings
+from app.rag.chain import answer
 
 
-class AskRequest(BaseModel):
+setup_logging()
+app = FastAPI(title="RAG API (LangChain)")
+
+
+class AskIn(BaseModel):
     question: str
+    k: int | None = None
+
+
+@app.get("/health")
+def health():
+    try:
+        import psycopg
+
+        dsn = settings.database_url.replace("postgresql+psycopg", "postgresql")
+        with psycopg.connect(dsn) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+                cur.fetchone()
+        return {"db": True}
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
 
 
 @app.post("/ask")
-def ask(request: AskRequest):
-    out = chain.invoke(request.question)
-    # normalize sources
-    cites = []
-
-    for d in out["sources"]:
-        md = d.metadata or {}
-        cites.append(
-            {
-                "title": md.get("title"),
-                "code": md.get("code"),
-                "doc_type": md.get("doc_type"),
-                "url": md.get("source_url"),
-                "heading_path": md.get("heading_path"),
-            }
-        )
-    return {"answer": out["answer"], "sources": cites}
+def ask(body: AskIn):
+    if not body.question or not body.question.strip():
+        raise HTTPException(400, detail="question is required")
+    try:
+        return answer(body.question)
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
