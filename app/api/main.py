@@ -12,7 +12,7 @@ app = FastAPI(title="RAG API (LangChain)")
 
 class AskIn(BaseModel):
     question: str
-    k: int | None = None
+    k: int
 
 
 @app.get("/health")
@@ -35,6 +35,6 @@ def ask(body: AskIn):
     if not body.question or not body.question.strip():
         raise HTTPException(400, detail="question is required")
     try:
-        return answer(body.question)
+        return answer(body.question, body.k)
     except Exception as e:
         raise HTTPException(500, detail=str(e))
