@@ -13,10 +13,10 @@ from app.rag.retriever import retriever
 from app.core.config import settings
 
 
-model = ChatOpenAI(model=settings.chat_model, temperature=0)
+model = ChatOpenAI(model=settings.llm_model, temperature=0)
 
 prompt = ChatPromptTemplate.from_messages(
-    ("system", SYSTEM_PROMPT), ("user", USER_TEMPLATE)
+    [("system", SYSTEM_PROMPT), ("user", USER_TEMPLATE)]
 )
 
 
@@ -31,7 +31,7 @@ rag_core = (
     {"context": retriever | RunnableLambda(fmt_docs), "question": RunnablePassthrough()}
     | prompt
     | model
-    | StrOutputParser(),
+    | StrOutputParser()
 )
 
 

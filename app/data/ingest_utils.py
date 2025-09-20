@@ -21,10 +21,16 @@ def load_folder(root: str) -> List[Document]:
                 Document(page_content=text, metadata={"path": str(p.resolve())})
             )
         elif suf == ".pdf":
-            from langchain_pdf import PDFLoader
+            from langchain_community.document_loaders import PyPDFLoader
 
-            loader = PDFLoader(str(p.resolve()))
+            loader = PyPDFLoader(str(p.resolve()))
             docs.extend(loader.load())
+        elif suf == ".docx":
+            from langchain_community.document_loaders import Docx2txtLoader
+
+            loader = Docx2txtLoader(str(p.resolve()))
+            docs.extend(loader.load())
+
     return docs
 
 

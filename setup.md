@@ -43,7 +43,7 @@ pip install -U
 ## Configure environment
 ```shell
 OPENAI_API_KEY=
-PG_CONN=
+DATABASE_URL=
 EMBED_MODEL=
 EMBED_DIM=3072
 CHAT_MODEL=
