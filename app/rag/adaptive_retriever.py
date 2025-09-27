@@ -3,7 +3,7 @@ Adaptive Retriever - Dynamic k dựa trên độ phức tạp câu hỏi
 """
 
 import re
-from typing import List, Dict
+from typing import List, Dict, Optional
 from langchain_core.documents import Document
 from app.core.vectorstore import vector_store
 from app.core.config import settings
@@ -58,6 +58,7 @@ class AdaptiveRetriever:
             r"^\s*bao\s+nhiêu\s+",
         ]
 
+    # TODO: replace analyze_question_complexity with class QuestionAnalyzer
     def analyze_question_complexity(self, question: str) -> Dict:
         """Phân tích độ phức tạp của câu hỏi"""
         question_lower = question.lower().strip()
@@ -167,9 +168,10 @@ def get_contextual_documents(
 
 
 # Utility functions
-def explain_retrieval_strategy(question: str) -> str:
+def explain_retrieval_strategy(question: str, analysis: Optional[Dict] = None) -> str:
     """Giải thích chiến lược retrieval cho câu hỏi"""
-    analysis = adaptive_retriever.analyze_question_complexity(question)
+    if analysis is None:
+        analysis = adaptive_retriever.analyze_question_complexity(question)
 
     explanation = f"""
     Phân tích câu hỏi: "{question}"

@@ -1,6 +1,7 @@
 import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import Literal
 from app.core.logging import setup_logging
 from app.core.config import settings
 from app.core.vectorstore import bootstrap
@@ -18,6 +19,7 @@ def init_vector_store() -> None:
 
 class AskIn(BaseModel):
     question: str
+    mode: Literal["fast", "balanced", "quality"] = "balanced"
 
 
 @app.get("/health")
@@ -40,6 +42,6 @@ def ask(body: AskIn):
     if not body.question or not body.question.strip():
         raise HTTPException(400, detail="question is required")
     try:
-        return answer(body.question)
+        return answer(body.question, mode=body.mode)
     except Exception as e:
         raise HTTPException(500, detail=str(e))

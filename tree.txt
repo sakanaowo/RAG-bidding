@@ -1,0 +1,192 @@
+legal-bidding-rag/
+├── README.md
+├── requirements.txt
+├── .env.example
+├── .gitignore
+├── docker-compose.yml
+│
+├── config/
+│   ├── __init__.py
+│   ├── settings.py              # Environment variables & configs
+│   ├── logging.conf            # Logging configuration
+│   └── legal_patterns.json     # Legal regex patterns & mappings
+│
+├── data/
+│   ├── raw/                    # Raw input documents
+│   │   ├── primary_laws/       # Luật chính
+│   │   │   ├── luat-dau-thau-2023.pdf
+│   │   │   └── luat-dau-tu-cong-2019.pdf
+│   │   ├── decrees/           # Nghị định
+│   │   │   ├── nd-24-2024-cp.pdf
+│   │   │   └── nd-63-2014-cp.pdf
+│   │   ├── circulars/         # Thông tư
+│   │   │   └── tt-05-2022-bkh.pdf
+│   │   ├── decisions/         # Quyết định
+│   │   │   └── qd-123-2023-ttg.pdf
+│   │   ├── templates/         # Biểu mẫu, hợp đồng mẫu
+│   │   │   └── hop-dong-xay-dung.docx
+│   │   └── guidelines/        # Hướng dẫn, tài liệu tham khảo
+│   │       └── huong-dan-dau-thau.pdf
+│   │
+│   ├── processed/             # Processed documents
+│   │   ├── extracted_text/    # Raw text extraction
+│   │   ├── structured/        # Structured legal documents
+│   │   ├── chunks/           # Chunked documents
+│   │   └── embeddings/       # Vector embeddings
+│   │
+│   ├── metadata/             # Document metadata
+│   │   ├── document_registry.json
+│   │   ├── legal_hierarchy.json
+│   │   └── cross_references.json
+│   │
+│   └── indexes/              # Vector store indexes
+│       ├── chromadb/         # ChromaDB files
+│       └── backup/           # Index backups
+│
+├── src/
+│   ├── __init__.py
+│   │
+│   ├── preprocessing/         # Phase 1-3: Document classification & cleaning
+│   │   ├── __init__.py
+│   │   ├── document_classifier.py    # Document type classification
+│   │   ├── metadata_extractor.py     # Legal metadata extraction
+│   │   ├── structure_parser.py       # Legal structure recognition
+│   │   ├── text_cleaner.py          # Text normalization & cleaning
+│   │   └── reference_resolver.py     # Cross-reference resolution
+│   │
+│   ├── chunking/             # Phase 4: Intelligent chunking
+│   │   ├── __init__.py
+│   │   ├── legal_chunker.py         # Structure-based chunking
+│   │   ├── semantic_chunker.py      # Fallback semantic chunking
+│   │   ├── chunk_optimizer.py       # Adaptive chunk sizing
+│   │   └── overlap_manager.py       # Smart overlap handling
+│   │
+│   ├── enrichment/           # Phase 5: Metadata enhancement
+│   │   ├── __init__.py
+│   │   ├── concept_extractor.py     # Legal concept extraction
+│   │   ├── importance_scorer.py     # Importance scoring
+│   │   ├── relationship_mapper.py   # Document relationships
+│   │   └── entity_recognizer.py     # Legal entity recognition
+│   │
+│   ├── quality/              # Phase 6: Quality control
+│   │   ├── __init__.py
+│   │   ├── chunk_validator.py       # Chunk quality validation
+│   │   ├── duplicate_detector.py    # Deduplication
+│   │   ├── integrity_checker.py     # Reference integrity
+│   │   └── completeness_validator.py # Content completeness
+│   │
+│   ├── processing/           # Phase 7: Final processing
+│   │   ├── __init__.py
+│   │   ├── embedding_generator.py   # Generate embeddings
+│   │   ├── index_builder.py         # Build vector indexes
+│   │   └── serializer.py           # Serialize processed data
+│   │
+│   ├── retrieval/            # RAG retrieval system
+│   │   ├── __init__.py
+│   │   ├── query_processor.py       # Legal query processing
+│   │   ├── semantic_retriever.py    # Semantic search
+│   │   ├── hybrid_retriever.py      # Hybrid retrieval (semantic + keyword)
+│   │   ├── legal_reranker.py       # Legal-aware reranking
+│   │   └── context_builder.py       # Build context for LLM
+│   │
+│   ├── generation/           # Response generation
+│   │   ├── __init__.py
+│   │   ├── legal_generator.py       # Legal response generator
+│   │   ├── citation_manager.py      # Legal citation handling
+│   │   ├── fact_checker.py         # Legal fact verification
+│   │   └── response_formatter.py    # Format legal responses
+│   │
+│   ├── models/              # Data models & schemas
+│   │   ├── __init__.py
+│   │   ├── document_models.py       # Document data models
+│   │   ├── chunk_models.py         # Chunk data models
+│   │   ├── query_models.py         # Query data models
+│   │   └── response_models.py       # Response data models
+│   │
+│   ├── utils/               # Utility functions
+│   │   ├── __init__.py
+│   │   ├── file_handlers.py        # File I/O operations
+│   │   ├── text_utils.py           # Text processing utilities
+│   │   ├── legal_utils.py          # Legal-specific utilities
+│   │   ├── embedding_utils.py      # Embedding utilities
+│   │   └── date_utils.py          # Date parsing utilities
+│   │
+│   └── core/                # Core system components
+│       ├── __init__.py
+│       ├── pipeline.py             # Main processing pipeline
+│       ├── orchestrator.py         # Process orchestration
+│       ├── document_processor.py   # Main document processor
+│       └── rag_system.py          # Complete RAG system
+│
+├── scripts/                 # Utility scripts
+│   ├── ingest_documents.py         # Bulk document ingestion
+│   ├── update_index.py            # Index updates
+│   ├── validate_system.py         # System validation
+│   ├── export_data.py            # Data export utilities
+│   └── benchmark.py              # Performance benchmarking
+│
+├── api/                    # API endpoints
+│   ├── __init__.py
+│   ├── main.py                    # FastAPI main app
+│   ├── routers/
+│   │   ├── __init__.py
+│   │   ├── documents.py           # Document management endpoints
+│   │   ├── search.py             # Search endpoints
+│   │   └── admin.py              # Admin endpoints
+│   ├── middleware/
+│   │   ├── __init__.py
+│   │   ├── auth.py               # Authentication
+│   │   └── logging.py            # API logging
+│   └── schemas/
+│       ├── __init__.py
+│       ├── request_schemas.py     # API request schemas
+│       └── response_schemas.py    # API response schemas
+│
+├── tests/                  # Test suite
+│   ├── __init__.py
+│   ├── unit/                     # Unit tests
+│   │   ├── test_preprocessing/
+│   │   ├── test_chunking/
+│   │   ├── test_enrichment/
+│   │   ├── test_quality/
+│   │   ├── test_retrieval/
+│   │   └── test_generation/
+│   ├── integration/              # Integration tests
+│   │   ├── test_pipeline.py
+│   │   └── test_end_to_end.py
+│   ├── fixtures/                 # Test data
+│   │   ├── sample_documents/
+│   │   └── expected_outputs/
+│   └── conftest.py              # Pytest configuration
+│
+├── notebooks/              # Jupyter notebooks for analysis
+│   ├── 01_data_exploration.ipynb
+│   ├── 02_chunking_analysis.ipynb
+│   ├── 03_embedding_evaluation.ipynb
+│   └── 04_retrieval_testing.ipynb
+│
+├── docs/                   # Documentation
+│   ├── setup.md
+│   ├── architecture.md
+│   ├── data_flow.md
+│   ├── api_documentation.md
+│   └── legal_requirements.md
+│
+├── deployment/             # Deployment configurations
+│   ├── docker/
+│   │   ├── Dockerfile
+│   │   └── docker-compose.prod.yml
+│   ├── kubernetes/
+│   │   ├── deployment.yaml
+│   │   └── service.yaml
+│   └── scripts/
+│       ├── deploy.sh
+│       └── backup.sh
+│
+└── monitoring/             # Monitoring & observability
+    ├── prometheus/
+    │   └── prometheus.yml
+    ├── grafana/
+    │   └── dashboards/
+    ├── logs/
+    └── metrics/
