@@ -3,7 +3,13 @@ Phase 1 Demo - Quick Wins Implementation
 Test và demo các cải tiến nhanh của hệ thống RAG
 """
 
+import sys
+from pathlib import Path
 from typing import Dict
+
+# Add app directory to Python path
+sys.path.append(str(Path(__file__).parent.parent.parent))
+
 from app.rag.chain import answer
 
 BASELINE_MODE = "fast"
@@ -57,12 +63,12 @@ def demo_phase1():
     print("🚀 RAG System Phase 1 - Quick Wins Demo")
     print("=" * 50)
 
-    # Test questions with different complexity
+    # Test questions với luật đấu thầu (matching với data thực)
     test_questions = [
-        "Tư tưởng Hồ Chí Minh là gì?",  # Simple factual
-        "So sánh quan điểm của Hồ Chí Minh về độc lập dân tộc và chủ nghĩa xã hội",  # Complex
-        "Ai là Hồ Chí Minh?",  # Very simple
-        "Phân tích ảnh hưởng của tư tưởng Hồ Chí Minh đến phong trào giải phóng dân tộc",  # Complex analytical
+        "Điều kiện tham gia đấu thầu là gì?",  # Simple factual
+        "So sánh quy trình đấu thầu rộng rãi và đấu thầu hạn chế trong luật đấu thầu 2023",  # Complex
+        "Nhà thầu là gì?",  # Very simple
+        "Phân tích vai trò của hệ thống mạng đấu thầu quốc gia theo thông tư 22/2024",  # Complex analytical
     ]
 
     for question in test_questions:
@@ -82,6 +88,7 @@ def demo_phase1():
     print("   • Dynamic document retrieval (k=2-8 based on complexity)")
     print("   • Vietnamese question analysis")
     print("   • Configurable RAG modes (fast/balanced/quality)")
+    print("   • 845 legal documents embedded and searchable")
     print("   • Ready foundation for Phase 2")
 
 
