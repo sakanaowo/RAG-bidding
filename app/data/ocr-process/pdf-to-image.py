@@ -10,12 +10,12 @@ from tqdm import tqdm
 def pdf_to_images(
     pdf_path: str | Path,
     *,
-    output_root: str | Path = "app/data/processed/_image-process",
+    output_root: str | Path = "app/data/ocr-process/_image_process",
     dpi: int = 400,
 ) -> List[Path]:
     """Render each page in ``pdf_path`` to PNG files under ``output_root``.
 
-    The output directory is ``app/data/processed/<pdf-name>-images`` by default. Returns the
+    The output directory is ``app/data/ocr-process/<pdf-name>-images`` by default. Returns the
     list of image paths, ordered by page number. Raises ``FileNotFoundError`` if the
     PDF does not exist.
     """
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     parser.add_argument("pdf_path", help="Path to the source PDF file")
     parser.add_argument(
         "--output-root",
-        default="app/data/processed/_image-process",
+        default="app/data/ocr-process/_image_process",
         help="Directory where per-PDF image folders will be created",
     )
     parser.add_argument(
