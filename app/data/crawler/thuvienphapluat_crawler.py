@@ -31,7 +31,7 @@ class ThuvienphapluatCrawler:
         self,
         user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         timeout: int = 30,
-        default_output_dir: str = "app/data/processed/",
+        default_output_dir: str = "app/data/crawler/outputs",
     ):
         """
         Khởi tạo crawler
@@ -367,7 +367,7 @@ source: thuvienphapluat.vn
 
 # Convenience functions để sử dụng dễ dàng hơn
 def crawl_and_export_to_markdown(
-    url: str, output_dir: str = "app/data/processed/"
+    url: str, output_dir: str = "app/data/crawler/outputs/"
 ) -> Optional[str]:
     """
     Function tiện ích để crawl một URL và export sang markdown
@@ -384,7 +384,7 @@ def crawl_and_export_to_markdown(
 
 
 def batch_crawl_urls(
-    urls: List[str], output_dir: str = "app/data/processed/", delay: int = 2
+    urls: List[str], output_dir: str = "app/data/crawler/outputs/", delay: int = 2
 ) -> List[Dict[str, Any]]:
     """
     Function tiện ích để crawl nhiều URL
@@ -414,7 +414,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "-o",
         "--output-dir",
-        default="app/data/processed/",
+        default="app/data/crawler/outputs/",
         help="Thư mục lưu file markdown (mặc định: app/data/processed/)",
     )
     parser.add_argument(
