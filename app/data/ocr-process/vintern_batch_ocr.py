@@ -293,7 +293,7 @@ def main(in_dir, out_dir):
         model = (
             AutoModel.from_pretrained(
                 "5CD-AI/Vintern-1B-v3_5",
-                dtype=(torch.bfloat16 if device == "cuda" else torch.float32),
+                torch_dtype=(torch.bfloat16 if device == "cuda" else torch.float32),
                 low_cpu_mem_usage=True,
                 trust_remote_code=True,
                 use_flash_attn=False,
