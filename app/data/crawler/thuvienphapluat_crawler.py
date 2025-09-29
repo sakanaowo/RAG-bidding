@@ -10,8 +10,10 @@ Author: Generated from Jupyter Notebook
 Date: 2025-09-29
 """
 
+import argparse
 import os
 import re
+import sys
 import time
 import requests
 from datetime import datetime
@@ -29,7 +31,7 @@ class ThuvienphapluatCrawler:
         self,
         user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         timeout: int = 30,
-        default_output_dir: str = "../processed/",
+        default_output_dir: str = "app/data/processed/",
     ):
         """
         Khởi tạo crawler
@@ -365,7 +367,7 @@ source: thuvienphapluat.vn
 
 # Convenience functions để sử dụng dễ dàng hơn
 def crawl_and_export_to_markdown(
-    url: str, output_dir: str = "../processed/"
+    url: str, output_dir: str = "app/data/processed/"
 ) -> Optional[str]:
     """
     Function tiện ích để crawl một URL và export sang markdown
@@ -382,7 +384,7 @@ def crawl_and_export_to_markdown(
 
 
 def batch_crawl_urls(
-    urls: List[str], output_dir: str = "../processed/", delay: int = 2
+    urls: List[str], output_dir: str = "app/data/processed/", delay: int = 2
 ) -> List[Dict[str, Any]]:
     """
     Function tiện ích để crawl nhiều URL
@@ -399,35 +401,44 @@ def batch_crawl_urls(
     return crawler.crawl_multiple_urls(urls, output_dir, delay)
 
 
-# Example usage và testing
-if __name__ == "__main__":
-    # Test với một URL mẫu
-    test_url = "https://thuvienphapluat.vn/van-ban/Dau-tu/Nghi-dinh-214-2025-ND-CP-huong-dan-Luat-Dau-thau-ve-lua-chon-nha-thau-668157.aspx"
-
-    print("🧪 Testing Thuvienphapluat Crawler...")
-    print("=" * 50)
-
-    # Test crawl single URL
-    result = crawl_and_export_to_markdown(test_url, output_dir="./crawled_data/")
-
-    if result:
-        print(f"\n🎉 Test thành công! File đã được lưu tại: {result}")
-    else:
-        print("\n❌ Test thất bại")
-
-    # Example usage với class
-    print("\n" + "=" * 50)
-    print("📝 Example usage với ThuvienphapluatCrawler class:")
-    print(
-        """
-# Khởi tạo crawler
-crawler = ThuvienphapluatCrawler(default_output_dir='./my_data/')
-
-# Crawl một URL
-result = crawler.crawl_single_url('https://thuvienphapluat.vn/van-ban/...')
-
-# Crawl nhiều URL
-urls = ['url1', 'url2', 'url3']
-results = crawler.crawl_multiple_urls(urls, delay=3)
-"""
+def build_arg_parser() -> argparse.ArgumentParser:
+    """Create CLI parser for crawling script."""
+    parser = argparse.ArgumentParser(
+        description="Crawl nội dung từ thuvienphapluat.vn và lưu về markdown"
     )
+    parser.add_argument(
+        "urls",
+        nargs="+",
+        help="URL hoặc danh sách URL cần crawl",
+    )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default="app/data/processed/",
+        help="Thư mục lưu file markdown (mặc định: app/data/processed/)",
+    )
+    parser.add_argument(
+        "--delay",
+        type=int,
+        default=2,
+        help="Delay giữa các request khi crawl nhiều URL (giây)",
+    )
+    return parser
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+
+    crawler = ThuvienphapluatCrawler(default_output_dir=args.output_dir)
+
+    if len(args.urls) == 1:
+        result = crawler.crawl_single_url(args.urls[0], args.output_dir)
+        return 0 if result else 1
+
+    results = crawler.crawl_multiple_urls(args.urls, args.output_dir, args.delay)
+    return 0 if all(item["success"] for item in results) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
