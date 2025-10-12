@@ -1,12 +1,12 @@
 import argparse
 import sys
 from typing import Dict, Any
-from app.core.logging import (
+from config.logging_config import (
     setup_logging,
     get_processing_logger,
     reset_processing_metrics,
 )
-from app.core.vectorstore import vector_store, bootstrap
+from src.embedding.store.pgvector_store import vector_store, bootstrap
 from app.data.ingest_utils import load_folder, split_documents_with_validation
 from app.data.exceptions import (
     handle_processing_error,

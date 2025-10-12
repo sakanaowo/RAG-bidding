@@ -10,7 +10,7 @@ from typing import Dict
 # Add app directory to Python path
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from app.rag.chain import answer
+from src.generation.chains.qa_chain import answer
 
 BASELINE_MODE = "fast"
 PHASE1_MODE = "quality"

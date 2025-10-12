@@ -10,8 +10,8 @@ from typing import List, Dict, Any
 # Add app directory to Python path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from app.core.vectorstore import vector_store, bootstrap
-from app.core.config import settings
+from src.embedding.store.pgvector_store import vector_store, bootstrap
+from config.models import settings
 from langchain.schema import Document
 
 

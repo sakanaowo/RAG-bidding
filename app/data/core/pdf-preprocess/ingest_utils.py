@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from app.core.config import settings
-from app.core.logging import get_processing_logger, reset_processing_metrics
+from config.models import settings
+from config.logging_config import get_processing_logger, reset_processing_metrics
 from app.data.cleaners import vietnamese_specific_clean, advanced_clean, basic_clean
 from app.data.validators import create_default_validator, create_default_deduplicator
 from app.data.exceptions import (

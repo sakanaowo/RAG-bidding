@@ -8,7 +8,7 @@ from pathlib import Path
 # Add app directory to Python path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from app.rag.chain import answer
+from src.generation.chains.qa_chain import answer
 
 
 def test_enhanced_sources():
