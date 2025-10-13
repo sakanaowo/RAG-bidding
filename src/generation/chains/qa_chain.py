@@ -9,8 +9,7 @@ from langchain_core.runnables import (
     RunnableParallel,
 )
 from src.generation.prompts.qa_prompts import SYSTEM_PROMPT, USER_TEMPLATE
-from src.retrieval.retrievers.base_retriever import retriever
-from src.retrieval.retrievers.adaptive_retriever import adaptive_retriever, explain_retrieval_strategy
+from src.retrieval.retrievers import create_retriever
 from config.models import settings, apply_preset
 
 
@@ -28,15 +27,21 @@ def fmt_docs(docs):
     return "\n".join(lines)
 
 
-rag_core = (
-    {"context": retriever | RunnableLambda(fmt_docs), "question": RunnablePassthrough()}
+# rag_core = (
+#     {"context": retriever | RunnableLambda(fmt_docs), "question": RunnablePassthrough()}
+#     | prompt
+#     | model
+#     | StrOutputParser()
+# )
+retriever = create_retriever(mode="balanced")
+rag_chain = (
+    {"context": retriever | fmt_docs, "question": RunnablePassthrough()}
     | prompt
     | model
     | StrOutputParser()
 )
 
-
-chain = RunnableParallel(answer=rag_core, source_documents=retriever)
+chain = RunnableParallel(answer=rag_chain, source_documents=retriever)
 
 
 def format_document_reference(doc, index: int) -> str:
@@ -91,9 +96,14 @@ def format_document_reference(doc, index: int) -> str:
     )
 
 
-def answer(question: str, mode: str | None = None) -> Dict:
+def answer(
+    question: str, mode: str | None = None, use_enhancement: bool = True
+) -> Dict:
     selected_mode = mode or settings.rag_mode or "balanced"
     apply_preset(selected_mode)
+
+    # Create retriever based on mode (already includes enhancement if mode != 'fast')
+    # No need to modify use_query_enhancement here since it's baked into the retriever
 
     result = chain.invoke(question)
 
@@ -122,9 +132,6 @@ def answer(question: str, mode: str | None = None) -> Dict:
 
         src_lines.append(f"[#{i}] {hierarchy} - {doc_title}")
 
-    analysis = adaptive_retriever.analyze_question_complexity(question)
-    strategy_info = explain_retrieval_strategy(question, analysis)
-
     return {
         "answer": result["answer"].strip()
         + "\n\nNguồn:\n"
@@ -133,17 +140,19 @@ def answer(question: str, mode: str | None = None) -> Dict:
         "detailed_sources": detailed_sources,
         "phase1_mode": selected_mode,
         "adaptive_retrieval": {
-            "strategy": strategy_info,
-            "complexity": analysis["complexity"],
-            "k_used": analysis["suggested_k"],
+            "mode": selected_mode,
             "docs_retrieved": len(result["source_documents"]),
-            "word_count": analysis["word_count"],
+            "enhancement_enabled": selected_mode != "fast",
         },
         "enhanced_features": [
-            "✅ Adaptive Retrieval (Dynamic K)",
-            "✅ Question Complexity Analysis",
-            "✅ Enhanced Configuration Presets",
-            "⏳ Query Enhancement (Phase 2)",
-            "⏳ Document Reranking (Phase 2)",
+            "Modular Retriever Architecture",
+            (
+                "Query Enhancement (Multi-Query, HyDE, Step-Back, Decomposition)"
+                if selected_mode != "fast"
+                else "Query Enhancement"
+            ),
+            "RAG-Fusion with RRF" if selected_mode == "quality" else "RAG-Fusion",
+            "Adaptive K" if selected_mode == "adaptive" else "Adaptive K",
+            "Document Reranking (Phase 2+)",
         ],
     }

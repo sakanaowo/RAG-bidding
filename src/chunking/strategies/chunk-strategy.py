@@ -430,7 +430,7 @@ class LegalDocumentChunker:
                 }
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-        print(f"✓ Đã export {len(chunks)} chunks vào {filename}")
+        print(f"Exported {len(chunks)} chunks into {filename}")
 
     def get_chunking_stats(self, chunks: List[LawChunk]) -> Dict:
         """Thống kê về chunks"""
