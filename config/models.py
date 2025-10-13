@@ -115,6 +115,17 @@ class RAGPresets:
             "parallel_processing": True,
         }
 
+    @staticmethod
+    def get_adaptive_mode() -> Dict[str, object]:
+        """Adaptive mode: Query enhancement + dynamic K selection."""
+        return {
+            "enable_query_enhancement": True,
+            "enable_reranking": True,
+            "enable_answer_validation": False,
+            "retrieval_k": 5,  # Will be adjusted by AdaptiveKRetriever
+            "parallel_processing": True,
+        }
+
 
 def apply_preset(preset_name: str) -> None:
     """Apply configuration preset to global settings."""
@@ -122,6 +133,7 @@ def apply_preset(preset_name: str) -> None:
         "fast": RAGPresets.get_fast_mode(),
         "balanced": RAGPresets.get_balanced_mode(),
         "quality": RAGPresets.get_quality_mode(),
+        "adaptive": RAGPresets.get_adaptive_mode(),
     }
 
     if preset_name not in presets:

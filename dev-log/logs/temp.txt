@@ -1,0 +1,65 @@
+INFO:     Will watch for changes in these directories: ['/home/sakana/Code/RAG-bidding']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [106170] using WatchFiles
+/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/requests/__init__.py:86: RequestsDependencyWarning: Unable to find acceptable character detection dependency (chardet or charset_normalizer).
+  warnings.warn(
+INFO:     Started server process [106174]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+[2025-10-14 01:22:38] [INFO] src.retrieval.query_processing.strategies.base_strategy: Initialized MultiQueryStrategy with model=gpt-4o-mini, temp=0.7
+[2025-10-14 01:22:38] [INFO] src.retrieval.query_processing.strategies.multi_query: MultiQueryStrategy initialized to generate 3 queries
+[2025-10-14 01:22:38] [INFO] src.retrieval.query_processing.query_enhancer: Initialized multi_query strategy
+[2025-10-14 01:22:38] [INFO] src.retrieval.query_processing.query_enhancer: Initialized QueryEnhancer with strategies: ['EnhancementStrategy']
+[2025-10-14 01:22:41] [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2025-10-14 01:22:41] [INFO] src.retrieval.query_processing.query_enhancer: Enhanced query to 3 variations
+[2025-10-14 01:22:41] [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2025-10-14 01:22:41] [INFO] src.retrieval.query_processing.query_enhancer: Enhanced query to 3 variations
+[2025-10-14 01:22:42] [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+[2025-10-14 01:22:42] [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+[2025-10-14 01:22:43] [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+[2025-10-14 01:22:43] [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+[2025-10-14 01:22:43] [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+[2025-10-14 01:22:44] [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+[2025-10-14 01:22:48] [INFO] httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:35838 - "POST /ask HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/uvicorn/protocols/http/httptools_impl.py", line 401, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/uvicorn/middleware/proxy_headers.py", line 70, in __call__
+    return await self.app(scope, receive, send)
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/fastapi/applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/starlette/applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/starlette/middleware/errors.py", line 187, in __call__
+    raise exc
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/starlette/middleware/errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/starlette/_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/starlette/_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/starlette/routing.py", line 715, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/starlette/routing.py", line 735, in app
+    await route.handle(scope, receive, send)
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/starlette/routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/starlette/routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/starlette/_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/starlette/_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/starlette/routing.py", line 73, in app
+    response = await f(request)
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/fastapi/routing.py", line 327, in app
+    content = await serialize_response(
+  File "/home/sakana/anaconda3/envs/venv/lib/python3.10/site-packages/fastapi/routing.py", line 176, in serialize_response
+    raise ResponseValidationError(
+fastapi.exceptions.ResponseValidationError: 1 validation errors:
+  {'type': 'missing', 'loc': ('response', 'phase1_mode'), 'msg': 'Field required', 'input': {'answer': '- Quy trình đấu thầu rộng rãi quốc tế theo Luật Đấu thầu 2023 bao gồm các bước: chuẩn bị lựa chọn nhà thầu, tổ chức lựa chọn, đánh giá hồ sơ dự thầu, thương thảo hợp đồng (nếu cần), trình thẩm định và phê duyệt kết quả, ký kết và quản lý hợp đồng [#2].\n- So với quy định cũ, Luật mới yêu cầu áp dụng đấu thầu qua mạng từ ngày 01 tháng 01 năm 2025 cho tất cả các gói thầu, điều này có thể tạo thuận lợi cho doanh nghiệp vừa và nhỏ trong việc tiếp cận thông tin và tham gia đấu thầu [#1].\n- Tác động đến doanh nghiệp vừa và nhỏ có thể tích cực, khi họ có cơ hội cạnh tranh công bằng hơn và giảm chi phí tham gia đấu thầu nhờ vào việc sử dụng công nghệ và hệ thống mạng đấu thầu quốc gia [#1][#2].\n\nNguồn:\n[#1] Điều 50 → Khoản 1\n    📄 [Phần: CĂN CỨ HIẾN PHÁP NƯỚC CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM;] Điều 50.  Khoản 1: 1. Đấu thầu rộn...\n    🔗 (https://thuvienphapluat.vn/van-ban/Dau-tu/Luat-Dau-thau-2023-22-2023-QH15-518805.aspx)\n[#2] Điều 43 → Khoản 1\n    📄 [Phần: CĂN CỨ HIẾN PHÁP NƯỚC CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM;] Điều 43.  Khoản 1: 1. Quy trình, t...\n    🔗 (https://thuvienphapluat.vn/van-ban/Dau-tu/Luat-Dau-thau-2023-22-2023-QH15-518805.aspx)\n[#3] Điều 3 → Khoản 1\n    📄 [Phần: CĂN CỨ HIẾN PHÁP NƯỚC CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM;] Điều 3.  Khoản 1: 1. Hoạt động đấu...\n    🔗 (https://thuvienphapluat.vn/van-ban/Dau-tu/Luat-Dau-thau-2023-22-2023-QH15-518805.aspx)\n[#4] Chương CHƯƠNG XIII → Điều 144 → Khoản 2\n    📄 [Phần: XỬ LÝ TÌNH HUỐNG TRONG ĐẤU THẦU QUA MẠNG VÀ KHÔNG QUA MẠNG] [CHƯƠNG XIII] Điều 144.  Khoản 2:...\n    🔗 (https://thuvienphapluat.vn/van-ban/Dau-tu/Nghi-dinh-214-2025-ND-CP-huong-dan-Luat-Dau-thau-ve-lua-chon-nha-thau-668157.aspx)\n[#5] Điều 43 → Khoản 2\n    📄 [Phần: CĂN CỨ HIẾN PHÁP NƯỚC CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM;] Điều 43.  Khoản 2: 2. Quy trình, t...\n    🔗 (https://thuvienphapluat.vn/van-ban/Dau-tu/Luat-Dau-thau-2023-22-2023-QH15-518805.aspx)', 'sources': ['[#1] Điều 50 Khoản 1 - Nội dung từ thuvienphapluat.vn', '[#2] Điều 43 Khoản 1 - Nội dung từ thuvienphapluat.vn', '[#3] Điều 3 Khoản 1 - Nội dung từ thuvienphapluat.vn', '[#4] Điều 144 Khoản 2 - Nội dung từ thuvienphapluat.vn', '[#5] Điều 43 Khoản 2 - Nội dung từ thuvienphapluat.vn'], 'detailed_sources': ['[#1] Điều 50 → Khoản 1\n    📄 [Phần: CĂN CỨ HIẾN PHÁP NƯỚC CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM;] Điều 50.  Khoản 1: 1. Đấu thầu rộn...\n    🔗 (https://thuvienphapluat.vn/van-ban/Dau-tu/Luat-Dau-thau-2023-22-2023-QH15-518805.aspx)', '[#2] Điều 43 → Khoản 1\n    📄 [Phần: CĂN CỨ HIẾN PHÁP NƯỚC CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM;] Điều 43.  Khoản 1: 1. Quy trình, t...\n    🔗 (https://thuvienphapluat.vn/van-ban/Dau-tu/Luat-Dau-thau-2023-22-2023-QH15-518805.aspx)', '[#3] Điều 3 → Khoản 1\n    📄 [Phần: CĂN CỨ HIẾN PHÁP NƯỚC CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM;] Điều 3.  Khoản 1: 1. Hoạt động đấu...\n    🔗 (https://thuvienphapluat.vn/van-ban/Dau-tu/Luat-Dau-thau-2023-22-2023-QH15-518805.aspx)', '[#4] Chương CHƯƠNG XIII → Điều 144 → Khoản 2\n    📄 [Phần: XỬ LÝ TÌNH HUỐNG TRONG ĐẤU THẦU QUA MẠNG VÀ KHÔNG QUA MẠNG] [CHƯƠNG XIII] Điều 144.  Khoản 2:...\n    🔗 (https://thuvienphapluat.vn/van-ban/Dau-tu/Nghi-dinh-214-2025-ND-CP-huong-dan-Luat-Dau-thau-ve-lua-chon-nha-thau-668157.aspx)', '[#5] Điều 43 → Khoản 2\n    📄 [Phần: CĂN CỨ HIẾN PHÁP NƯỚC CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM;] Điều 43.  Khoản 2: 2. Quy trình, t...\n    🔗 (https://thuvienphapluat.vn/van-ban/Dau-tu/Luat-Dau-thau-2023-22-2023-QH15-518805.aspx)'], 'adaptive_retrieval': {'mode': 'adaptive', 'docs_retrieved': 5, 'enhancement_enabled': True}, 'enhanced_features': ['Modular Retriever Architecture', 'Query Enhancement (Multi-Query, HyDE, Step-Back, Decomposition)', 'RAG-Fusion', 'Adaptive K'], 'processing_time_ms': 10257}}
+

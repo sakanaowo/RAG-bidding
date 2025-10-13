@@ -138,6 +138,7 @@ def answer(
         + "\n".join(detailed_sources),
         "sources": src_lines,
         "detailed_sources": detailed_sources,
+        # "phase1_mode": selected_mode,  # ← ADD THIS
         "adaptive_retrieval": {
             "mode": selected_mode,
             "docs_retrieved": len(result["source_documents"]),

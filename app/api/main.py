@@ -24,13 +24,13 @@ def init_vector_store() -> None:
 
 class AskIn(BaseModel):
     question: str
-    mode: Literal["fast", "balanced", "quality"] = "balanced"
+    mode: Literal["fast", "balanced", "quality", "adaptive"] = "balanced"
 
 
 class AskResponse(BaseModel):
     answer: str
     sources: list[str]
-    phase1_mode: str
+    # phase1_mode: str
     adaptive_retrieval: dict
     enhanced_features: list[str]
     processing_time_ms: int = None
