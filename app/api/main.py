@@ -1,11 +1,16 @@
 import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Literal
+from typing import List, Literal
 from config.logging_config import setup_logging
 from config.models import settings
 from src.embedding.store.pgvector_store import bootstrap
 from src.generation.chains.qa_chain import answer
+from src.retrieval.query_processing.query_enhancer import (
+    EnhancementStrategy,
+    QueryEnhancer,
+    QueryEnhancerConfig,
+)
 
 
 setup_logging()
@@ -48,13 +53,16 @@ def health():
 
 @app.post("/ask", response_model=AskResponse)
 def ask(body: AskIn):
+    from src.retrieval.retrievers import create_retriever
+
+    retriever = create_retriever(mode=body.mode)
     if not body.question or not body.question.strip():
         raise HTTPException(400, detail="question is required")
     try:
         import time
 
         start_time = time.time()
-        result = answer(body.question, mode=body.mode)
+        result = answer(body.question, mode=body.mode, use_enhancement=True)
         processing_time = int((time.time() - start_time) * 1000)
         result["processing_time_ms"] = processing_time
         return result

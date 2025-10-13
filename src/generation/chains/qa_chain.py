@@ -138,7 +138,6 @@ def answer(
         + "\n".join(detailed_sources),
         "sources": src_lines,
         "detailed_sources": detailed_sources,
-        "phase1_mode": selected_mode,
         "adaptive_retrieval": {
             "mode": selected_mode,
             "docs_retrieved": len(result["source_documents"]),
@@ -153,6 +152,6 @@ def answer(
             ),
             "RAG-Fusion with RRF" if selected_mode == "quality" else "RAG-Fusion",
             "Adaptive K" if selected_mode == "adaptive" else "Adaptive K",
-            "Document Reranking (Phase 2+)",
+            # "Document Reranking (Phase 2+)",
         ],
     }
