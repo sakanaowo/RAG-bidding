@@ -60,6 +60,7 @@ def rerank_documents(documents: List, question: str) -> List:
     ranker = rank_prompt | ranker_model | StrOutputParser()
 
     try:
+        # TODO: Implement proper parsing of LLM output to get ranking order
         ranking_result = ranker.invoke({"query": question, "documents": docs_text})
 
         # Simple parsing để extract order (implementation cần tinh chỉnh)

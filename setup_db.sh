@@ -53,4 +53,14 @@ echo "Database: $DB_NAME"
 echo "User: $DB_USER"
 echo "Password: $DB_PASSWORD"
 
+# dump DB
 # pg_dump -h localhost -U rag -d ragdb -Fc -f ragdb_dump.pg
+
+# restore DB
+# Chuyển file ragdb_dump.pg sang server công ty (scp ragdb_dump.pg user@server:/tmp/)
+# pg_restore -h localhost -U rag -d ragdb --clean --create /tmp/ragdb_dump.pg
+
+# setup for backend
+# export DATABASE_URL="postgresql+psycopg2://superuser:rag-bidding@localhost:5432/ragdb"
+# export PGVECTOR_EXTENSION=True
+# export VECTOR_DIMENSION=1536 # embedding dimension of model:text-embedding-3-large
