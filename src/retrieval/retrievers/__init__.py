@@ -15,9 +15,15 @@ def create_retriever(mode: str = "balanced"):
 
     Modes:
     - fast: BaseVectorRetriever (no enhancement)
-    - balanced: EnhancedRetriever (multi-query)
-    - quality: FusionRetriever (RAG-Fusion with RRF)
-    - adaptive: AdaptiveKRetriever (dynamic k)
+    - balanced: EnhancedRetriever (Multi-Query + Step-Back)
+    - quality: FusionRetriever (All 4 strategies + RRF)
+    - adaptive: AdaptiveKRetriever (Multi-Query + Step-Back + Dynamic K)
+
+    Enhancement Strategies:
+    - Multi-Query: Generate 3-5 query variations
+    - HyDE: Hypothetical document embeddings
+    - Step-Back: Query generalization for broader context
+    - Decomposition: Break complex queries into sub-questions
     """
 
     # Base retriever (always needed)
@@ -29,7 +35,10 @@ def create_retriever(mode: str = "balanced"):
     elif mode == "balanced":
         return EnhancedRetriever(
             base_retriever=base,
-            enhancement_strategies=[EnhancementStrategy.MULTI_QUERY],
+            enhancement_strategies=[
+                EnhancementStrategy.MULTI_QUERY,
+                EnhancementStrategy.STEP_BACK,
+            ],
             k=5,
         )
 
@@ -39,6 +48,8 @@ def create_retriever(mode: str = "balanced"):
             enhancement_strategies=[
                 EnhancementStrategy.MULTI_QUERY,
                 EnhancementStrategy.HYDE,
+                EnhancementStrategy.STEP_BACK,
+                EnhancementStrategy.DECOMPOSITION,
             ],
             k=5,
             rrf_k=60,
@@ -47,7 +58,10 @@ def create_retriever(mode: str = "balanced"):
     elif mode == "adaptive":
         enhanced = EnhancedRetriever(
             base_retriever=base,
-            enhancement_strategies=[EnhancementStrategy.MULTI_QUERY],
+            enhancement_strategies=[
+                EnhancementStrategy.MULTI_QUERY,
+                EnhancementStrategy.STEP_BACK,
+            ],
             k=5,
         )
         return AdaptiveKRetriever(enhanced_retriever=enhanced, k_min=3, k_max=10)
