@@ -8,7 +8,7 @@
 DB_NAME="ragdb"
 DB_USER="superuser"
 DB_PASSWORD="rag-bidding"
-PG_VERSION="17" # Make sure this version is available for your system
+PG_VERSION="18" # Make sure this version is available for your system
 
 # --- Installation ---
 
