@@ -46,7 +46,7 @@ class RAGIntegrationProcessor:
             token_limit=self.config["token_limit"],
         )
 
-        print(f"🚀 RAG Integration Processor initialized")
+        print(f"RAG Integration Processor initialized")
         print(f"   Config: {self.config}")
 
     def process_new_documents(self, input_dir: str, output_dir: str = None) -> dict:
@@ -251,13 +251,13 @@ def main():
         with open(report_file, "w", encoding="utf-8") as f:
             f.write(report)
 
-        print(f"\n📋 Integration Report saved to: {report_file}")
+        print(f"\nIntegration Report saved to: {report_file}")
 
         # Summary
-        print(f"\n🎉 INTEGRATION COMPLETE!")
-        print(f"   📊 Processed: {len(results['chunks'])} chunks")
-        print(f"   📁 Output: {output_dir}")
-        print(f"   🔗 Ready for vectorstore: {len(formatted_docs)} documents")
+        print(f"\nINTEGRATION COMPLETE!")
+        print(f"  Processed: {len(results['chunks'])} chunks")
+        print(f"  Output: {output_dir}")
+        print(f"  Ready for vectorstore: {len(formatted_docs)} documents")
 
     except Exception as e:
         print(f"❌ Integration failed: {str(e)}")
