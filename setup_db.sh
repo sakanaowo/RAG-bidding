@@ -52,3 +52,5 @@ echo "Database setup complete."
 echo "Database: $DB_NAME"
 echo "User: $DB_USER"
 echo "Password: $DB_PASSWORD"
+
+# pg_dump -h localhost -U rag -d ragdb -Fc -f ragdb_dump.pg
