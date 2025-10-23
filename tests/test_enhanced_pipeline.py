@@ -9,7 +9,7 @@ from pathlib import Path
 # Add the project root to the Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.core.logging import setup_logging, get_processing_logger
+from config.logging_config import setup_logging, get_processing_logger
 from app.data.cleaners import basic_clean, advanced_clean, vietnamese_specific_clean
 from app.data.validators import create_default_validator, create_default_deduplicator
 from app.data.exceptions import FileLoadError, SafeProcessor

@@ -1,4 +1,4 @@
-from app.core.vectorstore import bootstrap
+from src.embedding.store.pgvector_store import bootstrap
 
 if __name__ == "__main__":
     bootstrap()
