@@ -55,7 +55,10 @@ def health():
 def ask(body: AskIn):
     from src.retrieval.retrievers import create_retriever
 
-    retriever = create_retriever(mode=body.mode)
+    # 🆕 Enable reranking based on config (default: True for balanced/quality/adaptive)
+    enable_reranking = settings.enable_reranking and body.mode != "fast"
+    retriever = create_retriever(mode=body.mode, enable_reranking=enable_reranking)
+
     if not body.question or not body.question.strip():
         raise HTTPException(400, detail="question is required")
     try:
@@ -68,40 +71,6 @@ def ask(body: AskIn):
         return result
     except Exception as e:
         raise HTTPException(500, detail=str(e))
-
-
-# @app.get("/modes")
-# def get_available_modes():
-#     """Get available RAG modes and their descriptions."""
-#     return {
-#         "modes": {
-#             "fast": {
-#                 "description": "Nhanh nhất, sử dụng ít tính năng nâng cao",
-#                 "features": ["Adaptive Retrieval (k=3)", "Basic prompts"],
-#                 "use_case": "Câu hỏi đơn giản, cần phản hồi nhanh",
-#             },
-#             "balanced": {
-#                 "description": "Cân bằng tốc độ và chất lượng",
-#                 "features": [
-#                     "Adaptive Retrieval (k=4-8)",
-#                     "Query Enhancement",
-#                     "Document Reranking",
-#                 ],
-#                 "use_case": "Đa số câu hỏi thông thường",
-#             },
-#             "quality": {
-#                 "description": "Chất lượng tốt nhất, xử lý đầy đủ",
-#                 "features": [
-#                     "Full Retrieval (k=5-10)",
-#                     "Query Enhancement",
-#                     "Document Reranking",
-#                     "Answer Validation",
-#                 ],
-#                 "use_case": "Câu hỏi phức tạp, cần độ chính xác cao",
-#             },
-#         },
-#         "default": "balanced",
-#     }
 
 
 @app.get("/stats")

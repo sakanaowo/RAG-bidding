@@ -52,6 +52,11 @@ class Settings:
 
     # Document reranking
     enable_reranking: bool = _env_bool("ENABLE_RERANKING", True)
+    reranker_model: str = os.getenv(
+        "RERANKER_MODEL", "BAAI/bge-reranker-v2-m3"
+    )  # BGE multilingual reranker
+    reranker_device: str = os.getenv("RERANKER_DEVICE", "auto")  # auto, cuda, cpu
+    reranker_batch_size: int = int(os.getenv("RERANKER_BATCH_SIZE", "32"))
     rerank_top_k: int = int(os.getenv("RERANK_TOP_K", "10"))
     final_docs_k: int = int(os.getenv("FINAL_DOCS_K", "5"))
 

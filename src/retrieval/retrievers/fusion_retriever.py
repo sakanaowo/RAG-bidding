@@ -11,25 +11,29 @@ from src.retrieval.query_processing import (
     QueryEnhancerConfig,
     EnhancementStrategy,
 )
+from src.retrieval.ranking import BaseReranker
 from .base_vector_retriever import BaseVectorRetriever
 
 
 class FusionRetriever(BaseRetriever):
     """
-    RAG-Fusion retriever với Reciprocal Rank Fusion (RRF).
+    RAG-Fusion retriever với Reciprocal Rank Fusion (RRF) và optional reranking.
 
     Paper: https://arxiv.org/abs/2402.03367
 
     Workflow:
     1. Generate multiple queries
-    2. Retrieve docs for each query
+    2. Retrieve docs for each query (retrieve more if reranking)
     3. Rank fusion using RRF algorithm
-    4. Return top-k fused results
+    4. [Optional] Rerank with cross-encoder
+    5. Return top-k fused results
     """
 
     base_retriever: BaseVectorRetriever
     enhancement_strategies: List[EnhancementStrategy]
+    reranker: Optional[BaseReranker] = None  # 🆕 Reranker support
     k: int = 5
+    retrieval_k: int = 10  # 🆕 Retrieve more if reranking
     rrf_k: int = 60  # RRF constant (tunable)
 
     # Query enhancer instance (initialized after __init__)
@@ -42,14 +46,22 @@ class FusionRetriever(BaseRetriever):
         self,
         base_retriever: BaseVectorRetriever,
         enhancement_strategies: List[EnhancementStrategy],
+        reranker: Optional[BaseReranker] = None,  # 🆕
         k: int = 5,
+        retrieval_k: Optional[int] = None,  # 🆕 Auto-set based on reranker
         rrf_k: int = 60,
         **kwargs,
     ):
+        # Auto-set retrieval_k if not provided
+        if retrieval_k is None:
+            retrieval_k = k * 2 if reranker else k
+
         super().__init__(
             base_retriever=base_retriever,
             enhancement_strategies=enhancement_strategies,
+            reranker=reranker,
             k=k,
+            retrieval_k=retrieval_k,
             rrf_k=rrf_k,
             **kwargs,
         )
@@ -65,21 +77,32 @@ class FusionRetriever(BaseRetriever):
         *,
         run_manager: CallbackManagerForRetrieverRun | None = None,
     ) -> List[Document]:
-        """Retrieve with RAG-Fusion."""
+        """Retrieve with RAG-Fusion and optional reranking."""
 
         # Step 1: Generate multiple queries
         queries = self.query_enhancer.enhance(query)
 
-        # Step 2: Retrieve docs for each query (keep order)
+        # Step 2: Retrieve docs for each query (use retrieval_k per query)
         query_results = []
         for q in queries:
+            # Temporarily override k for initial retrieval
+            original_k = self.base_retriever.k
+            self.base_retriever.k = self.retrieval_k
             docs = self.base_retriever.invoke(q)
+            self.base_retriever.k = original_k
             query_results.append(docs)
 
         # Step 3: Apply RRF algorithm
         fused_docs = self._reciprocal_rank_fusion(query_results)
 
-        # Step 4: Return top-k
+        # Step 4: Rerank if reranker provided
+        if self.reranker and fused_docs:
+            # Rerank and get top-k with scores
+            doc_scores = self.reranker.rerank(query, fused_docs, top_k=self.k)
+            # Extract documents only (discard scores)
+            return [doc for doc, score in doc_scores]
+
+        # Step 5: Return top-k (no reranking)
         return fused_docs[: self.k]
 
     def _reciprocal_rank_fusion(

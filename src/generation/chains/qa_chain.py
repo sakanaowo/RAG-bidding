@@ -23,18 +23,18 @@ model = ChatOpenAI(model=settings.llm_model, temperature=0)
 def is_complex_query(question: str) -> bool:
     """
     Detect if query requires detailed analysis.
-    
+
     Complex query indicators:
     - Contains keywords: phân tích, so sánh, tổng hợp, chi tiết, toàn bộ
     - Multiple aspects (contains "và", "bao gồm")
     - Long query (>100 chars)
     """
     question_lower = question.lower()
-    
+
     # Keywords requiring detailed response
     detailed_keywords = [
         "phân tích",
-        "so sánh", 
+        "so sánh",
         "tổng hợp",
         "chi tiết",
         "toàn bộ",
@@ -45,19 +45,19 @@ def is_complex_query(question: str) -> bool:
         "ưu điểm",
         "nhược điểm",
     ]
-    
+
     # Check keywords
     if any(keyword in question_lower for keyword in detailed_keywords):
         return True
-    
+
     # Check multiple aspects
     if ("bao gồm" in question_lower or "và" in question_lower) and len(question) > 80:
         return True
-    
+
     # Check length
     if len(question) > 150:
         return True
-    
+
     return False
 
 
@@ -152,12 +152,15 @@ def answer(
     # ✅ Select prompt based on query complexity
     use_detailed_prompt = is_complex_query(question)
     system_prompt = SYSTEM_PROMPT_DETAILED if use_detailed_prompt else SYSTEM_PROMPT
-    
+
     import logging
+
     logger = logging.getLogger(__name__)
     if use_detailed_prompt:
-        logger.info("🔍 Complex query detected → Using DETAILED prompt for comprehensive analysis")
-    
+        logger.info(
+            "🔍 Complex query detected → Using DETAILED prompt for comprehensive analysis"
+        )
+
     prompt = ChatPromptTemplate.from_messages(
         [("system", system_prompt), ("user", USER_TEMPLATE)]
     )
@@ -169,9 +172,9 @@ def answer(
         | model
         | StrOutputParser()
     )
-    
+
     chain = RunnableParallel(answer=rag_chain, source_documents=retriever)
-    
+
     result = chain.invoke(question)
 
     # Tạo detailed source references
