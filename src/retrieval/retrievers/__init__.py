@@ -15,6 +15,7 @@ def create_retriever(
     mode: str = "balanced",
     enable_reranking: bool = True,
     reranker: Optional[BaseReranker] = None,
+    filter_status: Optional[str] = "active",  # 🆕 Default to active documents only
 ):
     """
     Factory function to create retriever based on mode.
@@ -23,6 +24,8 @@ def create_retriever(
         mode: Retrieval mode
         enable_reranking: Whether to enable reranking (default: True)
         reranker: Custom reranker instance (if None, uses BGEReranker)
+        filter_status: Filter documents by status ("active", "expired", None for all)
+                      Default: "active" (only retrieve active/current documents)
 
     Modes:
     - fast: BaseVectorRetriever (no enhancement, no reranking)
@@ -40,14 +43,20 @@ def create_retriever(
     - Uses BGE (BAAI/bge-reranker-v2-m3) by default
     - Auto-detects GPU for acceleration
     - Improves ranking quality by ~10-20% MRR
+
+    Filtering:
+    - Default: filter_status="active" (only current/valid documents)
+    - Set filter_status=None to retrieve all documents (including expired)
+    - Legal docs (Luật: 5yr, Nghị định/Thông tư: 2yr validity)
+    - Educational materials: 5yr validity
     """
 
     # Initialize reranker if enabled
     if enable_reranking and reranker is None:
         reranker = BGEReranker()  # Auto-detects GPU
 
-    # Base retriever (always needed)
-    base = BaseVectorRetriever(k=5)
+    # Base retriever with status filtering
+    base = BaseVectorRetriever(k=5, filter_status=filter_status)
 
     if mode == "fast":
         # Fast mode: no enhancement, no reranking

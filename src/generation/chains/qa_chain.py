@@ -74,19 +74,6 @@ def fmt_docs(docs):
     return "\n".join(lines)
 
 
-# ❌ REMOVED: Global retriever initialization causes all requests to use same mode
-# retriever = create_retriever(mode="balanced")
-# rag_chain = (
-#     {"context": retriever | fmt_docs, "question": RunnablePassthrough()}
-#     | prompt
-#     | model
-#     | StrOutputParser()
-# )
-# chain = RunnableParallel(answer=rag_chain, source_documents=retriever)
-
-# ✅ NOW: Create retriever dynamically per request in answer() function
-
-
 def format_document_reference(doc, index: int) -> str:
     """Format document reference với thông tin chi tiết."""
     meta = doc.metadata
