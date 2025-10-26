@@ -8,16 +8,63 @@ from langchain_core.runnables import (
     RunnableLambda,
     RunnableParallel,
 )
-from src.generation.prompts.qa_prompts import SYSTEM_PROMPT, USER_TEMPLATE
+from src.generation.prompts.qa_prompts import (
+    SYSTEM_PROMPT,
+    SYSTEM_PROMPT_DETAILED,
+    USER_TEMPLATE,
+)
 from src.retrieval.retrievers import create_retriever
 from config.models import settings, apply_preset
 
 
 model = ChatOpenAI(model=settings.llm_model, temperature=0)
 
-prompt = ChatPromptTemplate.from_messages(
-    [("system", SYSTEM_PROMPT), ("user", USER_TEMPLATE)]
-)
+
+def is_complex_query(question: str) -> bool:
+    """
+    Detect if query requires detailed analysis.
+
+    Complex query indicators:
+    - Contains keywords: phân tích, so sánh, tổng hợp, chi tiết, toàn bộ
+    - Multiple aspects (contains "và", "bao gồm")
+    - Long query (>100 chars)
+    """
+    question_lower = question.lower()
+
+    # Keywords requiring detailed response
+    detailed_keywords = [
+        "phân tích",
+        "so sánh",
+        "tổng hợp",
+        "chi tiết",
+        "toàn bộ",
+        "phân biệt",
+        "khác nhau",
+        "giống nhau",
+        "ưu nhược điểm",
+        "ưu điểm",
+        "nhược điểm",
+    ]
+
+    # Check keywords
+    if any(keyword in question_lower for keyword in detailed_keywords):
+        return True
+
+    # Check multiple aspects
+    if ("bao gồm" in question_lower or "và" in question_lower) and len(question) > 80:
+        return True
+
+    # Check length
+    if len(question) > 150:
+        return True
+
+    return False
+
+
+# Prompt will be created dynamically in answer() function
+# prompt = ChatPromptTemplate.from_messages(
+#     [("system", SYSTEM_PROMPT), ("user", USER_TEMPLATE)]
+# )
 
 
 def fmt_docs(docs):
@@ -25,23 +72,6 @@ def fmt_docs(docs):
     for i, d in enumerate(docs, 1):
         lines.append(f"[#{i}]\n{d.page_content}\n")
     return "\n".join(lines)
-
-
-# rag_core = (
-#     {"context": retriever | RunnableLambda(fmt_docs), "question": RunnablePassthrough()}
-#     | prompt
-#     | model
-#     | StrOutputParser()
-# )
-retriever = create_retriever(mode="balanced")
-rag_chain = (
-    {"context": retriever | fmt_docs, "question": RunnablePassthrough()}
-    | prompt
-    | model
-    | StrOutputParser()
-)
-
-chain = RunnableParallel(answer=rag_chain, source_documents=retriever)
 
 
 def format_document_reference(doc, index: int) -> str:
@@ -102,8 +132,35 @@ def answer(
     selected_mode = mode or settings.rag_mode or "balanced"
     apply_preset(selected_mode)
 
-    # Create retriever based on mode (already includes enhancement if mode != 'fast')
-    # No need to modify use_query_enhancement here since it's baked into the retriever
+    # ✅ Create retriever dynamically based on selected_mode
+    enable_reranking = settings.enable_reranking and selected_mode != "fast"
+    retriever = create_retriever(mode=selected_mode, enable_reranking=enable_reranking)
+
+    # ✅ Select prompt based on query complexity
+    use_detailed_prompt = is_complex_query(question)
+    system_prompt = SYSTEM_PROMPT_DETAILED if use_detailed_prompt else SYSTEM_PROMPT
+
+    import logging
+
+    logger = logging.getLogger(__name__)
+    if use_detailed_prompt:
+        logger.info(
+            "🔍 Complex query detected → Using DETAILED prompt for comprehensive analysis"
+        )
+
+    prompt = ChatPromptTemplate.from_messages(
+        [("system", system_prompt), ("user", USER_TEMPLATE)]
+    )
+
+    # Build chain dynamically with the correct retriever and prompt
+    rag_chain = (
+        {"context": retriever | fmt_docs, "question": RunnablePassthrough()}
+        | prompt
+        | model
+        | StrOutputParser()
+    )
+
+    chain = RunnableParallel(answer=rag_chain, source_documents=retriever)
 
     result = chain.invoke(question)
 
@@ -132,27 +189,44 @@ def answer(
 
         src_lines.append(f"[#{i}] {hierarchy} - {doc_title}")
 
+    # Build enhanced features list based on actual mode
+    enhanced_features = []
+
+    # Query Enhancement strategies (actual ones used)
+    if selected_mode == "fast":
+        # Fast mode: no enhancement
+        pass
+    elif selected_mode == "balanced":
+        enhanced_features.append("Query Enhancement (Multi-Query, Step-Back)")
+    elif selected_mode == "quality":
+        enhanced_features.append(
+            "Query Enhancement (Multi-Query, HyDE, Step-Back, Decomposition)"
+        )
+    elif selected_mode == "adaptive":
+        enhanced_features.append("Query Enhancement (Multi-Query, Step-Back)")
+
+    # RAG-Fusion (only quality mode)
+    if selected_mode == "quality":
+        enhanced_features.append("RAG-Fusion with RRF")
+
+    # Adaptive K (only adaptive mode)
+    if selected_mode == "adaptive":
+        enhanced_features.append("Adaptive K Selection")
+
+    # Document Reranking (all modes except fast)
+    if selected_mode != "fast" and settings.enable_reranking:
+        enhanced_features.append("Document Reranking (BGE)")
+
     return {
         "answer": result["answer"].strip()
         + "\n\nNguồn:\n"
         + "\n".join(detailed_sources),
         "sources": src_lines,
         "detailed_sources": detailed_sources,
-        # "phase1_mode": selected_mode,  # ← ADD THIS
         "adaptive_retrieval": {
             "mode": selected_mode,
             "docs_retrieved": len(result["source_documents"]),
             "enhancement_enabled": selected_mode != "fast",
         },
-        "enhanced_features": [
-            "Modular Retriever Architecture",
-            (
-                "Query Enhancement (Multi-Query, HyDE, Step-Back, Decomposition)"
-                if selected_mode != "fast"
-                else "Query Enhancement"
-            ),
-            "RAG-Fusion with RRF" if selected_mode == "quality" else "RAG-Fusion",
-            "Adaptive K" if selected_mode == "adaptive" else "Adaptive K",
-            # "Document Reranking (Phase 2+)",
-        ],
+        "enhanced_features": enhanced_features,
     }

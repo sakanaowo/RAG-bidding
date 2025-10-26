@@ -10,23 +10,27 @@ from src.retrieval.query_processing import (
     QueryEnhancerConfig,
     EnhancementStrategy,
 )
+from src.retrieval.ranking import BaseReranker
 from .base_vector_retriever import BaseVectorRetriever
 
 
 class EnhancedRetriever(BaseRetriever):
     """
-    Retriever với query enhancement.
+    Retriever với query enhancement và optional reranking.
 
     Workflow:
     1. Enhance query → multiple queries
-    2. Retrieve docs for each query
-    3. Deduplicate & rerank
-    4. Return top-k
+    2. Retrieve docs for each query (retrieve more if reranking)
+    3. Deduplicate & merge
+    4. [Optional] Rerank with cross-encoder
+    5. Return top-k
     """
 
     base_retriever: BaseVectorRetriever
     enhancement_strategies: Optional[List[EnhancementStrategy]] = None
+    reranker: Optional[BaseReranker] = None  # 🆕 Reranker support
     k: int = 5
+    retrieval_k: int = 10  # 🆕 Retrieve more if reranking
     deduplication: bool = True
 
     # Query enhancer instance (initialized after __init__)
@@ -39,7 +43,9 @@ class EnhancedRetriever(BaseRetriever):
         self,
         base_retriever: BaseVectorRetriever,
         enhancement_strategies: List[EnhancementStrategy] | None = None,
+        reranker: Optional[BaseReranker] = None,  # 🆕
         k: int = 5,
+        retrieval_k: Optional[int] = None,  # 🆕 Auto-set based on reranker
         deduplication: bool = True,
         **kwargs,
     ):
@@ -47,13 +53,21 @@ class EnhancedRetriever(BaseRetriever):
         Args:
             base_retriever: Vector retriever instance
             enhancement_strategies: List of enhancement strategies (None = no enhancement)
+            reranker: Reranker instance (None = no reranking)
             k: Number of final documents to return
+            retrieval_k: Number of docs to retrieve before reranking (default: k*2 if reranker else k)
             deduplication: Whether to deduplicate documents
         """
+        # Auto-set retrieval_k if not provided
+        if retrieval_k is None:
+            retrieval_k = k * 2 if reranker else k
+
         super().__init__(
             base_retriever=base_retriever,
             enhancement_strategies=enhancement_strategies,
+            reranker=reranker,
             k=k,
+            retrieval_k=retrieval_k,
             deduplication=deduplication,
             **kwargs,
         )
@@ -71,7 +85,7 @@ class EnhancedRetriever(BaseRetriever):
         *,
         run_manager: CallbackManagerForRetrieverRun | None = None,
     ) -> List[Document]:
-        """Retrieve with query enhancement."""
+        """Retrieve with query enhancement and optional reranking."""
 
         # Step 1: Enhance query
         if self.query_enhancer:
@@ -79,17 +93,28 @@ class EnhancedRetriever(BaseRetriever):
         else:
             queries = [query]
 
-        # Step 2: Retrieve for each query
+        # Step 2: Retrieve for each query (use retrieval_k per query)
         all_docs = []
         for q in queries:
+            # Temporarily override k for initial retrieval
+            original_k = self.base_retriever.k
+            self.base_retriever.k = self.retrieval_k
             docs = self.base_retriever.invoke(q)
+            self.base_retriever.k = original_k
             all_docs.extend(docs)
 
         # Step 3: Deduplicate
         if self.deduplication:
             all_docs = self._deduplicate_docs(all_docs)
 
-        # Step 4: Return top-k
+        # Step 4: Rerank if reranker provided
+        if self.reranker and all_docs:
+            # Rerank and get top-k with scores
+            doc_scores = self.reranker.rerank(query, all_docs, top_k=self.k)
+            # Extract documents only (discard scores)
+            return [doc for doc, score in doc_scores]
+
+        # Step 5: Return top-k (no reranking)
         return all_docs[: self.k]
 
     def _deduplicate_docs(self, docs: List[Document]) -> List[Document]:

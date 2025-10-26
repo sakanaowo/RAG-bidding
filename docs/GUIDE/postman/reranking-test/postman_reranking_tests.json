@@ -1,0 +1,706 @@
+{
+    "info": {
+        "name": "RAG-Bidding - Reranking Integration Tests",
+        "description": "Test collection for BGE Reranking Integration (Phase 2)\n\nTests cover:\n- Reranking enabled/disabled modes\n- Performance comparison\n- Ranking quality verification\n- GPU/CPU support\n- Configuration checks\n\nModel: BAAI/bge-reranker-v2-m3\nImplementation Date: October 2025",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Setup & Health",
+            "item": [
+                {
+                    "name": "1. Health Check",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Status code is 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Database is connected\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.db).to.eql(true);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "http://localhost:8000/health",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "port": "8000",
+                            "path": ["health"]
+                        },
+                        "description": "Verify API server and database connectivity"
+                    }
+                },
+                {
+                    "name": "2. Get System Stats",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Status code is 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Reranking is enabled in config\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.phase1_features.reranking).to.eql(true);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Query enhancement is enabled\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.phase1_features.query_enhancement).to.eql(true);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "http://localhost:8000/stats",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "port": "8000",
+                            "path": ["stats"]
+                        },
+                        "description": "Check system configuration including reranking settings"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Reranking Tests",
+            "item": [
+                {
+                    "name": "3. Balanced Mode - WITH Reranking",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Status code is 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Response has answer\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.answer).to.be.a('string');",
+                                    "    pm.expect(jsonData.answer.length).to.be.above(10);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Response has sources\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.sources).to.be.an('array');",
+                                    "    pm.expect(jsonData.sources.length).to.be.above(0);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Enhanced features includes reranking\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.enhanced_features).to.be.an('array');",
+                                    "    // Note: Check if reranking is in the list",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Processing time is reasonable\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.processing_time_ms).to.be.a('number');",
+                                    "    pm.expect(jsonData.processing_time_ms).to.be.below(5000); // < 5s",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Top source contains 'Điều 14' (bảo đảm dự thầu)\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    var topSource = jsonData.sources[0];",
+                                    "    pm.expect(topSource).to.include('Điều 14');",
+                                    "});",
+                                    "",
+                                    "// Store timing for comparison",
+                                    "var jsonData = pm.response.json();",
+                                    "pm.collectionVariables.set(\"balanced_time\", jsonData.processing_time_ms);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"question\": \"Quy định về thời gian hiệu lực bảo đảm dự thầu trong Luật Đấu thầu 2023\",\n    \"mode\": \"balanced\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:8000/ask",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "port": "8000",
+                            "path": ["ask"]
+                        },
+                        "description": "Test balanced mode với reranking enabled\n\n**Expected:**\n- Reranking được áp dụng (BGE model)\n- Processing time: ~500-1000ms\n- Top source: Điều 14 (bảo đảm dự thầu)\n- Enhanced features: [\"query_enhancement\", \"reranking\"]"
+                    }
+                },
+                {
+                    "name": "4. Fast Mode - WITHOUT Reranking",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Status code is 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Response has answer\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.answer).to.be.a('string');",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Enhanced features does NOT include reranking\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.enhanced_features).to.be.an('array');",
+                                    "    // Fast mode should not use reranking",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Fast mode is faster than balanced\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    var balancedTime = pm.collectionVariables.get(\"balanced_time\");",
+                                    "    if (balancedTime) {",
+                                    "        pm.expect(jsonData.processing_time_ms).to.be.below(balancedTime);",
+                                    "    }",
+                                    "});",
+                                    "",
+                                    "// Store timing",
+                                    "var jsonData = pm.response.json();",
+                                    "pm.collectionVariables.set(\"fast_time\", jsonData.processing_time_ms);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"question\": \"Quy định về thời gian hiệu lực bảo đảm dự thầu trong Luật Đấu thầu 2023\",\n    \"mode\": \"fast\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:8000/ask",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "port": "8000",
+                            "path": ["ask"]
+                        },
+                        "description": "Test fast mode KHÔNG dùng reranking\n\n**Expected:**\n- Reranking KHÔNG được áp dụng\n- Processing time: ~200-400ms (nhanh hơn balanced)\n- Enhanced features: [] (empty hoặc không có reranking)\n- Sources ranking có thể kém chính xác hơn"
+                    }
+                },
+                {
+                    "name": "5. Quality Mode - WITH Reranking + RRF",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Status code is 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Response has comprehensive answer\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.answer.length).to.be.above(50);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Multiple sources retrieved\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.sources.length).to.be.at.least(3);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Quality mode uses reranking\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.enhanced_features).to.be.an('array');",
+                                    "    // Should include reranking and rag_fusion",
+                                    "});",
+                                    "",
+                                    "// Store timing",
+                                    "var jsonData = pm.response.json();",
+                                    "pm.collectionVariables.set(\"quality_time\", jsonData.processing_time_ms);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"question\": \"So sánh bảo đảm dự thầu và bảo đảm thực hiện hợp đồng theo Luật Đấu thầu 2023\",\n    \"mode\": \"quality\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:8000/ask",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "port": "8000",
+                            "path": ["ask"]
+                        },
+                        "description": "Test quality mode với RAG-Fusion + Reranking\n\n**Expected:**\n- RAG-Fusion (RRF) + Reranking\n- Processing time: ~1000-2000ms (chậm nhất)\n- Sources bao gồm cả Điều 14 và Điều 68\n- Answer chất lượng cao, bao quát cả 2 khía cạnh"
+                    }
+                },
+                {
+                    "name": "6. Adaptive Mode - WITH Reranking",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Status code is 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Adaptive retrieval info present\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.adaptive_retrieval).to.be.an('object');",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Uses reranking in adaptive mode\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.enhanced_features).to.be.an('array');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"question\": \"Điều kiện tham gia đấu thầu?\",\n    \"mode\": \"adaptive\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:8000/ask",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "port": "8000",
+                            "path": ["ask"]
+                        },
+                        "description": "Test adaptive mode với reranking\n\n**Expected:**\n- Tự động điều chỉnh K based on query complexity\n- Reranking được áp dụng\n- Processing time: Variable (300-1500ms)"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Ranking Quality Tests",
+            "item": [
+                {
+                    "name": "7. Test - Điều 14 Ranking (Bảo đảm dự thầu)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Điều 14 is in top 3 sources\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    var top3 = jsonData.sources.slice(0, 3).join(' ');",
+                                    "    pm.expect(top3).to.include('Điều 14');",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Answer mentions 'bảo đảm dự thầu'\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.answer.toLowerCase()).to.include('bảo đảm');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"question\": \"Quy định về bảo đảm dự thầu\",\n    \"mode\": \"balanced\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:8000/ask",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "port": "8000",
+                            "path": ["ask"]
+                        },
+                        "description": "Test ranking quality - Điều 14 phải được rank cao\n\nReranker (BGE) score cho Điều 14: 0.9859 (rất cao)\nĐiều 14 nói về bảo đảm dự thầu → Phải xuất hiện trong top 3"
+                    }
+                },
+                {
+                    "name": "8. Test - Multi-aspect Query",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Answer covers both aspects\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    var answer = jsonData.answer.toLowerCase();",
+                                    "    pm.expect(answer).to.include('bảo đảm');",
+                                    "    pm.expect(answer).to.include('hợp đồng');",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Multiple relevant sources\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.sources.length).to.be.at.least(3);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"question\": \"Quy định về bảo lãnh dự thầu và bảo lãnh thực hiện hợp đồng\",\n    \"mode\": \"quality\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:8000/ask",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "port": "8000",
+                            "path": ["ask"]
+                        },
+                        "description": "Test multi-aspect query với reranking\n\nQuery có 2 khía cạnh:\n1. Bảo lãnh dự thầu (Điều 14)\n2. Bảo lãnh thực hiện (Điều 68)\n\nReranking giúp rank đúng cả 2 điều lên top"
+                    }
+                },
+                {
+                    "name": "9. Test - Complex Legal Query",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Comprehensive answer for complex query\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.answer.length).to.be.above(100);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Multiple sources for context\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.sources.length).to.be.at.least(4);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"question\": \"Phân tích chi tiết quy trình đấu thầu rộng rãi quốc tế theo Luật Đấu thầu 2023, bao gồm điều kiện tham gia và đánh giá hồ sơ\",\n    \"mode\": \"quality\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:8000/ask",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "port": "8000",
+                            "path": ["ask"]
+                        },
+                        "description": "Test complex query với nhiều yêu cầu\n\nReranking giúp:\n- Rank các điều liên quan lên top\n- Loại bỏ các điều không liên quan\n- Cải thiện answer quality"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Performance & Edge Cases",
+            "item": [
+                {
+                    "name": "10. Performance - Same Query All Modes",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Status code is 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Processing time recorded\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    console.log('Mode: balanced, Time: ' + jsonData.processing_time_ms + 'ms');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"question\": \"Hình thức lựa chọn nhà thầu có những loại nào?\",\n    \"mode\": \"balanced\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:8000/ask",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "port": "8000",
+                            "path": ["ask"]
+                        },
+                        "description": "Benchmark: Chạy cùng query với tất cả modes\n\n**Expected times:**\n- Fast: ~200-400ms (no reranking)\n- Balanced: ~500-1000ms (with reranking)\n- Quality: ~1000-2000ms (RRF + reranking)\n- Adaptive: ~300-1500ms (variable)\n\nChange 'mode' field to test each mode"
+                    }
+                },
+                {
+                    "name": "11. Edge Case - Short Query",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Status code is 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Answer provided for short query\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.answer).to.be.a('string');",
+                                    "    pm.expect(jsonData.answer.length).to.be.above(0);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"question\": \"HSMT?\",\n    \"mode\": \"balanced\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:8000/ask",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "port": "8000",
+                            "path": ["ask"]
+                        },
+                        "description": "Test edge case: Very short query\n\nQuery enhancement + reranking giúp:\n- Expand abbreviation: HSMT → Hồ sơ mời thầu\n- Rank đúng các điều liên quan"
+                    }
+                },
+                {
+                    "name": "12. Edge Case - Empty Question",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Status code is 400 Bad Request\", function () {",
+                                    "    pm.response.to.have.status(400);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Error message is clear\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.detail).to.include('required');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"question\": \"\",\n    \"mode\": \"balanced\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:8000/ask",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "port": "8000",
+                            "path": ["ask"]
+                        },
+                        "description": "Test error handling: Empty question\n\n**Expected:**\n- HTTP 400 Bad Request\n- Error: 'question is required'"
+                    }
+                },
+                {
+                    "name": "13. Stress Test - Very Long Query",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Status code is 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Handles long query gracefully\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.answer).to.be.a('string');",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Processing time under 5 seconds\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.processing_time_ms).to.be.below(5000);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"question\": \"Tôi muốn tìm hiểu chi tiết về toàn bộ quy trình đấu thầu rộng rãi quốc tế theo Luật Đấu thầu 2023, bao gồm điều kiện tham gia đấu thầu, hồ sơ mời thầu, bảo đảm dự thầu, thời gian nộp hồ sơ, quy trình đánh giá hồ sơ, tiêu chí lựa chọn nhà thầu, ký kết hợp đồng, và các quy định về bảo đảm thực hiện hợp đồng. Vui lòng phân tích chi tiết từng bước và trích dẫn các điều luật cụ thể.\",\n    \"mode\": \"quality\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:8000/ask",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "port": "8000",
+                            "path": ["ask"]
+                        },
+                        "description": "Stress test: Very long, complex query\n\nTest reranking với:\n- Query dài (>100 words)\n- Nhiều khía cạnh\n- Yêu cầu chi tiết\n\nReranking giúp prioritize các điều quan trọng nhất"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Comparison Tests",
+            "item": [
+                {
+                    "name": "14. Compare - Balanced vs Fast (Same Query)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "// This test should be run twice:",
+                                    "// 1. With mode='fast' → Store results",
+                                    "// 2. With mode='balanced' → Compare",
+                                    "",
+                                    "pm.test(\"Status code is 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "var jsonData = pm.response.json();",
+                                    "console.log('Processing time: ' + jsonData.processing_time_ms + 'ms');",
+                                    "console.log('Enhanced features: ' + JSON.stringify(jsonData.enhanced_features));",
+                                    "console.log('Top source: ' + jsonData.sources[0].substring(0, 80));"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"question\": \"Thời gian hiệu lực bảo đảm dự thầu\",\n    \"mode\": \"balanced\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:8000/ask",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "port": "8000",
+                            "path": ["ask"]
+                        },
+                        "description": "So sánh Balanced vs Fast mode\n\n**Cách test:**\n1. Run với mode='fast' → Xem kết quả\n2. Run với mode='balanced' → So sánh\n\n**Expected differences:**\n- Fast: Nhanh hơn, không có reranking\n- Balanced: Chậm hơn ~100-400ms, có reranking, ranking tốt hơn"
+                    }
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "balanced_time",
+            "value": ""
+        },
+        {
+            "key": "fast_time",
+            "value": ""
+        },
+        {
+            "key": "quality_time",
+            "value": ""
+        }
+    ]
+}

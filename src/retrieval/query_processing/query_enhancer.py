@@ -54,7 +54,7 @@ class QueryEnhancer:
 
         self.strategies = self._init_strategies()
         logger.info(
-            f"Initialized QueryEnhancer with strategies: {[type(s).__name__ for s in self.strategies]}"
+            f"Initialized QueryEnhancer with strategies: {[s.value for s in self.strategies.keys()]}"
         )
 
     def _init_strategies(self) -> Dict:
