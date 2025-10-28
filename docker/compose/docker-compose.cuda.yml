@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database with pgvector extension
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: rag-postgres-cuda
+    environment:
+      POSTGRES_DB: ragdb
+      POSTGRES_USER: superuser
+      POSTGRES_PASSWORD: rag-bidding
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../config/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superuser -d ragdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RAG API application with CUDA support
+  app:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.cuda
+    container_name: rag-app-cuda
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - DATABASE_URL=postgresql+psycopg://superuser:rag-bidding@postgres:5432/ragdb
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - EMBED_MODEL=${EMBED_MODEL:-text-embedding-3-large}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
+      - LC_COLLECTION=${LC_COLLECTION:-docs}
+      - CHUNK_SIZE=${CHUNK_SIZE:-1000}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP:-200}
+      - RAG_MODE=${RAG_MODE:-quality}
+      - ENABLE_RERANKING=${ENABLE_RERANKING:-true}
+      - ENABLE_QUERY_ENHANCEMENT=${ENABLE_QUERY_ENHANCEMENT:-true}
+      - ENABLE_ADAPTIVE_RETRIEVAL=${ENABLE_ADAPTIVE_RETRIEVAL:-true}
+      - RERANKER_MODEL=${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
+      - RERANKER_DEVICE=${RERANKER_DEVICE:-cuda}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rag-network
+    volumes:
+      - ../data:/app/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+networks:
+  rag-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
