@@ -6,7 +6,9 @@ Handles circular-specific fields and administrative document metadata.
 """
 
 from datetime import datetime
-from typing import Dict, Any, List
+import logging
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 import re
 
 
@@ -23,7 +25,7 @@ class CircularMetadataMapper:
         total_chunks: int,
     ) -> Dict[str, Any]:
         """
-        Map single chunk to DB schema
+        Map single chunk to standardized embedding-ready format
 
         Args:
             chunk: CircularChunk object from chunker
@@ -32,9 +34,22 @@ class CircularMetadataMapper:
             total_chunks: Total number of chunks
 
         Returns:
-            Dictionary with circular-specific DB schema fields
+            Dictionary with standardized format for embedding pipeline
         """
-        metadata = {}
+        # Create standardized chunk structure compatible with embedding pipeline
+        result = {
+            # Standard fields for embedding
+            "id": f"circular_{source_metadata.get('filename', 'unknown').replace('.', '_').replace(' ', '_')}_{chunk_index}",
+            "text": chunk.text,
+            "metadata": {},
+            "embedding_ready": True,
+            "processing_stats": {
+                "char_count": len(chunk.text),
+                "quality_score": 1.0,  # Default quality score
+            },
+        }
+
+        metadata = result["metadata"]
 
         # === CORE IDENTIFIERS ===
         metadata["chunk_id"] = chunk_index
@@ -42,6 +57,9 @@ class CircularMetadataMapper:
         metadata["source_file"] = source_metadata.get("filename", "")
         metadata["url"] = source_metadata.get("url", "")
         metadata["title"] = source_metadata.get("title", "")
+        metadata["total_chunks"] = total_chunks
+        metadata["doc_type"] = "circular"
+        metadata["processed_at"] = datetime.now().isoformat()
 
         # === STRUCTURE INFO ===
         metadata["chunk_level"] = (
@@ -114,7 +132,7 @@ class CircularMetadataMapper:
             "crawled_at", datetime.now().isoformat()
         )
 
-        return metadata
+        return result
 
     @staticmethod
     def _build_hierarchy_path(chunk_metadata: Dict[str, Any]) -> str:

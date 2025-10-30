@@ -29,7 +29,7 @@ class LawMetadataMapper:
         total_chunks: int,
     ) -> Dict[str, Any]:
         """
-        Map single chunk to DB schema
+        Map single chunk to standardized embedding-ready format
 
         Args:
             chunk: LawChunk object from chunker
@@ -38,9 +38,22 @@ class LawMetadataMapper:
             total_chunks: Total number of chunks
 
         Returns:
-            Dictionary với 25 fields theo DB schema
+            Dictionary with standardized format for embedding pipeline
         """
-        metadata = {}
+        # Create standardized chunk structure compatible with embedding pipeline
+        result = {
+            # Standard fields for embedding
+            "id": f"law_{source_metadata.get('filename', 'unknown').replace('.', '_').replace(' ', '_')}_{chunk_index}",
+            "text": chunk.text,
+            "metadata": {},
+            "embedding_ready": True,
+            "processing_stats": {
+                "char_count": len(chunk.text),
+                "quality_score": 1.0,  # Default quality score
+            },
+        }
+
+        metadata = result["metadata"]
 
         # === CORE IDENTIFIERS ===
         metadata["chunk_id"] = chunk_index
@@ -48,6 +61,9 @@ class LawMetadataMapper:
         metadata["source_file"] = source_metadata.get("filename", "")
         metadata["url"] = source_metadata.get("url", "")
         metadata["title"] = source_metadata.get("title", "")
+        metadata["total_chunks"] = total_chunks
+        metadata["doc_type"] = "law"
+        metadata["processed_at"] = datetime.now().isoformat()
 
         # === STRUCTURE INFO ===
         metadata["chunk_level"] = chunk.level  # 'dieu', 'khoan', 'diem'
@@ -102,7 +118,7 @@ class LawMetadataMapper:
             "created", datetime.now().isoformat()
         )
 
-        return metadata
+        return result
 
     @staticmethod
     def _build_hierarchy_path(chunk_metadata: Dict[str, Any]) -> str:

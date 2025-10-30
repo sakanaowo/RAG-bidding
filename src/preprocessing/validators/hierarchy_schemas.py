@@ -16,6 +16,7 @@ class DocumentType(Enum):
     DECREE = "decree"  # Nghị định
     CIRCULAR = "circular"  # Thông tư
     DECISION = "decision"  # Quyết định
+    BIDDING = "bidding"  # Hồ sơ mời thầu
     UNKNOWN = "unknown"
 
 
@@ -219,6 +220,58 @@ class DecreeHierarchySchema(HierarchySchema):
         return chunks_with_hierarchy, issues
 
 
+class BiddingHierarchySchema(HierarchySchema):
+    """
+    Hierarchy schema for Bidding Documents (Hồ sơ mời thầu)
+
+    Structure: Phần > Chương > Mục > Điều > Khoản > Điểm
+    Field name: 'hierarchy'
+    Format: "HỒ SƠ MỜI THẦU > Phần I > Chương 1 > Điều 2"
+    """
+
+    def __init__(self):
+        super().__init__(DocumentType.BIDDING)
+
+    def get_hierarchy_fields(self) -> List[str]:
+        return ["hierarchy"]
+
+    def get_structure_fields(self) -> List[str]:
+        return ["part", "chapter", "section", "article", "clause", "point"]
+
+    def extract_hierarchy_path(self, chunk: Dict[str, Any]) -> Optional[str]:
+        """Extract hierarchy from bidding chunk metadata"""
+        # Bidding chunks store hierarchy in metadata sub-dict
+        if isinstance(chunk.get("metadata"), dict):
+            return chunk["metadata"].get("hierarchy")
+
+        # Or directly in chunk
+        return chunk.get("hierarchy")
+
+    def validate_hierarchy(self, chunks: List[Dict[str, Any]]) -> tuple[int, List[str]]:
+        """Validate bidding hierarchy completeness"""
+        issues = []
+        chunks_with_hierarchy = 0
+
+        for i, chunk in enumerate(chunks):
+            hierarchy = self.extract_hierarchy_path(chunk)
+
+            if hierarchy and hierarchy.strip():
+                chunks_with_hierarchy += 1
+
+                # Validate format: should contain bidding structure
+                if not any(
+                    term in hierarchy
+                    for term in ["HỒ SƠ MỜI THẦU", "Phần", "Chương", "Mục", "Điều"]
+                ):
+                    issues.append(
+                        f"Chunk {i}: Invalid bidding hierarchy format '{hierarchy}'"
+                    )
+            else:
+                issues.append(f"Chunk {i}: Missing hierarchy path")
+
+        return chunks_with_hierarchy, issues
+
+
 class HierarchySchemaFactory:
     """Factory for creating appropriate hierarchy schema based on document type"""
 
@@ -226,6 +279,7 @@ class HierarchySchemaFactory:
         DocumentType.LAW: LawHierarchySchema,
         DocumentType.DECREE: DecreeHierarchySchema,
         DocumentType.CIRCULAR: CircularHierarchySchema,
+        DocumentType.BIDDING: BiddingHierarchySchema,
     }
 
     @classmethod
@@ -243,6 +297,8 @@ class HierarchySchemaFactory:
             enum_type = DocumentType.CIRCULAR
         elif doc_type_lower in ["decision", "quyết định", "quyet dinh", "qd"]:
             enum_type = DocumentType.DECISION
+        elif doc_type_lower in ["bidding", "hồ sơ mời thầu", "ho so moi thau", "hsmt"]:
+            enum_type = DocumentType.BIDDING
         else:
             enum_type = DocumentType.UNKNOWN
 
@@ -278,6 +334,12 @@ class HierarchySchemaFactory:
                     or "thông tư" in source.lower()
                 ):
                     return DocumentType.CIRCULAR
+                elif (
+                    "HSMT" in source
+                    or "Ho so moi thau" in source
+                    or "hồ sơ mời thầu" in source.lower()
+                ):
+                    return DocumentType.BIDDING
 
         # Check content patterns
         content = chunk.get("content", "") or chunk.get("text", "")
@@ -288,6 +350,17 @@ class HierarchySchemaFactory:
                 return DocumentType.LAW
             elif "Thông tư" in content or "THÔNG TƯ" in content:
                 return DocumentType.CIRCULAR
+            elif any(
+                term in content
+                for term in [
+                    "hồ sơ mời thầu",
+                    "HỒ SƠ MỜI THẦU",
+                    "đấu thầu",
+                    "nhà thầu",
+                    "gói thầu",
+                ]
+            ):
+                return DocumentType.BIDDING
 
         return DocumentType.UNKNOWN
 

@@ -134,7 +134,19 @@ class DataIntegrityValidator:
 
         # Calculate metrics
         original_chars = len(original_text)
-        processed_chars = sum(len(chunk["content"]) for chunk in processed_chunks)
+        # Support multiple content field schemas
+        if processed_chunks:
+            if "text" in processed_chunks[0]:
+                content_field = "text"
+            elif "chunk_content" in processed_chunks[0]:
+                content_field = "chunk_content"
+            else:
+                content_field = "content"
+            processed_chars = sum(
+                len(chunk.get(content_field, "")) for chunk in processed_chunks
+            )
+        else:
+            processed_chars = 0
         coverage = (processed_chars / original_chars * 100) if original_chars > 0 else 0
 
         # Check for missing sections
@@ -172,8 +184,13 @@ class DataIntegrityValidator:
         if not original or not chunks:
             return True
 
-        # Support both schemas: 'content' (decree) and 'chunk_content' (law)
-        content_field = "chunk_content" if "chunk_content" in chunks[0] else "content"
+        # Support multiple schemas: 'content' (decree), 'chunk_content' (law), 'text' (bidding)
+        if "chunk_content" in chunks[0]:
+            content_field = "chunk_content"
+        elif "text" in chunks[0]:
+            content_field = "text"
+        else:
+            content_field = "content"
 
         original_chars = len(original)
         processed_chars = sum(len(chunk.get(content_field, "")) for chunk in chunks)
@@ -187,8 +204,12 @@ class DataIntegrityValidator:
         seen = set()
         duplicates = 0
 
+        # Determine content field
+        content_field = "text" if chunks and "text" in chunks[0] else "content"
+
         for chunk in chunks:
-            content_hash = hash(chunk["content"].strip().lower())
+            content_text = chunk.get(content_field, "")
+            content_hash = hash(content_text.strip().lower())
             if content_hash in seen:
                 duplicates += 1
             seen.add(content_hash)
@@ -222,7 +243,8 @@ class DataIntegrityValidator:
             original_markers.update(re.findall(pattern, original))
 
         # Extract markers from chunks
-        processed_content = " ".join(chunk["content"] for chunk in chunks)
+        content_field = "text" if chunks and "text" in chunks[0] else "content"
+        processed_content = " ".join(chunk.get(content_field, "") for chunk in chunks)
         processed_markers = set()
         for pattern in important_patterns:
             processed_markers.update(re.findall(pattern, processed_content))
@@ -381,7 +403,8 @@ class DataIntegrityValidator:
         original_dieus = set(re.findall(r"Điều\s+(\d+[a-z]?)", original))
 
         # Extract from chunks
-        processed_content = " ".join(chunk["content"] for chunk in chunks)
+        content_field = "text" if chunks and "text" in chunks[0] else "content"
+        processed_content = " ".join(chunk.get(content_field, "") for chunk in chunks)
         processed_dieus = set(re.findall(r"Điều\s+(\d+[a-z]?)", processed_content))
 
         missing = original_dieus - processed_dieus

@@ -412,12 +412,8 @@ class LawPreprocessingPipeline(BaseDocumentPipeline):
         jsonl_file = output_dir / f"{filename}_chunks.jsonl"
         with open(jsonl_file, "w", encoding="utf-8") as f:
             for chunk_data in results["db_chunks"]:
-                # Include text + all metadata fields
-                chunk_dict = {
-                    "text": results["chunks"][chunk_data["chunk_id"]].text,
-                    "metadata": chunk_data,
-                }
-                f.write(json.dumps(chunk_dict, ensure_ascii=False) + "\n")
+                # chunk_data is now already in standardized format with text, metadata, etc.
+                f.write(json.dumps(chunk_data, ensure_ascii=False) + "\n")
         print(f"   💾 JSONL: {jsonl_file}")
 
         # 3. Export Markdown (for review)

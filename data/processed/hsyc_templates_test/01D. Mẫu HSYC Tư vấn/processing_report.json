@@ -1,0 +1,151 @@
+{
+  "file_path": "/home/sakana/Code/RAG-bidding/data/raw/Ho so moi thau/1. Mẫu HSYC/01D. Mẫu HSYC Tư vấn.docx",
+  "status": "processing",
+  "start_time": "2025-10-30T19:54:40.910951",
+  "stages": {
+    "extraction": {
+      "success": true,
+      "content_length": 38314,
+      "metadata": {
+        "source_file": "01D. Mẫu HSYC Tư vấn.docx",
+        "file_type": "bidding_document",
+        "document_category": "consulting",
+        "extracted_at": "2025-10-30T19:54:40.990688",
+        "file_size_bytes": 120879,
+        "project_name": "/dự toán mua sắm].",
+        "package_name": "DỊCH VỤ TƯ VẤN",
+        "bidding_method": "CHỈ ĐỊNH THẦU",
+        "owner": "___ [Ghi tên, địa chỉ chủ đầu tư] mời nhà thầu nhận HSYC gói thầu ___ [Ghi tên gói thầu theo kế hoạch lựa chọn nhà thầu được duyệt] thuộc___ [Ghi tên dự án/dự toán mua sắm]."
+      },
+      "tables_count": 21,
+      "statistics": {
+        "original_chars": 38314,
+        "paragraphs": 367,
+        "tables": 21,
+        "structure_elements": 139,
+        "bidding_type": "consulting",
+        "contains_forms": true,
+        "contains_technical_specs": true
+      },
+      "bidding_type": null
+    },
+    "cleaning": {
+      "success": true,
+      "stats": {
+        "original_chars": 38314,
+        "cleaned_chars": 37393,
+        "chars_removed": 921,
+        "reduction_percentage": 2.403821057576865,
+        "original_lines": 733,
+        "cleaned_lines": 1,
+        "lines_removed": 732
+      },
+      "validation": {
+        "has_content": true,
+        "reasonable_length": true,
+        "contains_bidding_terms": true,
+        "maintains_structure": true,
+        "no_excessive_reduction": true,
+        "is_valid": true
+      }
+    },
+    "parsing": {
+      "success": true,
+      "sections_count": 0,
+      "tables_count": 1,
+      "structure_stats": {
+        "total_sections": 0,
+        "sections_by_level": {},
+        "total_tables": 1,
+        "tables_by_type": {
+          "bill_of_quantities": 1
+        },
+        "max_depth": 0,
+        "avg_section_length": 0
+      },
+      "metadata": {
+        "bidding_type": null,
+        "detected_sections": {
+          "general_info": [],
+          "technical_requirements": [],
+          "evaluation_criteria": [],
+          "contract_conditions": [],
+          "bidding_process": [],
+          "forms": [],
+          "drawings": [],
+          "bill_of_quantities": []
+        },
+        "document_info": {
+          "project_name": "/dự toán mua sắm]. 2. nguồn vốn để thực hiện gói thầu: ______[ghi rõ nguồn vốn đã được xác định hoặc",
+          "package_name": "dịch vụ tư vấn (ban hành kèm theo thông tư số 80/2025/tt-btc ngày 08 tháng 8 năm 2025 của bộ trưởng",
+          "owner": "___ [ghi tên, địa chỉ chủ đầu tư] mời nhà thầu nhận hsyc gói thầu ___ [ghi tên gói thầu theo kế hoạc"
+        },
+        "statistics": {}
+      }
+    },
+    "chunking": {
+      "success": true,
+      "chunks_count": 1,
+      "avg_chunk_size": 37393.0,
+      "chunking_stats": {}
+    },
+    "mapping": {
+      "success": true,
+      "validation": {
+        "total_chunks": 1,
+        "chunks_with_hierarchy": 1,
+        "chunks_with_section_info": 1,
+        "chunks_with_bidding_meta": 1,
+        "issues": [],
+        "hierarchy_coverage": 100.0,
+        "section_coverage": 100.0,
+        "bidding_coverage": 100.0,
+        "is_valid": true
+      }
+    }
+  },
+  "final_chunks": [],
+  "statistics": {
+    "processing_time_seconds": 0.115276,
+    "original_content_length": 38314,
+    "cleaned_content_length": 37393,
+    "final_chunks_count": 1,
+    "total_final_content_length": 37393,
+    "average_chunk_size": 37393.0,
+    "content_coverage_ratio": 1.0
+  },
+  "validation": {
+    "is_valid": false,
+    "total_checks": 6,
+    "passed_checks": 3,
+    "failed_checks": 3,
+    "original_char_count": 37393,
+    "processed_char_count": 37393,
+    "coverage_percentage": 100.0,
+    "missing_sections": [],
+    "duplicate_chunks": [],
+    "structure_preserved": true,
+    "hierarchy_complete": true,
+    "metadata_complete": false,
+    "warnings": [
+      "Chunk 0: Too long (37393 chars)"
+    ],
+    "errors": [
+      "Found 1 chunks with incomplete metadata",
+      "Chunk quality issues: 1 chunks",
+      "  - Chunk 0: Too long (37393 chars)"
+    ],
+    "issues": [
+      "Chunk 0: Too long (37393 chars)",
+      "Found 1 chunks with incomplete metadata",
+      "Chunk quality issues: 1 chunks",
+      "  - Chunk 0: Too long (37393 chars)"
+    ]
+  },
+  "errors": [
+    "Integrity issue: Chunk 0: Too long (37393 chars)",
+    "Integrity issue: Found 1 chunks with incomplete metadata",
+    "Integrity issue: Chunk quality issues: 1 chunks",
+    "Integrity issue:   - Chunk 0: Too long (37393 chars)"
+  ]
+}

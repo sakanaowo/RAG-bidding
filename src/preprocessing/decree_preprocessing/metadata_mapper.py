@@ -21,34 +21,8 @@ class DecreeMetadataMapper:
     - Auto-detect status from year
     """
 
-    # 25 required DB fields
-    REQUIRED_FIELDS = [
-        "chunk_id",
-        "content",
-        "doc_id",
-        "doc_type",
-        "doc_number",
-        "doc_year",
-        "doc_name",
-        "issuing_agency",
-        "effective_date",
-        "status",
-        "source_url",
-        "hierarchy_path",
-        "parent_id",
-        "parent_type",
-        "section_title",
-        "section_number",
-        "chunk_index",
-        "total_chunks",
-        "original_length",
-        "cleaned_length",
-        "has_tables",
-        "confidence_score",
-        "processing_timestamp",
-        "metadata_version",
-        "related_docs",
-    ]
+    # Standard required fields for embedding pipeline
+    REQUIRED_FIELDS = ["id", "text", "metadata", "embedding_ready", "processing_stats"]
 
     def __init__(self):
         """Initialize mapper"""
@@ -67,7 +41,7 @@ class DecreeMetadataMapper:
         parent_info: Optional[Dict] = None,
     ) -> Dict:
         """
-        Map single chunk to 25-field DB schema
+        Map single chunk to standardized embedding-ready format
 
         Args:
             chunk_text: Chunk content
@@ -78,7 +52,7 @@ class DecreeMetadataMapper:
             parent_info: Info về parent node
 
         Returns:
-            Dictionary với 25 DB fields
+            Dictionary with standardized format for embedding pipeline
         """
         # Extract doc info
         doc_number, doc_year = self._extract_doc_info(file_metadata)
@@ -95,43 +69,60 @@ class DecreeMetadataMapper:
         section_title = parent_info.get("title", "") if parent_info else ""
         section_number = parent_info.get("number", "") if parent_info else ""
 
-        # Build 25-field record
-        db_record = {
-            # Core fields
-            "chunk_id": chunk_id,
-            "content": chunk_text.strip(),
-            "doc_id": doc_id,
-            "doc_type": "decree",
-            "doc_number": doc_number,
-            "doc_year": str(doc_year),
-            "doc_name": file_metadata.get(
-                "title", f"Nghị định {doc_number}/{doc_year}"
-            ),
-            # Legal metadata
-            "issuing_agency": file_metadata.get("agency", "Chính phủ"),
-            "effective_date": effective_date,
-            "status": status,
-            "source_url": file_metadata.get("source_url", ""),
-            # Structure metadata
-            "hierarchy_path": hierarchy_path,
-            "parent_id": parent_id,
-            "parent_type": parent_type,
-            "section_title": section_title,
-            "section_number": section_number,
-            # Chunk metadata
-            "chunk_index": chunk_index,
-            "total_chunks": total_chunks,
-            "original_length": len(chunk_text),
-            "cleaned_length": len(chunk_text.strip()),
-            "has_tables": file_metadata.get("has_tables", False),
-            # Quality metadata
-            "confidence_score": self._calculate_confidence(chunk_text),
-            "processing_timestamp": datetime.now().isoformat(),
-            "metadata_version": "2.0",
-            "related_docs": file_metadata.get("related_docs", []),
+        # Create standardized chunk structure compatible with embedding pipeline
+        result = {
+            # Standard fields for embedding
+            "id": chunk_id,
+            "text": chunk_text.strip(),
+            "metadata": {},
+            "embedding_ready": True,
+            "processing_stats": {
+                "char_count": len(chunk_text),
+                "quality_score": self._calculate_confidence(chunk_text),
+            },
         }
 
-        return db_record
+        metadata = result["metadata"]
+
+        # Build decree-specific metadata
+        metadata.update(
+            {
+                # Core fields
+                "chunk_id": chunk_id,
+                "doc_id": doc_id,
+                "doc_type": "decree",
+                "doc_number": doc_number,
+                "doc_year": str(doc_year),
+                "doc_name": file_metadata.get(
+                    "title", f"Nghị định {doc_number}/{doc_year}"
+                ),
+                "total_chunks": total_chunks,
+                "processed_at": datetime.now().isoformat(),
+                # Legal metadata
+                "issuing_agency": file_metadata.get("agency", "Chính phủ"),
+                "effective_date": effective_date,
+                "status": status,
+                "source_url": file_metadata.get("source_url", ""),
+                # Structure metadata
+                "hierarchy_path": hierarchy_path,
+                "parent_id": parent_id,
+                "parent_type": parent_type,
+                "section_title": section_title,
+                "section_number": section_number,
+                # Chunk metadata
+                "chunk_index": chunk_index,
+                "original_length": len(chunk_text),
+                "cleaned_length": len(chunk_text.strip()),
+                "has_tables": file_metadata.get("has_tables", False),
+                # Quality metadata
+                "confidence_score": self._calculate_confidence(chunk_text),
+                "processing_timestamp": datetime.now().isoformat(),
+                "metadata_version": "2.0",
+                "related_docs": file_metadata.get("related_docs", []),
+            }
+        )
+
+        return result
 
     def _extract_doc_info(self, metadata: Dict) -> tuple:
         """
