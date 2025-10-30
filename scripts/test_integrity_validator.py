@@ -21,9 +21,9 @@ def test_perfect_data():
     print("\n" + "=" * 70)
     print("TEST 1: Perfect Data")
     print("=" * 70)
-    
+
     validator = DataIntegrityValidator(min_coverage=0.75, max_duplication=0.05)
-    
+
     original_text = """
     Điều 1. Phạm vi điều chỉnh
     1. Nghị định này quy định...
@@ -31,7 +31,7 @@ def test_perfect_data():
     Điều 2. Đối tượng áp dụng
     1. Nghị định này áp dụng...
     """
-    
+
     chunks = [
         {
             "chunk_id": "test_001",
@@ -58,9 +58,9 @@ def test_perfect_data():
             "total_chunks": 2,
         },
     ]
-    
+
     report = validator.validate(original_text, chunks)
-    
+
     print(report)
     assert report.is_valid, "Perfect data should pass validation"
     print("✅ PASSED")
@@ -71,9 +71,9 @@ def test_low_coverage():
     print("\n" + "=" * 70)
     print("TEST 2: Low Coverage (Data Loss)")
     print("=" * 70)
-    
+
     validator = DataIntegrityValidator(min_coverage=0.85)
-    
+
     original_text = """
     Điều 1. Phạm vi điều chỉnh
     1. Nghị định này quy định...
@@ -84,7 +84,7 @@ def test_low_coverage():
     Điều 3. Giải thích từ ngữ
     1. Trong Nghị định này...
     """
-    
+
     # Only 1 chunk from 3 articles = ~33% coverage
     chunks = [
         {
@@ -100,9 +100,9 @@ def test_low_coverage():
             "total_chunks": 1,
         },
     ]
-    
+
     report = validator.validate(original_text, chunks)
-    
+
     print(report)
     assert not report.is_valid, "Low coverage should fail validation"
     assert "Coverage too low" in str(report.errors), "Should report coverage issue"
@@ -114,11 +114,11 @@ def test_duplication():
     print("\n" + "=" * 70)
     print("TEST 3: Duplicate Chunks")
     print("=" * 70)
-    
+
     validator = DataIntegrityValidator(max_duplication=0.05)
-    
+
     original_text = "Điều 1. Test content"
-    
+
     # 2 identical chunks
     chunks = [
         {
@@ -146,9 +146,9 @@ def test_duplication():
             "total_chunks": 2,
         },
     ]
-    
+
     report = validator.validate(original_text, chunks)
-    
+
     print(report)
     assert len(report.warnings) > 0, "Should have duplication warning"
     print("✅ PASSED (correctly detected duplication)")
@@ -159,16 +159,16 @@ def test_missing_sections():
     print("\n" + "=" * 70)
     print("TEST 4: Missing Sections")
     print("=" * 70)
-    
+
     validator = DataIntegrityValidator()
-    
+
     original_text = """
     Điều 1. First article
     Điều 2. Second article
     Điều 3. Third article
     Điều 4. Fourth article
     """
-    
+
     # Missing Điều 2 and 3
     chunks = [
         {
@@ -196,9 +196,9 @@ def test_missing_sections():
             "total_chunks": 2,
         },
     ]
-    
+
     report = validator.validate(original_text, chunks)
-    
+
     print(report)
     assert len(report.missing_sections) == 2, "Should detect 2 missing Điều"
     assert "Điều 2" in report.missing_sections
@@ -211,11 +211,11 @@ def test_incomplete_metadata():
     print("\n" + "=" * 70)
     print("TEST 5: Incomplete Metadata")
     print("=" * 70)
-    
+
     validator = DataIntegrityValidator()
-    
+
     original_text = "Test content"
-    
+
     chunks = [
         {
             "chunk_id": "test_001",
@@ -223,9 +223,9 @@ def test_incomplete_metadata():
             # Missing required fields
         },
     ]
-    
+
     report = validator.validate(original_text, chunks)
-    
+
     print(report)
     assert not report.is_valid, "Incomplete metadata should fail"
     assert not report.metadata_complete
@@ -237,11 +237,11 @@ def test_chunk_quality():
     print("\n" + "=" * 70)
     print("TEST 6: Chunk Quality")
     print("=" * 70)
-    
+
     validator = DataIntegrityValidator()
-    
+
     original_text = "X" * 1000
-    
+
     chunks = [
         {
             "chunk_id": "test_001",
@@ -256,9 +256,9 @@ def test_chunk_quality():
             "total_chunks": 1,
         },
     ]
-    
+
     report = validator.validate(original_text, chunks)
-    
+
     print(report)
     assert len(report.warnings) > 0, "Should warn about chunk quality"
     print("✅ PASSED (detected quality issues)")
@@ -268,7 +268,7 @@ if __name__ == "__main__":
     print("\n" + "=" * 70)
     print("DATA INTEGRITY VALIDATOR - COMPREHENSIVE TEST SUITE")
     print("=" * 70)
-    
+
     tests = [
         test_perfect_data,
         test_low_coverage,
@@ -277,10 +277,10 @@ if __name__ == "__main__":
         test_incomplete_metadata,
         test_chunk_quality,
     ]
-    
+
     passed = 0
     failed = 0
-    
+
     for test in tests:
         try:
             test()
@@ -291,13 +291,14 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"\n❌ ERROR: {e}")
             import traceback
+
             traceback.print_exc()
             failed += 1
-    
+
     print("\n" + "=" * 70)
     print(f"FINAL RESULTS: {passed}/{len(tests)} tests passed")
     print("=" * 70)
-    
+
     if failed == 0:
         print("\n✅ ALL TESTS PASSED!")
     else:

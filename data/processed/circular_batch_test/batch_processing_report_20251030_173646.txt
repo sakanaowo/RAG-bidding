@@ -1,0 +1,71 @@
+CIRCULAR PREPROCESSING BATCH REPORT
+==================================================
+
+Processed: 2025-10-30 17:36:46
+Total files: 3
+Successful: 0
+Failed: 3
+
+FILE RESULTS:
+------------------------------
+
+File: 0. Lời văn thông tư.docx
+Status: failed
+Chunks: 0
+Characters: 0
+Coverage: 0.0%
+Processing time: 0.1s
+Errors:
+  - 'IntegrityReport' object has no attribute 'get'
+
+File: 15. Phu luc.docx
+Status: failed
+Chunks: 0
+Characters: 0
+Coverage: 0.0%
+Processing time: 0.0s
+Errors:
+  - 'IntegrityReport' object has no attribute 'get'
+
+File: 00. Quyết định Thông tư.docx
+Status: failed
+Chunks: 0
+Characters: 0
+Coverage: 0.0%
+Processing time: 0.0s
+Errors:
+  - 'IntegrityReport' object has no attribute 'get'
+
+
+ERROR TRACEBACKS:
+------------------------------
+
+File: 0. Lời văn thông tư.docx
+Error: 'IntegrityReport' object has no attribute 'get'
+Traceback:
+Traceback (most recent call last):
+  File "/home/sakana/Code/RAG-bidding/test_all_circulars.py", line 102, in test_all_circular_files
+    "coverage": results.get('integrity_report', {}).get('coverage_percentage', 0.0),
+AttributeError: 'IntegrityReport' object has no attribute 'get'
+
+--------------------------------------------------
+
+File: 15. Phu luc.docx
+Error: 'IntegrityReport' object has no attribute 'get'
+Traceback:
+Traceback (most recent call last):
+  File "/home/sakana/Code/RAG-bidding/test_all_circulars.py", line 102, in test_all_circular_files
+    "coverage": results.get('integrity_report', {}).get('coverage_percentage', 0.0),
+AttributeError: 'IntegrityReport' object has no attribute 'get'
+
+--------------------------------------------------
+
+File: 00. Quyết định Thông tư.docx
+Error: 'IntegrityReport' object has no attribute 'get'
+Traceback:
+Traceback (most recent call last):
+  File "/home/sakana/Code/RAG-bidding/test_all_circulars.py", line 102, in test_all_circular_files
+    "coverage": results.get('integrity_report', {}).get('coverage_percentage', 0.0),
+AttributeError: 'IntegrityReport' object has no attribute 'get'
+
+--------------------------------------------------

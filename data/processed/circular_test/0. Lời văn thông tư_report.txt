@@ -1,0 +1,66 @@
+================================================================================
+CIRCULAR PREPROCESSING REPORT
+================================================================================
+
+File: /home/sakana/Code/RAG-bidding/data/raw/Thong tu/0. Lời văn thông tư.docx
+Processed: 2025-10-30 17:33:31
+
+METADATA:
+----------------------------------------
+  filename: 0. Lời văn thông tư.docx
+  file_path: /home/sakana/Code/RAG-bidding/data/raw/Thong tu/0. Lời văn thông tư.docx
+  file_size: 95627
+  source: thuvienphapluat.vn
+  title: Hướng dẫn việc cung cấp, đăng tải thông tin về đấu thầu
+  author: MyPC
+  created_date: 2025-08-06T07:44:00+00:00
+  modified_date: 2025-08-06T07:45:00+00:00
+  circular_number: 22/2023/QH
+
+PROCESSING STATISTICS:
+----------------------------------------
+  char_count: 66772
+  word_count: 14657
+  line_count: 393
+  paragraph_count: 1
+  structure_elements: 317
+  table_count: 2
+  structure_breakdown:
+    thong_tu: 2
+    dieu: 35
+    khoan: 135
+    diem: 145
+  original_length: 66772
+  cleaned_length: 66771
+  chars_removed: 1
+  original_lines: 393
+  cleaned_lines: 393
+  lines_removed: 0
+  reduction_percentage: 0.0
+  total_nodes: 325
+  node_counts:
+    circular_root: 1
+    circular: 2
+    chapter: 4
+    article: 35
+    clause: 135
+    point: 145
+    sub_point: 3
+  max_depth: 7
+  has_chapters: True
+  has_sections: False
+  has_articles: True
+  has_regulations: False
+  has_guidance: False
+  total_chunks: 103
+  avg_chunk_size: 747.1456310679612
+  min_chunk_size: 105
+  max_chunk_size: 2634
+
+DATA INTEGRITY:
+----------------------------------------
+  Coverage: 115.3%
+  Checks passed: 5/6
+  Status: ⚠️ WARNINGS
+  Warnings:
+    - Minor content loss: 1 markers missing

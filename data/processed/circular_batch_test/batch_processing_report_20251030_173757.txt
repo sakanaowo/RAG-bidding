@@ -1,0 +1,35 @@
+CIRCULAR PREPROCESSING BATCH REPORT
+==================================================
+
+Processed: 2025-10-30 17:37:57
+Total files: 3
+Successful: 3
+Failed: 0
+
+FILE RESULTS:
+------------------------------
+
+File: 0. Lời văn thông tư.docx
+Status: success_with_warnings
+Chunks: 103
+Characters: 66,771
+Coverage: 115.3%
+Processing time: 0.1s
+Warnings:
+  - Minor content loss: 1 markers missing
+
+File: 15. Phu luc.docx
+Status: success_with_warnings
+Chunks: 23
+Characters: 25,597
+Coverage: 68.7%
+Processing time: 0.0s
+Errors:
+  - Significant content loss: 1 markers missing (16.7%)
+
+File: 00. Quyết định Thông tư.docx
+Status: success_with_warnings
+Chunks: 17
+Characters: 14,736
+Coverage: 98.8%
+Processing time: 0.0s

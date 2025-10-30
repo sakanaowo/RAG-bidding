@@ -1,0 +1,53 @@
+{
+  "metadata": {
+    "filename": "15. Phu luc.docx",
+    "file_path": "/home/sakana/Code/RAG-bidding/data/raw/Thong tu/15. Phu luc.docx",
+    "file_size": 115711,
+    "source": "thuvienphapluat.vn",
+    "title": "BỘ KẾ HOẠCH VÀ ĐẦU TƯ",
+    "author": "User",
+    "created_date": "2025-07-16T02:18:00+00:00",
+    "modified_date": "2025-08-06T07:04:00+00:00",
+    "circular_number": "79/2025/TT-BTC"
+  },
+  "structure": "Complex structure (see parsed tree)",
+  "statistics": {
+    "char_count": 25629,
+    "word_count": 4957,
+    "line_count": 342,
+    "paragraph_count": 1,
+    "structure_elements": 58,
+    "table_count": 19,
+    "structure_breakdown": {
+      "khoan": 25,
+      "diem": 21,
+      "dieu": 12
+    },
+    "original_length": 25629,
+    "cleaned_length": 25597,
+    "chars_removed": 32,
+    "original_lines": 342,
+    "cleaned_lines": 342,
+    "lines_removed": 0,
+    "reduction_percentage": 0.12,
+    "total_nodes": 121,
+    "node_counts": {
+      "circular_root": 1,
+      "clause": 25,
+      "sub_point": 62,
+      "point": 21,
+      "article": 12
+    },
+    "max_depth": 7,
+    "has_chapters": false,
+    "has_sections": false,
+    "has_articles": true,
+    "has_regulations": false,
+    "has_guidance": false,
+    "total_chunks": 23,
+    "avg_chunk_size": 764.2173913043479,
+    "min_chunk_size": 111,
+    "max_chunk_size": 6743
+  },
+  "processed_at": "2025-10-30T17:37:57.298777"
+}

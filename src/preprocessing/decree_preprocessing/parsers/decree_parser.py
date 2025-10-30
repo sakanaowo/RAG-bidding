@@ -15,29 +15,22 @@ from ...base.base_parser import BaseParser, StructureNode
 class DecreeParser(BaseParser):
     """
     Parser cho Nghị định (Decree documents)
-    
+
     Simplified hierarchy:
     - Chương (Chapter)
     - Điều (Article)
     - Khoản (Clause)
     - Điểm (Point)
     """
-    
+
     # Regex patterns for decree structure
     PATTERNS = {
         "chuong": re.compile(
-            r"^(CHƯƠNG|Chương)\s+([IVXLCDM]+|[0-9]+)[:\s.]?\s*(.*?)$",
-            re.IGNORECASE
+            r"^(CHƯƠNG|Chương)\s+([IVXLCDM]+|[0-9]+)[:\s.]?\s*(.*?)$", re.IGNORECASE
         ),
-        "dieu": re.compile(
-            r"^Điều\s+(\d+[a-z]?)[:\s.]?\s*(.*?)$"
-        ),
-        "khoan": re.compile(
-            r"^(\d+)\.\s+(.*?)$"
-        ),
-        "diem": re.compile(
-            r"^([a-zđ])\)\s+(.*?)$"
-        ),
+        "dieu": re.compile(r"^Điều\s+(\d+[a-z]?)[:\s.]?\s*(.*?)$"),
+        "khoan": re.compile(r"^(\d+)\.\s+(.*?)$"),
+        "diem": re.compile(r"^([a-zđ])\)\s+(.*?)$"),
     }
 
     def __init__(self):
@@ -48,16 +41,16 @@ class DecreeParser(BaseParser):
     def parse(self, text: str, metadata: dict = None) -> StructureNode:
         """
         Parse decree text into hierarchical structure
-        
+
         Args:
             text: Full decree text
             metadata: Optional metadata từ extractor
-            
+
         Returns:
             Root StructureNode với decree hierarchy
         """
-        lines = text.split('\n')
-        
+        lines = text.split("\n")
+
         # Create root node
         doc_title = metadata.get("title", "Nghị định") if metadata else "Nghị định"
         root = StructureNode(
@@ -67,26 +60,26 @@ class DecreeParser(BaseParser):
             title=doc_title,
             content="",
         )
-        
+
         # Parse hierarchy
         current_chuong = None
         current_dieu = None
         current_khoan = None
-        
+
         pending_content = []  # Nội dung chờ gán cho node
-        
+
         for line in lines:
             line = line.strip()
             if not line:
                 continue
-            
+
             # Check for Chương
             if match := self.PATTERNS["chuong"].match(line):
                 # Save pending content to previous node
                 if current_dieu:
                     current_dieu.content += "\n".join(pending_content)
                     pending_content = []
-                
+
                 current_chuong = StructureNode(
                     type="chuong",
                     level="chuong",
@@ -98,14 +91,14 @@ class DecreeParser(BaseParser):
                 current_dieu = None
                 current_khoan = None
                 continue
-            
+
             # Check for Điều
             if match := self.PATTERNS["dieu"].match(line):
                 # Save pending content
                 if current_dieu:
                     current_dieu.content += "\n".join(pending_content)
                     pending_content = []
-                
+
                 parent = current_chuong if current_chuong else root
                 current_dieu = StructureNode(
                     type="dieu",
@@ -117,7 +110,7 @@ class DecreeParser(BaseParser):
                 parent.children.append(current_dieu)
                 current_khoan = None
                 continue
-            
+
             # Check for Khoản
             if match := self.PATTERNS["khoan"].match(line):
                 # Save pending content
@@ -126,7 +119,7 @@ class DecreeParser(BaseParser):
                 elif current_dieu:
                     current_dieu.content += "\n".join(pending_content)
                 pending_content = []
-                
+
                 if current_dieu:
                     current_khoan = StructureNode(
                         type="khoan",
@@ -137,7 +130,7 @@ class DecreeParser(BaseParser):
                     )
                     current_dieu.children.append(current_khoan)
                 continue
-            
+
             # Check for Điểm
             if match := self.PATTERNS["diem"].match(line):
                 if current_khoan:
@@ -150,29 +143,29 @@ class DecreeParser(BaseParser):
                     )
                     current_khoan.children.append(diem_node)
                 continue
-            
+
             # Regular content
             pending_content.append(line)
-        
+
         # Save final pending content
         if current_khoan:
             current_khoan.content += "\n".join(pending_content)
         elif current_dieu:
             current_dieu.content += "\n".join(pending_content)
-        
+
         self.structure_tree = root
         return root
 
     def get_hierarchy_path(self, node: StructureNode) -> str:
         """
         Get full hierarchy path for a node
-        
+
         Example: "Chương I > Điều 5 > Khoản 2"
         """
         # Note: StructureNode doesn't have parent, so this is simplified
         # In production, you'd need to track parent during parsing
         path_parts = []
-        
+
         if node.type == "chuong":
             path_parts.append(f"Chương {node.number}")
         elif node.type == "dieu":
@@ -181,33 +174,33 @@ class DecreeParser(BaseParser):
             path_parts.append(f"Khoản {node.number}")
         elif node.type == "diem":
             path_parts.append(f"Điểm {node.number}")
-        
+
         return " > ".join(path_parts)
 
     def validate_structure(self) -> bool:
         """
         Validate decree structure
-        
+
         Returns:
             True if structure is valid
         """
         if not self.structure_tree:
             return False
-        
+
         # Check for at least one Điều
         def has_dieu(node):
             if node.type == "dieu":
                 return True
             return any(has_dieu(child) for child in node.children)
-        
+
         return has_dieu(self.structure_tree)
 
     def get_structure_levels(self) -> List[str]:
         """
         Required by BaseParser
-        
+
         Get supported structure levels for decrees
-        
+
         Returns:
             List of structure levels
         """

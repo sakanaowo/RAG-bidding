@@ -66,10 +66,10 @@ def main():
             print(
                 f"   Avg chunk size: {results['statistics']['chunking']['avg_chunk_size']:.0f} chars"
             )
-            
+
             # Display integrity report if available
-            if 'integrity_report' in results:
-                report = results['integrity_report']
+            if "integrity_report" in results:
+                report = results["integrity_report"]
                 print(f"\n🔍 Data Integrity:")
                 print(f"   Coverage: {report.coverage_percentage:.1f}%")
                 print(f"   Status: {'✅ PASS' if report.is_valid else '⚠️ WARNINGS'}")
@@ -77,7 +77,7 @@ def main():
                     print(f"   Warnings: {len(report.warnings)}")
                 if report.errors:
                     print(f"   Errors: {len(report.errors)}")
-            
+
             print(f"   💾 Outputs: {output_dir}/{docx_file.stem}_*")
 
         except Exception as e:

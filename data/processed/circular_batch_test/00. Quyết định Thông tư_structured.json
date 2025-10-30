@@ -1,0 +1,55 @@
+{
+  "metadata": {
+    "filename": "00. Quyết định Thông tư.docx",
+    "file_path": "/home/sakana/Code/RAG-bidding/data/raw/Thong tu/00. Quyết định Thông tư.docx",
+    "file_size": 53908,
+    "source": "thuvienphapluat.vn",
+    "title": "BỘ KẾ HOẠCH VÀ ĐẦU TƯ",
+    "author": "PC9",
+    "created_date": "2025-08-06T07:03:00+00:00",
+    "modified_date": "2025-08-11T09:01:00+00:00",
+    "circular_number": "22/2023/QH"
+  },
+  "structure": "Complex structure (see parsed tree)",
+  "statistics": {
+    "char_count": 14737,
+    "word_count": 3300,
+    "line_count": 86,
+    "paragraph_count": 1,
+    "structure_elements": 64,
+    "table_count": 2,
+    "structure_breakdown": {
+      "thong_tu": 1,
+      "dieu": 6,
+      "khoan": 26,
+      "diem": 31
+    },
+    "original_length": 14737,
+    "cleaned_length": 14736,
+    "chars_removed": 1,
+    "original_lines": 86,
+    "cleaned_lines": 86,
+    "lines_removed": 0,
+    "reduction_percentage": 0.01,
+    "total_nodes": 69,
+    "node_counts": {
+      "circular_root": 1,
+      "circular": 1,
+      "article": 6,
+      "clause": 26,
+      "point": 31,
+      "sub_point": 4
+    },
+    "max_depth": 7,
+    "has_chapters": false,
+    "has_sections": false,
+    "has_articles": true,
+    "has_regulations": false,
+    "has_guidance": false,
+    "total_chunks": 17,
+    "avg_chunk_size": 856.8235294117648,
+    "min_chunk_size": 119,
+    "max_chunk_size": 1840
+  },
+  "processed_at": "2025-10-30T17:37:57.317732"
+}

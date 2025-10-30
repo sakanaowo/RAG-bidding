@@ -1,0 +1,26 @@
+MAIN CIRCULAR PREPROCESSING REPORT
+==================================================
+
+Processed: 2025-10-30 17:45:42
+Total main files: 2
+Successful: 2
+Failed: 0
+
+MAIN FILE RESULTS:
+------------------------------
+
+File: 0. Lời văn thông tư.docx
+Status: success_with_warnings
+Chunks: 103
+Characters: 66,771
+Coverage: 115.3%
+Processing time: 0.1s
+Warnings:
+  - Minor content loss: 1 markers missing
+
+File: 00. Quyết định Thông tư.docx
+Status: success_with_warnings
+Chunks: 17
+Characters: 14,736
+Coverage: 98.8%
+Processing time: 0.0s

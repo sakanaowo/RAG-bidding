@@ -256,13 +256,16 @@ class DataIntegrityValidator:
 
         # Use hierarchy schema for validation
         try:
-            from src.preprocessing.validators.hierarchy_schemas import validate_hierarchy_completeness
+            from src.preprocessing.validators.hierarchy_schemas import (
+                validate_hierarchy_completeness,
+            )
+
             chunks_with_hierarchy, issues = validate_hierarchy_completeness(chunks)
-            
+
             # Add schema-specific issues as warnings
             for issue in issues[:3]:  # Limit to first 3
                 self.warnings.append(f"Hierarchy: {issue}")
-            
+
         except ImportError:
             # Fallback to original method if schema not available
             chunks_with_hierarchy = sum(
@@ -286,34 +289,45 @@ class DataIntegrityValidator:
         """Check if all chunks have complete metadata"""
         if not chunks:
             return True
-        
+
         # Detect schema based on fields present
         sample_chunk = chunks[0]
-        
+
         # Core fields that should exist in both schemas
-        core_fields = ['chunk_id']
-        
+        core_fields = ["chunk_id"]
+
         # Schema-specific fields
-        if 'doc_id' in sample_chunk:
+        if "doc_id" in sample_chunk:
             # Decree schema
             required_fields = core_fields + [
-                'content', 'doc_id', 'doc_type', 'doc_number',
-                'doc_year', 'doc_name', 'status', 'chunk_index', 'total_chunks'
+                "content",
+                "doc_id",
+                "doc_type",
+                "doc_number",
+                "doc_year",
+                "doc_name",
+                "status",
+                "chunk_index",
+                "total_chunks",
             ]
         else:
             # Law schema (or other)
             required_fields = core_fields + [
-                'chunk_content', 'source', 'title', 'chunk_level', 
-                'status', 'char_count'
+                "chunk_content",
+                "source",
+                "title",
+                "chunk_level",
+                "status",
+                "char_count",
             ]
-        
+
         incomplete_chunks = []
         for i, chunk in enumerate(chunks):
             # Check if field exists and is not None (but allow 0, False, empty string)
             missing = [f for f in required_fields if f not in chunk or chunk[f] is None]
             if missing:
                 incomplete_chunks.append((i, missing))
-        
+
         if incomplete_chunks:
             # Only error if more than 10% have issues
             if len(incomplete_chunks) > len(chunks) * 0.1:
@@ -325,7 +339,7 @@ class DataIntegrityValidator:
                 self.warnings.append(
                     f"Found {len(incomplete_chunks)} chunks with incomplete metadata"
                 )
-        
+
         return True
 
     def _check_chunk_quality(self, chunks: List[Dict]) -> bool:
