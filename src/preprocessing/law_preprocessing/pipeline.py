@@ -17,6 +17,7 @@ from .extractors.docx_extractor import DocxExtractor, ExtractedContent
 from .cleaners.legal_cleaner import LegalDocumentCleaner
 from .parsers.bidding_law_parser import BiddingLawParser, StructureNode
 from .metadata_mapper import LawMetadataMapper
+from .validators.integrity_validator import DataIntegrityValidator
 
 # Chunking system (from parsers for now)
 from ..parsers.optimal_chunker import OptimalLegalChunker
@@ -40,6 +41,7 @@ class LawPreprocessingPipeline(BaseDocumentPipeline):
         max_chunk_size: int = 2000,
         min_chunk_size: int = 300,
         aggressive_clean: bool = False,
+        validate_integrity: bool = True,  # Enable integrity validation
     ):
         """
         Initialize pipeline
@@ -48,6 +50,7 @@ class LawPreprocessingPipeline(BaseDocumentPipeline):
             max_chunk_size: Maximum chunk size in characters
             min_chunk_size: Minimum chunk size in characters
             aggressive_clean: Use aggressive cleaning
+            validate_integrity: Enable data integrity checks
         """
         self.extractor = DocxExtractor()
         self.cleaner = LegalDocumentCleaner()
@@ -56,9 +59,19 @@ class LawPreprocessingPipeline(BaseDocumentPipeline):
             max_chunk_size=max_chunk_size, min_chunk_size=min_chunk_size
         )
         self.mapper = LawMetadataMapper()
+        
+        # Data integrity validator
+        self.validate_integrity = validate_integrity
+        if validate_integrity:
+            self.integrity_validator = DataIntegrityValidator(
+                min_coverage=0.75,  # Minimum 75% coverage
+                max_duplication=0.05,  # Max 5% duplication
+            )
 
         print(f"✅ LawPreprocessingPipeline initialized")
         print(f"   📏 Chunk size: {min_chunk_size}-{max_chunk_size} chars")
+        if validate_integrity:
+            print(f"   🔍 Integrity validation: ENABLED")
 
     def process_single_file(
         self, file_path: str | Path, output_dir: str | Path
@@ -130,6 +143,44 @@ class LawPreprocessingPipeline(BaseDocumentPipeline):
         print("\n🗄️ Step 6: Mapping to DB schema...")
         db_chunks = self._map_chunks_to_db_schema(chunks, extracted.metadata)
         print(f"   ✅ Mapped {len(db_chunks)} chunks to DB schema (25 fields)")
+        
+        # Step 6.5: Data Integrity Check
+        if self.validate_integrity and db_chunks:
+            print("\n🔍 Step 6.5: Checking data integrity...")
+            
+            # Add chunk_content to db_chunks for validation
+            db_chunks_with_content = []
+            for i, db_chunk in enumerate(db_chunks):
+                chunk_with_content = db_chunk.copy()
+                chunk_with_content['chunk_content'] = chunks[i].text
+                db_chunks_with_content.append(chunk_with_content)
+            
+            integrity_report = self.integrity_validator.validate(
+                original_text=cleaned_text,
+                processed_chunks=db_chunks_with_content,
+                structure_tree=root_node,
+                file_metadata=extracted.metadata,
+            )
+            
+            print(f"   Coverage: {integrity_report.coverage_percentage:.1f}%")
+            print(f"   Checks: {integrity_report.passed_checks}/{integrity_report.total_checks} passed")
+            
+            if integrity_report.warnings:
+                print(f"   ⚠️  {len(integrity_report.warnings)} warnings")
+                for warning in integrity_report.warnings[:3]:
+                    print(f"      - {warning}")
+            
+            if integrity_report.errors:
+                print(f"   ❌ {len(integrity_report.errors)} errors")
+                for error in integrity_report.errors[:3]:
+                    print(f"      - {error}")
+            
+            if not integrity_report.is_valid:
+                print(f"\n⚠️  WARNING: Data integrity issues detected!")
+                # Store report in results for later review
+                results_integrity_report = integrity_report
+            else:
+                results_integrity_report = integrity_report
 
         # Step 7: Export outputs
         results = {
@@ -145,6 +196,10 @@ class LawPreprocessingPipeline(BaseDocumentPipeline):
                 "chunking": chunk_stats,
             },
         }
+        
+        # Add integrity report if validation enabled
+        if self.validate_integrity and 'results_integrity_report' in locals():
+            results["integrity_report"] = results_integrity_report
 
         print("\n💾 Step 7: Exporting outputs...")
         self._export_outputs(results, output_dir)

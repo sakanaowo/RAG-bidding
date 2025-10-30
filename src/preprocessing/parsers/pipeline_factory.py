@@ -279,9 +279,13 @@ class PipelineFactory:
 
     def _create_decree_pipeline(self, **kwargs):
         """Create pipeline cho Nghị định"""
-        # TODO: Implement DecreePipeline
-        print("⚠️ Decree pipeline not implemented yet, using Law pipeline")
-        return self._create_law_pipeline(**kwargs)
+        from ..decree_preprocessing import DecreePreprocessingPipeline
+
+        return DecreePreprocessingPipeline(
+            chunk_size=kwargs.get("chunk_size", 512),
+            chunk_overlap=kwargs.get("chunk_overlap", 50),
+            output_dir=kwargs.get("output_dir", None),
+        )
 
     def _create_circular_pipeline(self, **kwargs):
         """Create pipeline cho Thông tư"""

@@ -32,7 +32,10 @@ def main():
     # Initialize pipeline
     print("\n🔧 Initializing pipeline...")
     pipeline = LawPreprocessingPipeline(
-        max_chunk_size=2000, min_chunk_size=300, aggressive_clean=False
+        max_chunk_size=2000,
+        min_chunk_size=300,
+        aggressive_clean=False,
+        validate_integrity=True,  # Enable integrity validation
     )
 
     # Process each file
@@ -63,6 +66,18 @@ def main():
             print(
                 f"   Avg chunk size: {results['statistics']['chunking']['avg_chunk_size']:.0f} chars"
             )
+            
+            # Display integrity report if available
+            if 'integrity_report' in results:
+                report = results['integrity_report']
+                print(f"\n🔍 Data Integrity:")
+                print(f"   Coverage: {report.coverage_percentage:.1f}%")
+                print(f"   Status: {'✅ PASS' if report.is_valid else '⚠️ WARNINGS'}")
+                if report.warnings:
+                    print(f"   Warnings: {len(report.warnings)}")
+                if report.errors:
+                    print(f"   Errors: {len(report.errors)}")
+            
             print(f"   💾 Outputs: {output_dir}/{docx_file.stem}_*")
 
         except Exception as e:
