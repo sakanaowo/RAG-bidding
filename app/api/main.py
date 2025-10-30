@@ -95,3 +95,10 @@ def get_system_stats():
             "chunk_overlap": settings.chunk_overlap,
         },
     }
+
+
+# TODO: remove non-relative data
+
+# TODO: endpoint to toggle status
+
+# TODO: endpoint to upsert data
