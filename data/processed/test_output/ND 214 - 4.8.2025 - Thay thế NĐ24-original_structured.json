@@ -1,0 +1,43 @@
+{
+  "metadata": {
+    "filename": "ND 214 - 4.8.2025 - Thay thế NĐ24-original.docx",
+    "file_path": "/home/sakana/Code/RAG-bidding/data/raw/Nghi dinh/ND 214 - 4.8.2025 - Thay thế NĐ24-original.docx",
+    "title": "ND 214 - 4.8.2025 - Thay thế NĐ24-original",
+    "author": "Mrs. Nhung",
+    "subject": "",
+    "created": "2025-08-07T17:36:00+00:00",
+    "modified": "2025-10-11T10:16:00+00:00",
+    "doc_type": "unknown",
+    "doc_number": "",
+    "doc_year": ""
+  },
+  "structure": "Complex structure (see parsed tree)",
+  "statistics": {
+    "extraction": {
+      "char_count": 425702,
+      "line_count": 2188,
+      "word_count": 95715,
+      "table_count": 1,
+      "phan_count": 0,
+      "chuong_count": 13,
+      "muc_count": 18,
+      "dieu_count": 146
+    },
+    "structure": {
+      "phan_count": 0,
+      "chuong_count": 0,
+      "muc_count": 0,
+      "dieu_count": 0,
+      "khoan_count": 0,
+      "diem_count": 0,
+      "total_nodes": 1741
+    },
+    "chunking": {
+      "total_chunks": 494,
+      "avg_chunk_size": 935.1153846153846,
+      "min_chunk_size": 110,
+      "max_chunk_size": 6502
+    }
+  },
+  "processed_at": "2025-10-30T15:56:53.998376"
+}

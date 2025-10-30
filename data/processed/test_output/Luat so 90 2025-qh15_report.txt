@@ -1,0 +1,55 @@
+================================================================================
+LAW PREPROCESSING REPORT
+================================================================================
+
+File: data/raw/Luat chinh/Luat so 90 2025-qh15.docx
+Processed: 2025-10-30 15:56:53
+
+METADATA:
+----------------------------------------
+  filename: Luat so 90 2025-qh15.docx
+  file_path: /home/sakana/Code/RAG-bidding/data/raw/Luat chinh/Luat so 90 2025-qh15.docx
+  title: Luat so 90 2025-qh15
+  author: Hòa Phạm
+  subject: 
+  created: 2025-07-22T07:06:00+00:00
+  modified: 2025-07-22T09:19:00+00:00
+  doc_type: unknown
+  doc_number: 
+  doc_year: 
+
+EXTRACTION STATISTICS:
+----------------------------------------
+  char_count: 141,323
+  line_count: 1,014
+  word_count: 31,850
+  table_count: 3
+  phan_count: 0
+  chuong_count: 0
+  muc_count: 0
+  dieu_count: 11
+
+STRUCTURE STATISTICS:
+----------------------------------------
+  phan_count: 0
+  chuong_count: 0
+  muc_count: 0
+  dieu_count: 0
+  khoan_count: 0
+  diem_count: 0
+  total_nodes: 703
+
+CHUNKING STATISTICS:
+----------------------------------------
+  total_chunks: 238
+  avg_chunk_size: 652
+  min_chunk_size: 71
+  max_chunk_size: 4,232
+
+DB SCHEMA VALIDATION:
+----------------------------------------
+  Total chunks mapped: 238
+  Fields per chunk: 25
+  Status: unknown
+
+================================================================================
