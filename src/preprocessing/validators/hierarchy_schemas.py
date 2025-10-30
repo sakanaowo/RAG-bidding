@@ -94,47 +94,52 @@ class LawHierarchySchema(HierarchySchema):
 class CircularHierarchySchema(HierarchySchema):
     """
     Hierarchy schema for Circulars (Thông tư)
-    
+
     Structure: Chương > Mục > Quy định/Hướng dẫn > Điều > Khoản > Điểm
-    Field name: 'hierarchy'  
+    Field name: 'hierarchy'
     Format: "THÔNG TƯ > Chương 1 > Quy định 2 > Khoản 1"
     """
-    
+
     def __init__(self):
         super().__init__(DocumentType.CIRCULAR)
-    
+
     def get_hierarchy_fields(self) -> List[str]:
-        return ['hierarchy']
-    
+        return ["hierarchy"]
+
     def get_structure_fields(self) -> List[str]:
-        return ['section', 'chuong', 'regulation', 'guidance', 'dieu', 'khoan']
-    
+        return ["section", "chuong", "regulation", "guidance", "dieu", "khoan"]
+
     def extract_hierarchy_path(self, chunk: Dict[str, Any]) -> Optional[str]:
         """Extract hierarchy from circular chunk metadata"""
         # Circular chunks store hierarchy in metadata sub-dict
-        if isinstance(chunk.get('metadata'), dict):
-            return chunk['metadata'].get('hierarchy')
-        
+        if isinstance(chunk.get("metadata"), dict):
+            return chunk["metadata"].get("hierarchy")
+
         # Or directly in chunk
-        return chunk.get('hierarchy')
-    
+        return chunk.get("hierarchy")
+
     def validate_hierarchy(self, chunks: List[Dict[str, Any]]) -> tuple[int, List[str]]:
         """Validate circular hierarchy completeness"""
         issues = []
         chunks_with_hierarchy = 0
-        
+
         for i, chunk in enumerate(chunks):
             hierarchy = self.extract_hierarchy_path(chunk)
-            
+
             if hierarchy and hierarchy.strip():
                 chunks_with_hierarchy += 1
-                
+
                 # Validate format: should contain "THÔNG TƯ" or circular structure
-                if not any(term in hierarchy for term in ["THÔNG TƯ", "Quy định", "Hướng dẫn", "Điều"]):
-                    issues.append(f"Chunk {i}: Invalid circular hierarchy format '{hierarchy}'")
+                if not any(
+                    term in hierarchy
+                    for term in ["THÔNG TƯ", "Quy định", "Hướng dẫn", "Điều"]
+                ):
+                    issues.append(
+                        f"Chunk {i}: Invalid circular hierarchy format '{hierarchy}'"
+                    )
             else:
                 issues.append(f"Chunk {i}: Missing hierarchy path")
-        
+
         return chunks_with_hierarchy, issues
 
 
@@ -260,24 +265,28 @@ class HierarchySchemaFactory:
                 return DocumentType.LAW
 
         # Check metadata sub-dict
-        if isinstance(chunk.get('metadata'), dict):
-            metadata = chunk['metadata']
-            if source := metadata.get('source_file', ''):
-                if 'ND' in source or 'Nghi dinh' in source:
+        if isinstance(chunk.get("metadata"), dict):
+            metadata = chunk["metadata"]
+            if source := metadata.get("source_file", ""):
+                if "ND" in source or "Nghi dinh" in source:
                     return DocumentType.DECREE
-                elif 'Luat' in source or 'Law' in source:
+                elif "Luat" in source or "Law" in source:
                     return DocumentType.LAW
-                elif 'TT' in source or 'Thong tu' in source or 'thông tư' in source.lower():
+                elif (
+                    "TT" in source
+                    or "Thong tu" in source
+                    or "thông tư" in source.lower()
+                ):
                     return DocumentType.CIRCULAR
 
         # Check content patterns
-        content = chunk.get('content', '') or chunk.get('text', '')
+        content = chunk.get("content", "") or chunk.get("text", "")
         if content:
-            if 'Nghị định' in content:
+            if "Nghị định" in content:
                 return DocumentType.DECREE
-            elif 'Luật' in content:
+            elif "Luật" in content:
                 return DocumentType.LAW
-            elif 'Thông tư' in content or 'THÔNG TƯ' in content:
+            elif "Thông tư" in content or "THÔNG TƯ" in content:
                 return DocumentType.CIRCULAR
 
         return DocumentType.UNKNOWN

@@ -44,19 +44,23 @@ class CircularMetadataMapper:
         metadata["title"] = source_metadata.get("title", "")
 
         # === STRUCTURE INFO ===
-        metadata["chunk_level"] = chunk.level  # 'regulation', 'guidance', 'article', 'clause', 'point'
+        metadata["chunk_level"] = (
+            chunk.level
+        )  # 'regulation', 'guidance', 'article', 'clause', 'point'
         metadata["section"] = chunk.metadata.get("section", "")  # Chương, Mục
         metadata["chuong"] = chunk.metadata.get("chuong", "")
         metadata["dieu"] = chunk.metadata.get("dieu", "")
-        metadata["khoan"] = chunk.metadata.get("khoan", 0) 
+        metadata["khoan"] = chunk.metadata.get("khoan", 0)
         metadata["parent_dieu"] = chunk.metadata.get("parent_dieu", "")
-        
+
         # Circular-specific structure
         metadata["regulation"] = chunk.metadata.get("regulation", "")
         metadata["guidance"] = chunk.metadata.get("guidance", "")
 
         # Hierarchy path (e.g., "THÔNG TƯ > Chương 1 > Quy định 2 > Khoản 1")
-        metadata["hierarchy"] = CircularMetadataMapper._build_hierarchy_path(chunk.metadata)
+        metadata["hierarchy"] = CircularMetadataMapper._build_hierarchy_path(
+            chunk.metadata
+        )
 
         # === FLAGS ===
         metadata["has_khoan"] = chunk.metadata.get("has_khoan", False)
@@ -69,7 +73,7 @@ class CircularMetadataMapper:
             "chunking_strategy", "optimal_hybrid"
         )
         metadata["char_count"] = len(chunk.text)
-        metadata["token_count"] = chunk.metadata.get("token_count", 0) 
+        metadata["token_count"] = chunk.metadata.get("token_count", 0)
         metadata["token_ratio"] = chunk.metadata.get("token_ratio", 0.0)
         metadata["is_within_token_limit"] = (
             metadata["token_count"] <= 2000
@@ -83,7 +87,7 @@ class CircularMetadataMapper:
             chunk, metadata
         )
 
-        # === STATUS & VALIDITY ===  
+        # === STATUS & VALIDITY ===
         year = CircularMetadataMapper._extract_year_from_number(
             source_metadata.get("circular_number", "")
         )
@@ -183,7 +187,7 @@ class CircularMetadataMapper:
 
         # Content quality flags
         text = chunk.text.lower()
-        
+
         # Check for incomplete content
         if text.endswith(("...", "…", ".")):
             flags.append("potentially_incomplete")
@@ -212,21 +216,21 @@ class CircularMetadataMapper:
             return 0.0
 
         # Simple readability based on sentence and word complexity
-        sentences = text.split('.')
+        sentences = text.split(".")
         words = text.split()
-        
+
         if not sentences or not words:
             return 0.0
 
         avg_words_per_sentence = len(words) / len(sentences)
-        
+
         # Circular documents tend to be more complex
         # Score 0-1 where 1 is most readable
         if avg_words_per_sentence <= 15:
             return 1.0
         elif avg_words_per_sentence <= 25:
             return 0.8
-        elif avg_words_per_sentence <= 35: 
+        elif avg_words_per_sentence <= 35:
             return 0.6
         else:
             return 0.4
@@ -241,7 +245,7 @@ class CircularMetadataMapper:
         if any(term in text_lower for term in ["thi hành", "thực hiện", "triển khai"]):
             tags.append("implementation")
 
-        # Guidance tags  
+        # Guidance tags
         if any(term in text_lower for term in ["hướng dẫn", "chỉ dẫn", "hướng dẫn"]):
             tags.append("guidance")
 
@@ -258,7 +262,10 @@ class CircularMetadataMapper:
             tags.append("procedure")
 
         # Timeline tags
-        if any(term in text_lower for term in ["ngày", "tháng", "năm", "thời hạn", "thời gian"]):
+        if any(
+            term in text_lower
+            for term in ["ngày", "tháng", "năm", "thời hạn", "thời gian"]
+        ):
             tags.append("timeline")
 
         # Bidding-specific tags (since this is a bidding system)

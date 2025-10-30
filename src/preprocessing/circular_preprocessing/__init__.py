@@ -6,7 +6,7 @@ Circulars are administrative documents issued by ministries and government agenc
 to provide detailed implementation guidance for laws and decrees.
 
 Typical structure:
-- Chương (Chapter)  
+- Chương (Chapter)
 - Mục (Section)
 - Điều (Article)
 - Khoản (Clause)
@@ -22,7 +22,7 @@ from .metadata_mapper import CircularMetadataMapper
 __all__ = [
     "CircularPreprocessingPipeline",
     "CircularExtractor",
-    "ExtractedContent", 
+    "ExtractedContent",
     "CircularCleaner",
     "CircularParser",
     "StructureNode",

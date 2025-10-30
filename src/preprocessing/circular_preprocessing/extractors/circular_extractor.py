@@ -19,6 +19,7 @@ from docx.oxml.table import CT_Tbl
 @dataclass
 class ExtractedContent:
     """Content extracted from Circular DOCX"""
+
     text: str
     metadata: Dict
     structure: List[Dict]  # Hierarchical structure
@@ -61,11 +62,11 @@ class CircularExtractor:
             ExtractedContent with text, metadata, structure
         """
         docx_path = Path(docx_path)
-        
+
         if not docx_path.exists():
             raise FileNotFoundError(f"File not found: {docx_path}")
-        
-        if not docx_path.suffix.lower() == '.docx':
+
+        if not docx_path.suffix.lower() == ".docx":
             raise ValueError(f"Not a DOCX file: {docx_path}")
 
         try:
@@ -77,7 +78,7 @@ class CircularExtractor:
         text_parts = []
         structure = []
         tables = []
-        
+
         for element in document.element.body:
             if isinstance(element, CT_P):
                 paragraph = Paragraph(element, document)
@@ -86,19 +87,21 @@ class CircularExtractor:
                     text_parts.append(text)
                     if struct_info:
                         structure.append(struct_info)
-                        
+
             elif isinstance(element, CT_Tbl):
                 table = Table(element, document)
                 table_data = self._extract_table(table)
                 if table_data:
                     tables.append(table_data)
-                    text_parts.append(f"[TABLE: {table_data.get('summary', 'Table content')}]")
+                    text_parts.append(
+                        f"[TABLE: {table_data.get('summary', 'Table content')}]"
+                    )
 
         full_text = "\n".join(text_parts)
-        
+
         # Extract metadata
         metadata = self._extract_metadata(document, docx_path, full_text)
-        
+
         # Calculate statistics
         statistics = self._calculate_statistics(full_text, structure, tables)
 
@@ -107,7 +110,7 @@ class CircularExtractor:
             metadata=metadata,
             structure=structure,
             tables=tables,
-            statistics=statistics
+            statistics=statistics,
         )
 
     def _extract_paragraph(self, paragraph: Paragraph) -> Tuple[str, Optional[Dict]]:
@@ -125,7 +128,7 @@ class CircularExtractor:
                     "type": struct_type,
                     "text": text,
                     "match": match.groups() if match.groups() else (text,),
-                    "level": self._get_structure_level(struct_type)
+                    "level": self._get_structure_level(struct_type),
                 }
                 break
 
@@ -152,7 +155,7 @@ class CircularExtractor:
             "rows": rows_data,
             "row_count": len(rows_data),
             "col_count": len(rows_data[0]) if rows_data else 0,
-            "summary": f"{len(rows_data)} rows × {len(rows_data[0]) if rows_data else 0} cols"
+            "summary": f"{len(rows_data)} rows × {len(rows_data[0]) if rows_data else 0} cols",
         }
 
     def _extract_metadata(self, document: Document, file_path: Path, text: str) -> Dict:
@@ -186,10 +189,13 @@ class CircularExtractor:
 
     def _extract_title_from_content(self, text: str) -> Optional[str]:
         """Extract title from document content"""
-        lines = text.split('\n')
+        lines = text.split("\n")
         for line in lines[:10]:  # Check first 10 lines
             line = line.strip()
-            if len(line) > 10 and any(keyword in line.upper() for keyword in ["THÔNG TƯ", "QUY ĐỊNH", "HƯỚNG DẪN"]):
+            if len(line) > 10 and any(
+                keyword in line.upper()
+                for keyword in ["THÔNG TƯ", "QUY ĐỊNH", "HƯỚNG DẪN"]
+            ):
                 return line
         return None
 
@@ -203,7 +209,7 @@ class CircularExtractor:
             r"THÔNG TƯ\s*(\d+/\d+/[A-Z-]+)",
             r"số\s*(\d+/\d+/[A-Z-]+)",
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
@@ -218,7 +224,7 @@ class CircularExtractor:
             r"TỔNG CỤC\s+([A-ZÀ-Ỹ\s]+)",
             r"CỤC\s+([A-ZÀ-Ỹ\s]+)",
         ]
-        
+
         for pattern in agency_patterns:
             match = re.search(pattern, text)
             if match:
@@ -241,13 +247,15 @@ class CircularExtractor:
         }
         return levels.get(struct_type, 999)
 
-    def _calculate_statistics(self, text: str, structure: List[Dict], tables: List[Dict]) -> Dict:
+    def _calculate_statistics(
+        self, text: str, structure: List[Dict], tables: List[Dict]
+    ) -> Dict:
         """Calculate extraction statistics"""
         return {
             "char_count": len(text),
             "word_count": len(text.split()),
-            "line_count": len(text.split('\n')),
-            "paragraph_count": len([p for p in text.split('\n\n') if p.strip()]),
+            "line_count": len(text.split("\n")),
+            "paragraph_count": len([p for p in text.split("\n\n") if p.strip()]),
             "structure_elements": len(structure),
             "table_count": len(tables),
             "structure_breakdown": self._count_structure_types(structure),
@@ -265,31 +273,31 @@ class CircularExtractor:
         """Export extracted content to Markdown format"""
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         md_lines = []
-        
+
         # Header
         title = extracted.metadata.get("title", "Circular Document")
         md_lines.append(f"# {title}")
         md_lines.append("")
-        
+
         # Metadata
         md_lines.append("## Metadata")
         for key, value in extracted.metadata.items():
             if key != "title":
                 md_lines.append(f"- **{key}**: {value}")
         md_lines.append("")
-        
+
         # Statistics
         md_lines.append("## Statistics")
         for key, value in extracted.statistics.items():
             md_lines.append(f"- **{key}**: {value}")
         md_lines.append("")
-        
+
         # Content
         md_lines.append("## Content")
         md_lines.append(extracted.text)
-        
+
         # Tables (if any)
         if extracted.tables:
             md_lines.append("\n## Tables")
@@ -302,5 +310,5 @@ class CircularExtractor:
                     md_lines.append("| " + " | ".join(["---"] * len(rows[0])) + " |")
                     for row in rows[1:]:
                         md_lines.append("| " + " | ".join(row) + " |")
-        
+
         output_path.write_text("\n".join(md_lines), encoding="utf-8")

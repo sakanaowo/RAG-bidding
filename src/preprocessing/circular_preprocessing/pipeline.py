@@ -29,7 +29,7 @@ class CircularPreprocessingPipeline:
         self,
         chunk_size_range: tuple[int, int] = (300, 2000),
         validate_integrity: bool = False,
-        chunking_strategy: str = "optimal_hybrid"
+        chunking_strategy: str = "optimal_hybrid",
     ):
         """
         Initialize Circular preprocessing pipeline
@@ -50,14 +50,17 @@ class CircularPreprocessingPipeline:
         self.chunker = OptimalLegalChunker(
             min_chunk_size=chunk_size_range[0],
             max_chunk_size=chunk_size_range[1],
-            overlap_size=150
+            overlap_size=150,
         )
         self.mapper = CircularMetadataMapper()
 
         # Initialize integrity validator if needed
         if self.validate_integrity:
             try:
-                from src.preprocessing.law_preprocessing.validators.integrity_validator import DataIntegrityValidator
+                from src.preprocessing.law_preprocessing.validators.integrity_validator import (
+                    DataIntegrityValidator,
+                )
+
                 self.integrity_validator = DataIntegrityValidator()
             except ImportError:
                 self.validate_integrity = False
@@ -80,32 +83,36 @@ class CircularPreprocessingPipeline:
 
         print(f"\n📄 Step 1: Extracting from DOCX...")
         print(f"📄 Extracting: {docx_file.name}")
-        
+
         # Step 1: Extract content
         extracted = self.extractor.extract(docx_file)
         print(f"   ✅ Extracted {len(extracted.text):,} chars")
-        if extracted.statistics.get('structure_elements', 0) > 0:
-            print(f"   ✅ Found {extracted.statistics['structure_elements']} structure elements")
+        if extracted.statistics.get("structure_elements", 0) > 0:
+            print(
+                f"   ✅ Found {extracted.statistics['structure_elements']} structure elements"
+            )
 
         # Step 2: Clean text
         print(f"\n🧹 Step 2: Cleaning text...")
         cleaned_text = self.cleaner.clean(extracted.text, aggressive=False)
         cleaning_stats = self.cleaner.get_cleaning_stats(extracted.text, cleaned_text)
         print(f"   ✅ Cleaned to {len(cleaned_text):,} chars")
-        if cleaning_stats['chars_removed'] > 0:
-            print(f"   ✅ Removed {cleaning_stats['chars_removed']:,} chars ({cleaning_stats['reduction_percentage']:.1f}%)")
+        if cleaning_stats["chars_removed"] > 0:
+            print(
+                f"   ✅ Removed {cleaning_stats['chars_removed']:,} chars ({cleaning_stats['reduction_percentage']:.1f}%)"
+            )
 
         # Step 3: Parse structure
         print(f"\n🏗️ Step 3: Parsing structure...")
         root_node = self.parser.parse(cleaned_text)
         structure_summary = self.parser.get_structure_summary(root_node)
         print(f"   ✅ Parsed structure:")
-        for struct_type, count in structure_summary['node_counts'].items():
-            if struct_type != 'circular_root' and count > 0:
+        for struct_type, count in structure_summary["node_counts"].items():
+            if struct_type != "circular_root" and count > 0:
                 print(f"      - {struct_type}_count: {count}")
         print(f"      - total_nodes: {structure_summary['total_nodes']}")
 
-        # Step 4: Prepare for chunking  
+        # Step 4: Prepare for chunking
         print(f"\n📦 Step 4: Preparing for chunking...")
         document = self._convert_to_document_format(extracted, cleaned_text, root_node)
 
@@ -138,37 +145,39 @@ class CircularPreprocessingPipeline:
         # Step 6.5: Data Integrity Check
         if self.validate_integrity and db_chunks:
             print(f"\n🔍 Step 6.5: Checking data integrity...")
-            
+
             # Add chunk_content to db_chunks for validation
             db_chunks_with_content = []
             for i, db_chunk in enumerate(db_chunks):
                 chunk_with_content = db_chunk.copy()
-                chunk_with_content['chunk_content'] = chunks[i].text
+                chunk_with_content["chunk_content"] = chunks[i].text
                 db_chunks_with_content.append(chunk_with_content)
-            
+
             integrity_report = self.integrity_validator.validate(
                 original_text=cleaned_text,
                 processed_chunks=db_chunks_with_content,
                 structure_tree=root_node,
                 file_metadata=extracted.metadata,
             )
-            
+
             print(f"   Coverage: {integrity_report.coverage_percentage:.1f}%")
-            print(f"   Checks: {integrity_report.passed_checks}/{integrity_report.total_checks} passed")
-            
+            print(
+                f"   Checks: {integrity_report.passed_checks}/{integrity_report.total_checks} passed"
+            )
+
             if integrity_report.warnings:
                 print(f"   ⚠️  {len(integrity_report.warnings)} warnings")
                 for warning in integrity_report.warnings[:3]:
                     print(f"      - {warning}")
-            
+
             if integrity_report.errors:
                 print(f"   ❌ {len(integrity_report.errors)} errors")
                 for error in integrity_report.errors[:3]:
                     print(f"      - {error}")
-            
+
             if not integrity_report.is_valid:
                 print(f"\n⚠️  WARNING: Data integrity issues detected!")
-        
+
         # Step 7: Export outputs
         print(f"\n💾 Step 7: Exporting outputs...")
         results = {
@@ -183,21 +192,27 @@ class CircularPreprocessingPipeline:
                 **cleaning_stats,
                 **structure_summary,
                 **chunk_stats,
-            }
+            },
         }
-        
-        if self.validate_integrity and 'integrity_report' in locals():
+
+        if self.validate_integrity and "integrity_report" in locals():
             results["integrity_report"] = integrity_report
 
         self._export_outputs(results, output_dir)
 
-        print(f"\n================================================================================")
+        print(
+            f"\n================================================================================"
+        )
         print(f"✅ PROCESSING COMPLETE!")
-        print(f"================================================================================")
+        print(
+            f"================================================================================"
+        )
 
         return results
 
-    def _convert_to_document_format(self, extracted: ExtractedContent, text: str, structure: StructureNode) -> Dict[str, Any]:
+    def _convert_to_document_format(
+        self, extracted: ExtractedContent, text: str, structure: StructureNode
+    ) -> Dict[str, Any]:
         """Convert extracted content to chunker-compatible format"""
         return {
             "content": text,  # OptimalLegalChunker expects 'content' field
@@ -282,12 +297,14 @@ class CircularPreprocessingPipeline:
             lines.append(f"  {key}: {value}")
 
         # Add statistics
-        lines.extend([
-            "",
-            "PROCESSING STATISTICS:",
-            "-" * 40,
-        ])
-        
+        lines.extend(
+            [
+                "",
+                "PROCESSING STATISTICS:",
+                "-" * 40,
+            ]
+        )
+
         stats = results["statistics"]
         for key, value in stats.items():
             if isinstance(value, dict):
@@ -300,20 +317,22 @@ class CircularPreprocessingPipeline:
         # Add integrity report if available
         if "integrity_report" in results:
             integrity = results["integrity_report"]
-            lines.extend([
-                "",
-                "DATA INTEGRITY:",
-                "-" * 40,
-                f"  Coverage: {integrity.coverage_percentage:.1f}%",
-                f"  Checks passed: {integrity.passed_checks}/{integrity.total_checks}",
-                f"  Status: {'✅ PASS' if integrity.is_valid else '⚠️ WARNINGS'}",
-            ])
-            
+            lines.extend(
+                [
+                    "",
+                    "DATA INTEGRITY:",
+                    "-" * 40,
+                    f"  Coverage: {integrity.coverage_percentage:.1f}%",
+                    f"  Checks passed: {integrity.passed_checks}/{integrity.total_checks}",
+                    f"  Status: {'✅ PASS' if integrity.is_valid else '⚠️ WARNINGS'}",
+                ]
+            )
+
             if integrity.warnings:
                 lines.append("  Warnings:")
                 for warning in integrity.warnings:
                     lines.append(f"    - {warning}")
-            
+
             if integrity.errors:
                 lines.append("  Errors:")
                 for error in integrity.errors:
@@ -333,5 +352,5 @@ class CircularPreprocessingPipeline:
                 "parser": type(self.parser).__name__,
                 "chunker": type(self.chunker).__name__,
                 "mapper": type(self.mapper).__name__,
-            }
+            },
         }
