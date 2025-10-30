@@ -2,8 +2,8 @@ import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Literal
-from config.logging_config import setup_logging
-from config.models import settings
+from src.config.logging_config import setup_logging
+from src.config.models import settings
 from src.embedding.store.pgvector_store import bootstrap
 from src.generation.chains.qa_chain import answer
 from src.retrieval.query_processing.query_enhancer import (

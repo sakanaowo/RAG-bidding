@@ -14,7 +14,7 @@ from src.generation.prompts.qa_prompts import (
     USER_TEMPLATE,
 )
 from src.retrieval.retrievers import create_retriever
-from config.models import settings, apply_preset
+from src.config.models import settings, apply_preset
 
 
 model = ChatOpenAI(model=settings.llm_model, temperature=0)

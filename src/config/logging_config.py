@@ -1,7 +1,7 @@
 import logging, sys, json, time
 from datetime import datetime
 from typing import Dict, Any, Optional
-from config.models import settings
+from src.config.models import settings
 
 
 class JsonFormatter(logging.Formatter):

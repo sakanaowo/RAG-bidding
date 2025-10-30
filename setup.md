@@ -187,7 +187,7 @@ print(f'Documents: {len(store.get())}')
 
 ```bash
 # Start server
-uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
 
 # Test endpoint (in another terminal)
 curl http://localhost:8000/health

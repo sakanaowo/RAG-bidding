@@ -21,7 +21,7 @@ cp .env.example .env  # Edit with your API keys
 psql -h localhost -U rag -d ragdb < ragdb_dump_20251026_220426.pg
 
 # 5. Start server
-uvicorn app.api.main:app --reload
+uvicorn src.api.main:app --reload
 ```
 
 ## 🔑 Essential Environment Variables

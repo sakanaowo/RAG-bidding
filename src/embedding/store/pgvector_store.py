@@ -1,7 +1,7 @@
 import os
 from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
-from config.models import settings
+from src.config.models import settings
 
 embeddings = OpenAIEmbeddings(model=settings.embed_model)
 
