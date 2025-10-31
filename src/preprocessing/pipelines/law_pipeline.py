@@ -3,6 +3,7 @@ Law Document Pipeline
 Example implementation of BaseLegalPipeline for Law documents (Luật)
 This serves as a template for other pipelines.
 """
+
 import re
 from pathlib import Path
 from typing import List, Any
@@ -58,17 +59,17 @@ class LawPipeline(BaseLegalPipeline):
     def ingest(self, file_path: Path) -> RawDocxContent:
         """
         Load DOCX file from disk using DocxLoader.
-        
+
         Returns:
             RawDocxContent with extracted text, metadata, structure
         """
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
-        
+
         # Use DocxLoader to extract content
         loader = DocxLoader(preserve_formatting=False)
         raw_content = loader.load(file_path)
-        
+
         return raw_content
 
     # ============================================================
@@ -78,14 +79,14 @@ class LawPipeline(BaseLegalPipeline):
     def extract(self, raw_data: RawDocxContent) -> tuple[DocumentInfo, Any]:
         """
         Extract metadata and content from RawDocxContent.
-        
+
         For Law documents:
         - Parse legal ID from metadata
         - Extract title, dates
         - Prepare hierarchical structure for chunking
         """
         metadata = raw_data.metadata
-        
+
         # Create DocumentInfo from extracted metadata
         # Determine legal ID (try doc_number from metadata first)
         doc_id = metadata.get("doc_number", "")
@@ -98,13 +99,14 @@ class LawPipeline(BaseLegalPipeline):
                 doc_id = f"{match.group(1)}/{match.group(2)}/{match.group(3).upper()}"
             else:
                 doc_id = filename.replace(".docx", "")
-        
+
         # Determine dates (mock for now - should be extracted from document)
         # TODO: Extract actual dates from document content
         import datetime
+
         issue_date = datetime.date.today()  # Placeholder
         effective_date = None  # Should be extracted
-        
+
         document_info = DocumentInfo(
             doc_id=doc_id,
             doc_type=DocType.LAW,
@@ -114,7 +116,7 @@ class LawPipeline(BaseLegalPipeline):
             effective_date=effective_date,
             source_file=metadata["file_path"],
         )
-        
+
         # Prepare content for chunking
         # Structure contains detected hierarchy (Phần, Chương, Điều, etc.)
         content = {
@@ -123,7 +125,7 @@ class LawPipeline(BaseLegalPipeline):
             "tables": raw_data.tables,
             "statistics": raw_data.statistics,
         }
-        
+
         return document_info, content
 
     # ============================================================
