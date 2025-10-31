@@ -1,8 +1,8 @@
 # 📅 PREPROCESSING V2 - IMPLEMENTATION ROADMAP
 
 **Last Updated:** October 31, 2024  
-**Status:** Phase 1 Complete ✅  
-**Progress:** 14% (Week 2 of 14)
+**Status:** Phase 2 In Progress 🔄  
+**Progress:** 18% (Week 3 of 14)
 
 ---
 
@@ -11,13 +11,13 @@
 | Phase | Weeks | Status | Progress |
 |-------|-------|--------|----------|
 | Phase 1: Schema & Base | 1-2 | ✅ Done | 100% |
-| Phase 2: Components | 3-4 | ⏳ Next | 0% |
+| Phase 2: Components | 3-4 | 🔄 Current | 50% |
 | Phase 3: Pipelines | 5-8 | ⏳ TODO | 0% |
 | Phase 4: Enrichment | 9-10 | ⏳ TODO | 0% |
 | Phase 5: Orchestration | 11-12 | ⏳ TODO | 0% |
 | Phase 6: Testing & Docs | 13-14 | ⏳ TODO | 0% |
 
-**Overall:** 14% complete (Phase 1 of 6)
+**Overall:** 18% complete (Phase 2 Week 3 of 14)
 
 ---
 
@@ -89,29 +89,54 @@ archive/preprocessing_v1/ (43 files archived)
 
 ---
 
-## Phase 2: Components ⏳ TODO (Week 3-4)
+## Phase 2: Components 🔄 IN PROGRESS (Week 3-4)
 
-### Week 3: Loaders
+### Week 3: Loaders ✅ DOCX COMPLETE
 ```
-⏳ loaders/
-   ├── __init__.py
-   ├── docx_loader.py      # Refactor from archive
-   ├── pdf_loader.py       # NEW - For scanned docs
-   └── excel_loader.py     # NEW - For exam questions
+✅ loaders/
+   ├── __init__.py           # Exports DocxLoader, RawDocxContent
+   ├── docx_loader.py (340 lines) ✅
+   ├── pdf_loader.py         # ⏳ TODO - For scanned docs
+   └── excel_loader.py       # ⏳ TODO - For exam questions
 ```
 
-**Tasks:**
-- [ ] Refactor DOCX parser from `archive/preprocessing_v1/parsers_original/`
-- [ ] Extract TokenChecker, heading detection, hierarchy parsing
-- [ ] Create DocxLoader class
-- [ ] Integrate with LawPipeline.ingest()
+**DOCX Loader - COMPLETE ✅**
+- ✅ Refactored from `archive/preprocessing_v1/law_preprocessing/extractors/docx_extractor.py`
+- ✅ RawDocxContent dataclass for pre-schema extraction
+- ✅ Vietnamese legal document type detection (Law/Decree/Circular/Decision)
+- ✅ Hierarchy parsing with regex patterns:
+  - Phần, Chương, Mục, Điều, Khoản, Điểm
+- ✅ Metadata extraction from document properties
+- ✅ Table extraction support
+- ✅ Statistics calculation (char/word/line/structure counts)
+- ✅ Integrated with LawPipeline.ingest()
+- ✅ 4/4 tests passing (basic loading, structure, types, hierarchy)
+
+**Test Results (scripts/test/test_docx_loader.py):**
+```
+✅ Test 1: Basic Loading - PASSED
+   - 236K characters extracted
+   - Metadata parsing working
+   
+✅ Test 2: Structure Extraction - PASSED
+   - 200 Điều detected
+   - 16 Chương detected
+   - 24 Mục detected
+   
+✅ Test 3: Document Types - PASSED
+   
+✅ Test 4: Hierarchy Detection - PASSED
+   - 2 tables extracted
+```
+
+**PDF/Excel Loaders - TODO ⏳**
 - [ ] Add PDF loader (pymupdf/pdfplumber)
 - [ ] Add Excel loader (openpyxl)
 - [ ] Write loader unit tests
 
-**Estimated:** 16-20 hours
+**Estimated Remaining:** 8-12 hours
 
-### Week 4: Chunking Strategies
+### Week 4: Chunking Strategies ⏳ TODO
 ```
 ⏳ chunking/
    ├── __init__.py
@@ -144,7 +169,8 @@ archive/preprocessing_v1/ (43 files archived)
 ```
 
 **LawPipeline Tasks:**
-- [ ] Replace mock data with real DOCX extraction
+- [x] Replace mock data with real DOCX extraction ✅
+- [x] Integrate DocxLoader into ingest() ✅
 - [ ] Implement hierarchy parsing (Phần > Chương > Điều)
 - [ ] Add legal metadata extraction (parent laws, status)
 - [ ] Add validation (check Điều numbering, hierarchy)
@@ -156,7 +182,7 @@ archive/preprocessing_v1/ (43 files archived)
 - [ ] Handle "hướng dẫn thi hành" relationships
 - [ ] Write tests
 
-**Estimated:** 24-32 hours
+**Estimated:** 20-28 hours (4 hours saved from DocxLoader integration)
 
 ### Week 6: Circular & Decision Pipelines
 ```
