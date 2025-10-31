@@ -3,12 +3,13 @@ Law Document Pipeline
 Example implementation of BaseLegalPipeline for Law documents (Luật)
 This serves as a template for other pipelines.
 """
-
+import re
 from pathlib import Path
 from typing import List, Any
 from datetime import date
 
 from ..base import BaseLegalPipeline, PipelineConfig
+from ..loaders import DocxLoader, RawDocxContent
 from ..schema import (
     UnifiedLegalChunk,
     DocumentInfo,
@@ -54,89 +55,76 @@ class LawPipeline(BaseLegalPipeline):
     # STAGE 1: INGESTION
     # ============================================================
 
-    def ingest(self, file_path: Path) -> Any:
+    def ingest(self, file_path: Path) -> RawDocxContent:
         """
-        Load DOCX file from disk.
-
-        TODO: Implement actual DOCX loading using python-docx or existing parsers.
-        For now, returns mock data.
+        Load DOCX file from disk using DocxLoader.
+        
+        Returns:
+            RawDocxContent with extracted text, metadata, structure
         """
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
-
-        # TODO: Use actual DOCX loader
-        # from ..parsers.docx_pipeline import DocxLoader
-        # return DocxLoader.load(file_path)
-
-        return {
-            "file_path": file_path,
-            "file_type": "docx",
-            "raw_bytes": b"",  # Placeholder
-        }
+        
+        # Use DocxLoader to extract content
+        loader = DocxLoader(preserve_formatting=False)
+        raw_content = loader.load(file_path)
+        
+        return raw_content
 
     # ============================================================
     # STAGE 2: EXTRACTION
     # ============================================================
 
-    def extract(self, raw_data: Any) -> tuple[DocumentInfo, Any]:
+    def extract(self, raw_data: RawDocxContent) -> tuple[DocumentInfo, Any]:
         """
-        Extract metadata and content from DOCX.
-
+        Extract metadata and content from RawDocxContent.
+        
         For Law documents:
-        - Parse legal ID from filename or document header
-        - Extract title, issue date, effective date
-        - Parse hierarchical structure
-
-        TODO: Implement actual extraction logic.
-        Returns mock data for skeleton.
+        - Parse legal ID from metadata
+        - Extract title, dates
+        - Prepare hierarchical structure for chunking
         """
-        file_path = raw_data["file_path"]
-
-        # TODO: Implement real extraction
-        # Use regex to parse filename: "43-2013-QH13.docx" → "43/2013/QH13"
-        # Extract title from document header
-        # Parse dates
-
-        # Mock DocumentInfo
+        metadata = raw_data.metadata
+        
+        # Create DocumentInfo from extracted metadata
+        # Determine legal ID (try doc_number from metadata first)
+        doc_id = metadata.get("doc_number", "")
+        if not doc_id:
+            # Fallback: try to extract from filename
+            # e.g., "43-2013-QH13.docx" → "43/2013/QH13"
+            filename = metadata["filename"]
+            match = re.match(r"(\d+)-(\d{4})-(.+)\.docx", filename, re.I)
+            if match:
+                doc_id = f"{match.group(1)}/{match.group(2)}/{match.group(3).upper()}"
+            else:
+                doc_id = filename.replace(".docx", "")
+        
+        # Determine dates (mock for now - should be extracted from document)
+        # TODO: Extract actual dates from document content
+        import datetime
+        issue_date = datetime.date.today()  # Placeholder
+        effective_date = None  # Should be extracted
+        
         document_info = DocumentInfo(
-            doc_id="43/2013/QH13",
+            doc_id=doc_id,
             doc_type=DocType.LAW,
-            title="Luật Đấu thầu số 43/2013/QH13",
-            issuing_authority=IssuingAuthority.QUOC_HOI,
-            issue_date=date(2013, 11, 26),
-            effective_date=date(2014, 7, 1),
-            source_file=str(file_path),
+            title=metadata.get("title", ""),
+            issuing_authority=IssuingAuthority.QUOC_HOI,  # Laws are from National Assembly
+            issue_date=issue_date,
+            effective_date=effective_date,
+            source_file=metadata["file_path"],
         )
-
-        # Mock content structure
-        raw_content = {
-            "sections": [
-                {
-                    "phan": 1,
-                    "title": "NHỮNG QUY ĐỊNH CHUNG",
-                    "chuongs": [
-                        {
-                            "chuong": 1,
-                            "title": "Phạm vi điều chỉnh và đối tượng áp dụng",
-                            "dieus": [
-                                {
-                                    "dieu": 1,
-                                    "title": "Phạm vi điều chỉnh",
-                                    "content": "Luật này quy định về hoạt động đấu thầu...",
-                                },
-                                {
-                                    "dieu": 2,
-                                    "title": "Đối tượng áp dụng",
-                                    "content": "Luật này áp dụng đối với...",
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
+        
+        # Prepare content for chunking
+        # Structure contains detected hierarchy (Phần, Chương, Điều, etc.)
+        content = {
+            "text": raw_data.text,
+            "structure": raw_data.structure,
+            "tables": raw_data.tables,
+            "statistics": raw_data.statistics,
         }
-
-        return document_info, raw_content
+        
+        return document_info, content
 
     # ============================================================
     # STAGE 3: VALIDATION
