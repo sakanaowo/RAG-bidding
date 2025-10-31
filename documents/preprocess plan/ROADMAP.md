@@ -1,8 +1,8 @@
 # 📅 PREPROCESSING V2 - IMPLEMENTATION ROADMAP
 
-**Last Updated:** October 31, 2024  
+**Last Updated:** December 2024  
 **Status:** Phase 2 In Progress 🔄  
-**Progress:** 18% (Week 3 of 14)
+**Progress:** 25% (Week 3-4 of 14)
 
 ---
 
@@ -11,13 +11,13 @@
 | Phase | Weeks | Status | Progress |
 |-------|-------|--------|----------|
 | Phase 1: Schema & Base | 1-2 | ✅ Done | 100% |
-| Phase 2: Components | 3-4 | 🔄 Current | 50% |
+| Phase 2: Components | 3-4 | 🔄 Current | 75% |
 | Phase 3: Pipelines | 5-8 | ⏳ TODO | 0% |
 | Phase 4: Enrichment | 9-10 | ⏳ TODO | 0% |
 | Phase 5: Orchestration | 11-12 | ⏳ TODO | 0% |
 | Phase 6: Testing & Docs | 13-14 | ⏳ TODO | 0% |
 
-**Overall:** 18% complete (Phase 2 Week 3 of 14)
+**Overall:** 25% complete (Phase 2 Week 3-4 of 14)
 
 ---
 
@@ -91,50 +91,86 @@ archive/preprocessing_v1/ (43 files archived)
 
 ## Phase 2: Components 🔄 IN PROGRESS (Week 3-4)
 
-### Week 3: Loaders ✅ DOCX COMPLETE
+### Week 3: Loaders ✅ COMPLETE (4/4 loaders)
 ```
 ✅ loaders/
-   ├── __init__.py           # Exports DocxLoader, RawDocxContent
+   ├── __init__.py           # Exports all 4 loaders
    ├── docx_loader.py (340 lines) ✅
-   ├── pdf_loader.py         # ⏳ TODO - For scanned docs
-   └── excel_loader.py       # ⏳ TODO - For exam questions
+   ├── bidding_loader.py (400 lines) ✅
+   ├── report_loader.py (350 lines) ✅
+   └── pdf_loader.py (380 lines) ✅
 ```
 
-**DOCX Loader - COMPLETE ✅**
+**All Loaders - COMPLETE ✅**
+
+**1. DocxLoader (Legal Documents) - 340 lines**
 - ✅ Refactored from `archive/preprocessing_v1/law_preprocessing/extractors/docx_extractor.py`
 - ✅ RawDocxContent dataclass for pre-schema extraction
-- ✅ Vietnamese legal document type detection (Law/Decree/Circular/Decision)
-- ✅ Hierarchy parsing with regex patterns:
-  - Phần, Chương, Mục, Điều, Khoản, Điểm
+- ✅ Document type detection: Law/Decree/Circular/Decision
+- ✅ Hierarchy parsing: Phần > Chương > Mục > Điều > Khoản > Điểm
 - ✅ Metadata extraction from document properties
 - ✅ Table extraction support
-- ✅ Statistics calculation (char/word/line/structure counts)
+- ✅ Statistics calculation
 - ✅ Integrated with LawPipeline.ingest()
-- ✅ 4/4 tests passing (basic loading, structure, types, hierarchy)
+- ✅ 4/4 tests passing (basic, structure, types, hierarchy)
+- ✅ Test results: 236K chars, 200 Điều, 16 Chương, 24 Mục, 2 tables
 
-**Test Results (scripts/test/test_docx_loader.py):**
-```
-✅ Test 1: Basic Loading - PASSED
-   - 236K characters extracted
-   - Metadata parsing working
-   
-✅ Test 2: Structure Extraction - PASSED
-   - 200 Điều detected
-   - 16 Chương detected
-   - 24 Mục detected
-   
-✅ Test 3: Document Types - PASSED
-   
-✅ Test 4: Hierarchy Detection - PASSED
-   - 2 tables extracted
-```
+**2. BiddingLoader (Bidding Documents) - 400 lines**
+- ✅ Refactored from `archive/preprocessing_v1/bidding_preprocessing/extractors/bidding_extractor.py`
+- ✅ RawBiddingContent dataclass
+- ✅ 11 bidding type patterns:
+  - construction (xây lắp)
+  - goods (hàng hóa)
+  - consulting (tư vấn)
+  - non_consulting (phi tư vấn)
+  - EPC, EP, EC, PC
+  - equipment_lease (thuê thiết bị)
+  - online_bidding (đấu thầu trực tuyến)
+  - online_procurement (mua sắm trực tuyến)
+- ✅ Structure detection: section, chapter, form, appendix
+- ✅ Package info extraction: name, code, owner (chủ đầu tư)
+- ✅ Content analysis: forms, technical specs, financial requirements, evaluation criteria
+- ✅ Bidding terminology detection
+- ✅ 4/4 tests passing
+- ✅ Test results: 19K chars, 10 tables, goods/construction types detected
 
-**PDF/Excel Loaders - TODO ⏳**
-- [ ] Add PDF loader (pymupdf/pdfplumber)
-- [ ] Add Excel loader (openpyxl)
-- [ ] Write loader unit tests
+**3. ReportLoader (Report Templates) - 350 lines**
+- ✅ RawReportContent dataclass
+- ✅ 5 report type patterns:
+  - evaluation (báo cáo đánh giá / BCĐG)
+  - appraisal (báo cáo thẩm định / BCTĐ)
+  - technical
+  - financial
+  - qualification
+- ✅ Structure detection: section, chapter, article, clause, table
+- ✅ Report info extraction: title, package_name, evaluator
+- ✅ Similar patterns to bidding docs but specialized for evaluation/appraisal
+- ✅ 4/4 tests passing
+- ✅ Test results: 17K chars, 22 tables, evaluation/appraisal types detected
 
-**Estimated Remaining:** 8-12 hours
+**4. PdfLoader (Exam Questions & Scanned Docs) - 380 lines**
+- ✅ Uses pypdf 6.0.0 for text extraction
+- ✅ RawPdfContent dataclass
+- ✅ Per-page content extraction
+- ✅ Document type detection: exam, legal, bidding, report, general
+- ✅ Question detection patterns:
+  - Numbered questions (Câu 1:, CÂU 1:)
+  - Simple numbers (1., 2., 3.)
+  - Letter options (A., B., C., D.)
+- ✅ Answer key detection
+- ✅ Question extraction with options and answers
+- ✅ PDF metadata extraction
+- ✅ 4/4 tests passing
+- ✅ Test results: 15 pages, 61K chars, 570 questions detected, exam type
+
+**Coverage Summary:**
+- Legal docs: DocxLoader (Luật, Nghị định, Thông tư, Quyết định)
+- Bidding docs: BiddingLoader (Hồ sơ mời thầu - 11 types)
+- Report templates: ReportLoader (Mẫu báo cáo - 5 types)
+- Exam questions: PdfLoader (Câu hỏi thi - PDF format)
+- **Total: 4 loaders, 1,470 lines, 16/16 tests passing ✅**
+
+**Estimated Remaining:** 0 hours (Week 3 complete)
 
 ### Week 4: Chunking Strategies ⏳ TODO
 ```
