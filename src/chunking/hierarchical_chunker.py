@@ -88,9 +88,16 @@ class HierarchicalChunker(BaseLegalChunker):
         """
         # Validate document type
         doc_type = document.metadata.get("document_type", "")
+        if not doc_type or doc_type == "unknown":
+            raise ValueError(
+                "HierarchicalChunker requires valid 'document_type' in metadata. "
+                "Missing or invalid document type. "
+                "Expected one of: law, decree, circular, decision"
+            )
         if doc_type not in ["law", "decree", "circular", "decision"]:
             raise ValueError(
-                f"HierarchicalChunker only supports legal documents, got: {doc_type}"
+                f"HierarchicalChunker only supports legal document types. "
+                f"Got '{doc_type}' in metadata, expected one of: law, decree, circular, decision"
             )
 
         # Get full text
@@ -254,6 +261,7 @@ class HierarchicalChunker(BaseLegalChunker):
         2. If Điều > max_size: split by Khoản
         3. If Khoản > max_size: use overlap splitting
         4. Add parent context (Chương/Mục title)
+        5. MERGE small chunks recursively to reach min_size (NEW!)
 
         Args:
             structure: Parsed structure from _parse_structure
@@ -281,9 +289,13 @@ class HierarchicalChunker(BaseLegalChunker):
             chunks.extend(dieu_chunks)
             chunk_index += len(dieu_chunks)
 
+        # NEW: Merge small chunks recursively
+        chunks = self._merge_small_chunks_recursive(chunks, document, doc_id)
+
         # Update total_chunks for all chunks
-        for chunk in chunks:
-            chunk.total_chunks = chunk_index
+        for idx, chunk in enumerate(chunks):
+            chunk.chunk_index = idx
+            chunk.total_chunks = len(chunks)
 
         return chunks
 
@@ -599,3 +611,161 @@ class HierarchicalChunker(BaseLegalChunker):
         title_slug = re.sub(r"[^a-z0-9]+", "_", title.lower())[:50]
 
         return f"{doc_type}_{title_slug}"
+
+    def _merge_small_chunks_recursive(
+        self,
+        chunks: List[UniversalChunk],
+        document: ProcessedDocument,
+        doc_id: str,
+    ) -> List[UniversalChunk]:
+        """
+        Recursively merge adjacent small chunks to reach min_size.
+
+        Strategy (same as BiddingHybridChunker):
+        1. Find chunks < min_size
+        2. Merge with next chunk if combined size <= max_size
+        3. Repeat until no more merges possible
+        4. Preserve hierarchy context
+
+        Args:
+            chunks: List of chunks to optimize
+            document: Original ProcessedDocument
+            doc_id: Document ID
+
+        Returns:
+            Optimized list of chunks
+        """
+        if not chunks:
+            return chunks
+
+        max_iterations = 10  # Prevent infinite loops
+        iteration = 0
+
+        while iteration < max_iterations:
+            merged_any = False
+            new_chunks = []
+            i = 0
+
+            while i < len(chunks):
+                current = chunks[i]
+
+                # Check if current chunk is too small
+                if len(current.content) < self.min_size and i < len(chunks) - 1:
+                    next_chunk = chunks[i + 1]
+
+                    # Check if they can be merged (same hierarchy parent)
+                    if self._can_merge_chunks(current, next_chunk):
+                        combined_size = len(current.content) + len(next_chunk.content)
+
+                        if combined_size <= self.max_size:
+                            # Merge chunks
+                            merged = self._merge_two_chunks(
+                                current, next_chunk, document, doc_id
+                            )
+                            new_chunks.append(merged)
+                            merged_any = True
+                            i += 2  # Skip next chunk (already merged)
+                            continue
+
+                # Keep current chunk as-is
+                new_chunks.append(current)
+                i += 1
+
+            chunks = new_chunks
+            iteration += 1
+
+            # Stop if no merges happened
+            if not merged_any:
+                break
+
+        return chunks
+
+    def _can_merge_chunks(self, chunk1: UniversalChunk, chunk2: UniversalChunk) -> bool:
+        """
+        Check if two chunks can be merged.
+
+        Criteria:
+        - Same document
+        - Same parent context (Chương/Mục)
+        - Adjacent chunks (consecutive Điều)
+
+        Args:
+            chunk1: First chunk
+            chunk2: Second chunk
+
+        Returns:
+            True if chunks can be merged
+        """
+        # Must be same document
+        if chunk1.document_id != chunk2.document_id:
+            return False
+
+        # Must have same parent context (or both None)
+        if chunk1.parent_context != chunk2.parent_context:
+            return False
+
+        # Both must be complete units (not overlap-split)
+        if not chunk1.is_complete_unit or not chunk2.is_complete_unit:
+            return False
+
+        return True
+
+    def _merge_two_chunks(
+        self,
+        chunk1: UniversalChunk,
+        chunk2: UniversalChunk,
+        document: ProcessedDocument,
+        doc_id: str,
+    ) -> UniversalChunk:
+        """
+        Merge two chunks into one.
+
+        Args:
+            chunk1: First chunk
+            chunk2: Second chunk
+            document: Original ProcessedDocument
+            doc_id: Document ID
+
+        Returns:
+            Merged UniversalChunk
+        """
+        # Combine content
+        combined_content = f"{chunk1.content}\n\n{chunk2.content}"
+
+        # Merge hierarchy (take all unique elements)
+        merged_hierarchy = chunk1.hierarchy.copy()
+        for item in chunk2.hierarchy:
+            if item not in merged_hierarchy:
+                merged_hierarchy.append(item)
+
+        # Combine section titles
+        merged_title = f"{chunk1.section_title} + {chunk2.section_title}"
+
+        # Merge extra metadata
+        merged_metadata = chunk1.extra_metadata.copy()
+        merged_metadata["merged_with"] = chunk2.extra_metadata.get("dieu_number", "")
+        merged_metadata["is_merged"] = True
+
+        # Detect special content in combined text
+        special_flags = self._detect_special_content(combined_content)
+
+        # Create merged chunk
+        merged_chunk = UniversalChunk(
+            content=combined_content,
+            chunk_id=f"{chunk1.chunk_id}_merged",
+            document_id=doc_id,
+            document_type=chunk1.document_type,
+            hierarchy=merged_hierarchy,
+            level=chunk1.level,
+            parent_context=chunk1.parent_context,
+            section_title=merged_title,
+            char_count=len(combined_content),
+            chunk_index=chunk1.chunk_index,
+            total_chunks=0,  # Will be updated later
+            is_complete_unit=True,
+            has_table=special_flags["has_table"],
+            has_list=special_flags["has_list"],
+            extra_metadata=merged_metadata,
+        )
+
+        return merged_chunk

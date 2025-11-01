@@ -1,8 +1,216 @@
-# Test & Debug Scripts Directory
-## Thư mục chứa các script test và debug cho RAG-Bidding system
+# Testing Directory
 
-**Ngày cập nhật**: 30/10/2025  
-**Mục đích**: Tập trung tất cả test scripts và debug tools
+This directory contains test scripts for validating the preprocessing pipeline.
+
+---
+
+## 🧪 Integration Tests (NEW - Phase 2B)
+
+### Quick Start
+
+Run all integration tests at once:
+
+```bash
+cd scripts/test
+python run_integration_tests.py
+```
+
+This will:
+- Run all 5 integration tests sequentially
+- Generate comprehensive report at `data/outputs/INTEGRATION_TEST_REPORT.md`
+- Show pass/fail status for each test
+- Estimated time: ~15-30 minutes
+
+### Individual Tests
+
+You can also run tests individually:
+
+```bash
+# Test 1: End-to-End Pipeline (CRITICAL)
+python test_e2e_pipeline.py
+
+# Test 2: Cross-Type Batch Processing (IMPORTANT)
+python test_cross_type_batch.py
+
+# Test 3: Edge Cases & Error Handling (IMPORTANT)
+python test_edge_cases.py
+
+# Test 4: Database Basic Operations (CRITICAL)
+python test_database_basic.py
+
+# Test 5: Performance & Scalability (MEDIUM)
+python test_performance.py
+```
+
+### Test Descriptions
+
+#### 1. End-to-End Pipeline Test (`test_e2e_pipeline.py`)
+- **Priority:** CRITICAL
+- **Duration:** ~5 minutes
+- **Purpose:** Validate complete pipeline from DOCX → UnifiedLegalChunk
+- **Tests:**
+  - Document extraction and parsing
+  - Chunker auto-selection
+  - Schema validation
+  - Quality checks
+- **Success Criteria:** All 4 document types process without errors
+
+#### 2. Cross-Type Batch Test (`test_cross_type_batch.py`)
+- **Priority:** IMPORTANT
+- **Duration:** ~5 minutes
+- **Purpose:** Test batch processing across document types
+- **Tests:**
+  - ChunkFactory auto-selection consistency
+  - Output format uniformity
+  - Batch processing efficiency
+- **Success Criteria:** Same doc type → same chunker, consistent output format
+
+#### 3. Edge Cases Test (`test_edge_cases.py`)
+- **Priority:** IMPORTANT
+- **Duration:** ~5 minutes
+- **Purpose:** Validate error handling and robustness
+- **Tests:**
+  - Empty/minimal documents
+  - Very large documents (>1MB)
+  - Special characters & Unicode
+  - Malformed metadata
+  - Invalid document types
+- **Success Criteria:** Graceful error handling, no crashes
+
+#### 4. Database Basic Test (`test_database_basic.py`)
+- **Priority:** CRITICAL
+- **Duration:** ~5 minutes
+- **Purpose:** Test chunk persistence and retrieval
+- **Tests:**
+  - Serialize/deserialize chunks
+  - Save/load to JSON (mock DB)
+  - Filter by metadata
+  - Round-trip data integrity
+- **Success Criteria:** No data loss, consistent format
+
+#### 5. Performance Test (`test_performance.py`)
+- **Priority:** MEDIUM
+- **Duration:** ~10 minutes
+- **Purpose:** Benchmark processing speed and memory usage
+- **Tests:**
+  - Batch processing 20+ documents
+  - Memory usage tracking
+  - Throughput measurement
+  - Bottleneck identification
+- **Success Criteria:**
+  - Total time < 30s for 20 docs
+  - Peak memory < 500MB
+  - Throughput > 50 chunks/second
+
+### Expected Results
+
+All tests should **PASS** if:
+- ✅ Chunkers are properly optimized (90%+ quality)
+- ✅ All document types are supported
+- ✅ Error handling is robust
+- ✅ Performance meets requirements
+
+### Troubleshooting
+
+**Test fails with "File not found":**
+- Ensure test data exists in `data/raw/` directories
+- Check file paths in test scripts
+
+**Memory errors:**
+- Reduce `max_files` parameter in performance test
+- Close other applications
+
+**Timeout:**
+- Increase `time_budget` in `run_integration_tests.py`
+- Run tests individually instead of batch
+
+### Test Output
+
+Each test generates:
+- Console output with pass/fail status
+- Detailed metrics and timings
+- Error messages (if any)
+
+The integration test runner generates:
+- `data/outputs/INTEGRATION_TEST_REPORT.md` - Comprehensive markdown report
+- Summary of all test results
+- Priority analysis
+- Next steps recommendations
+
+---
+
+## 📝 Unit Tests (Existing)
+
+### Document Type Tests
+
+```bash
+# Test all document types
+python test_all_pipelines_format.py
+
+# Test specific types
+python test_bidding_preprocessing.py
+python test_circular_pipeline.py
+python test_decree_pipeline.py
+python test_hsyc_templates.py
+
+# Test all circulars
+python test_all_circulars.py
+python test_main_circulars.py
+```
+
+### Other Tests
+
+```bash
+# Test integrity validation
+python test_integrity_validator.py
+
+# Test DOCX processing
+python test_docx_pipeline.py
+```
+
+---
+
+## 📊 Current Test Coverage
+
+### Phase 2B - Integration Testing (100% ✅)
+
+- ✅ End-to-End Pipeline Testing
+- ✅ Cross-Document Type Batch Processing  
+- ✅ Edge Cases & Error Handling
+- ✅ Database Integration (Basic)
+- ✅ Performance & Scalability
+
+### Remaining Gaps (Future Phases)
+
+- ⏳ Full Database Integration (PostgreSQL)
+- ⏳ API Integration Testing
+- ⏳ Backward Compatibility Testing
+- ⏳ Production Load Testing
+- ⏳ Security & Validation Testing
+
+---
+
+## 🎯 Integration Test Plan
+
+Detailed plan available at: `documents/INTEGRATION_TEST_PLAN_TONIGHT.md`
+
+Timeline: 4 hours (19:00 - 23:00)
+- 19:00-19:45: Test #1 - E2E Pipeline
+- 19:45-20:30: Test #2 - Cross-Type Batch
+- 20:30-21:15: Test #3 - Edge Cases
+- 21:15-22:00: Test #4 - Database Basic
+- 22:00-22:45: Test #5 - Performance
+- 22:45-23:00: Generate Report
+
+Success Criteria:
+- All 5 scripts created ✅
+- All tests run without crashes ✅
+- E2E pipeline works for 4 types ✅
+- Integration report generated ✅
+
+---
+
+**Last Updated:** 2024 (Phase 2B - Integration Testing Complete)
 
 ---
 

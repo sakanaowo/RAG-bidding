@@ -4,11 +4,16 @@ Main schema model combining all sections (3.1-3.6)
 Based on DEEP_ANALYSIS_REPORT.md
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 from pydantic import BaseModel, Field
 
 from .enums import DocType
-from .models.document_info import DocumentInfo
+from .models.document_info_types import (
+    DocumentInfo,  # Union type supporting all doc types
+    LegalDocumentInfo,
+    TemplateDocumentInfo,
+    ExamDocumentInfo,
+)
 from .models.legal_metadata import LegalMetadata
 from .models.content_structure import ContentStructure
 from .models.processing_metadata import ProcessingMetadata

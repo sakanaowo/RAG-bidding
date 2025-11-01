@@ -7,13 +7,19 @@ Provides:
 - Validation and schema integration
 """
 
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+from typing import List, Dict, Any, Optional, Union
+from datetime import datetime, date
 import hashlib
 
 from src.chunking.base_chunker import UniversalChunk
 from src.preprocessing.schema.unified_schema import UnifiedLegalChunk
-from src.preprocessing.schema.models.document_info import DocumentInfo
+from src.preprocessing.schema.models.document_info_types import (
+    create_document_info,
+    LegalDocumentInfo,
+    TemplateDocumentInfo,
+    ExamDocumentInfo,
+    DocumentInfo,
+)
 from src.preprocessing.schema.models.legal_metadata import LegalMetadata
 from src.preprocessing.schema.models.content_structure import (
     ContentStructure,
@@ -143,32 +149,147 @@ class ChunkFactory:
         chunk: UniversalChunk,
         source_document: ProcessedDocument,
     ) -> DocumentInfo:
-        """Build DocumentInfo from chunk and source"""
+        """
+        Build polymorphic DocumentInfo from chunk and source.
 
+        Returns appropriate DocumentInfo subclass:
+        - LegalDocumentInfo for law/decree/circular/decision
+        - TemplateDocumentInfo for bidding_template/report_template
+        - ExamDocumentInfo for exam_questions
+        """
         metadata = source_document.metadata
 
-        # Map document_type to DocType enum
+        # Get document type
         doc_type_str = metadata.get("document_type", "unknown")
-        doc_type = self._map_document_type(doc_type_str)
 
-        # Extract legal_id (format: 63/2014/NĐ-CP)
-        legal_meta = metadata.get("legal_metadata", {})
-        legal_id = legal_meta.get("legal_id", chunk.document_id)
+        # Get common fields
+        title = metadata.get("title", "Untitled")
+        source_file = metadata.get("file_path", "")
+        source_url = metadata.get("source_url")
 
-        # Extract dates
-        issue_date = metadata.get("issued_date")
-        effective_date = metadata.get("effective_date")
+        # Build doc_id and type-specific fields
+        if doc_type_str in ["law", "decree", "circular", "decision"]:
+            # Legal document
+            legal_meta = metadata.get("legal_metadata", {})
+            doc_id = legal_meta.get("legal_id", chunk.document_id)
 
-        return DocumentInfo(
-            doc_id=legal_id,  # Use legal_id instead of chunk.document_id
-            doc_type=doc_type,
-            title=metadata.get("title", "Untitled"),
-            issuing_authority=metadata.get("issued_by", "unknown"),
-            issue_date=issue_date,
-            effective_date=effective_date,
-            expiry_date=metadata.get("expiry_date"),
-            source_file=metadata.get("file_path", ""),
-        )
+            # Extract dates
+            issue_date_val = metadata.get("issued_date")
+            if isinstance(issue_date_val, str):
+                try:
+                    issue_date = datetime.fromisoformat(issue_date_val).date()
+                except:
+                    issue_date = date.today()
+            elif isinstance(issue_date_val, datetime):
+                issue_date = issue_date_val.date()
+            elif isinstance(issue_date_val, date):
+                issue_date = issue_date_val
+            else:
+                issue_date = date.today()
+
+            effective_date_val = metadata.get("effective_date")
+            if isinstance(effective_date_val, str):
+                try:
+                    effective_date = datetime.fromisoformat(effective_date_val).date()
+                except:
+                    effective_date = None
+            elif isinstance(effective_date_val, (datetime, date)):
+                effective_date = (
+                    effective_date_val
+                    if isinstance(effective_date_val, date)
+                    else effective_date_val.date()
+                )
+            else:
+                effective_date = None
+
+            return create_document_info(
+                doc_type=doc_type_str,
+                doc_id=doc_id,
+                title=title,
+                source_file=source_file,
+                issuing_authority=metadata.get("issued_by", "khac"),
+                issue_date=issue_date,
+                effective_date=effective_date,
+                source_url=source_url,
+            )
+
+        elif doc_type_str in ["bidding_template", "report_template"]:
+            # Template document
+            # Create sanitized doc_id from filename
+            import os
+
+            filename = os.path.basename(source_file)
+            doc_id = f"{doc_type_str}_{filename.replace('.docx', '').replace(' ', '_').lower()}"
+
+            # Extract date if available
+            issue_date_val = metadata.get("issued_date")
+            if isinstance(issue_date_val, str):
+                try:
+                    issue_date = datetime.fromisoformat(issue_date_val).date()
+                except:
+                    issue_date = None
+            elif isinstance(issue_date_val, (datetime, date)):
+                issue_date = (
+                    issue_date_val
+                    if isinstance(issue_date_val, date)
+                    else issue_date_val.date()
+                )
+            else:
+                issue_date = None
+
+            return create_document_info(
+                doc_type=doc_type_str,
+                doc_id=doc_id,
+                title=title,
+                source_file=source_file,
+                template_version=metadata.get("version", "1.0"),
+                issuing_ministry=metadata.get("issuing_ministry", "bo_ke_hoach_dau_tu"),
+                issue_date=issue_date,
+                source_url=source_url,
+            )
+
+        elif doc_type_str == "exam_questions":
+            # Exam document
+            import os
+
+            filename = os.path.basename(source_file)
+            # Create exam_id from filename
+            doc_id = f"exam_{filename.replace('.pdf', '').replace(' ', '_').lower()}"
+
+            # Extract date if available
+            exam_date_val = metadata.get("exam_date") or metadata.get("issued_date")
+            if isinstance(exam_date_val, str):
+                try:
+                    exam_date = datetime.fromisoformat(exam_date_val).date()
+                except:
+                    exam_date = None
+            elif isinstance(exam_date_val, (datetime, date)):
+                exam_date = (
+                    exam_date_val
+                    if isinstance(exam_date_val, date)
+                    else exam_date_val.date()
+                )
+            else:
+                exam_date = None
+
+            return create_document_info(
+                doc_type=doc_type_str,
+                doc_id=doc_id,
+                title=title,
+                source_file=source_file,
+                exam_subject=metadata.get("exam_subject", "chuyen_gia_dau_thau"),
+                exam_date=exam_date,
+                question_count=metadata.get("question_count", 0),
+                source_url=source_url,
+            )
+
+        else:
+            # Unknown type - default to legal with flexible validation
+            raise ValueError(
+                f"Unknown document type: {doc_type_str}. "
+                f"Expected one of: law, decree, circular, decision, "
+                f"bidding_template, report_template, exam_questions"
+            )
 
     def _map_document_type(self, doc_type_str: str) -> DocType:
         """Map string document type to DocType enum"""
@@ -206,10 +327,21 @@ class ChunkFactory:
         metadata = source_document.metadata
         legal_meta = metadata.get("legal_metadata", {})
 
+        # Map status to Vietnamese enum
+        status_mapping = {
+            "active": "con_hieu_luc",
+            "inactive": "het_hieu_luc",
+            "superseded": "bi_thay_the",
+            "revoked": "bi_bai_bo",
+            "draft": "du_thao",
+        }
+        raw_status = legal_meta.get("status", "active")
+        legal_status = status_mapping.get(raw_status, "con_hieu_luc")
+
         return LegalMetadata(
             legal_id=legal_meta.get("legal_id", chunk.document_id),
             legal_level=legal_meta.get("legal_level", 3),  # Default decree level
-            legal_status=legal_meta.get("status", "active"),
+            legal_status=legal_status,
             legal_domain=legal_meta.get("domain", []),
             jurisdiction=legal_meta.get("jurisdiction", "central"),
             parent_law_id=legal_meta.get("parent_law_id"),
@@ -361,21 +493,33 @@ class ChunkFactory:
         )
 
     def _determine_chunk_type(self, chunk: UniversalChunk) -> str:
-        """Determine chunk type for schema"""
+        """
+        Determine chunk type for schema.
 
-        level_mapping = {
+        Maps UniversalChunk.level to valid ChunkType enum values:
+        - Legal levels: phan, chuong, muc, dieu, khoan, diem
+        - Non-legal: form, section, question, etc. → "semantic"
+        """
+        # Legal chunk types (exact match)
+        legal_types = {
             "phan": "phan",
             "chuong": "chuong",
             "muc": "muc",
             "dieu": "dieu_khoan",
             "khoan": "khoan",
-            "section": "section",
-            "subsection": "subsection",
-            "form": "form",
-            "question": "question",
+            "diem": "diem",
         }
 
-        return level_mapping.get(chunk.level, "other")
+        # Check if it's a legal type
+        if chunk.level in legal_types:
+            return legal_types[chunk.level]
+
+        # Check if it's a table
+        if chunk.level == "table" or chunk.has_table:
+            return "table"
+
+        # Everything else (form, section, question, etc.) → semantic
+        return "semantic"
 
     # ============================================================
     # SECTION 3.5: PROCESSING METADATA

@@ -330,8 +330,8 @@ class BaseLegalChunker(ABC):
             # Move start with overlap
             start = end - overlap
 
-            # Ensure we make progress
-            if start <= chunks[-1][:10]:  # Stuck in loop
+            # Ensure we make progress (prevent infinite loop)
+            if start <= (end - max_size):  # Not making progress
                 start = end
 
         return chunks
