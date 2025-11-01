@@ -1,0 +1,8 @@
+{
+  "source_file": "data/raw/Ho so moi thau/4. Hàng hóa/4. Mẫu số 4A E-HSMT hàng hóa 1 túi.docx",
+  "document_type": "bidding",
+  "category": "4. Hàng hóa",
+  "chunk_count": 125,
+  "output_file": "data/reprocessed/chunks/4._Mẫu_số_4A_E-HSMT_hàng_hóa_1_túi.jsonl",
+  "processed_at": "2025-11-02T01:02:03.587734"
+}
