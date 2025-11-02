@@ -393,7 +393,7 @@ def main():
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="data/reprocessed",
+        default="data/processed",
         help="Output directory for processed chunks",
     )
     parser.add_argument(

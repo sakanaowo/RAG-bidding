@@ -7,8 +7,8 @@ from pathlib import Path
 from collections import Counter
 
 # Paths
-chunks_dir = Path("data/reprocessed/chunks")
-metadata_dir = Path("data/reprocessed/metadata")
+chunks_dir = Path("data/processed/chunks")
+metadata_dir = Path("data/processed/metadata")
 
 # Count files
 chunk_files = list(chunks_dir.glob("*.jsonl"))

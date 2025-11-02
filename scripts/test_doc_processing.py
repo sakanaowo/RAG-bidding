@@ -11,7 +11,7 @@ from scripts.batch_reprocess_all import BatchProcessor
 
 # Initialize processor
 processor = BatchProcessor(
-    raw_dir="data/raw", output_dir="data/reprocessed_with_doc", max_workers=1
+    raw_dir="data/raw", output_dir="data/processed_with_doc", max_workers=1
 )
 
 # Discover all documents
