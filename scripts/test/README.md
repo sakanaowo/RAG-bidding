@@ -1,10 +1,51 @@
-# Testing Directory
+# 🧪 Test Suite Structure
 
-This directory contains test scripts for validating the preprocessing pipeline.
+This directory contains all test files organized by functionality.
 
----
+## 📁 Directory Structure
 
-## 🧪 Integration Tests (NEW - Phase 2B)
+### `/integration/`
+**End-to-end and integration tests:**
+- Cross-type batch processing tests
+- Full quality tests
+- Integration test runners
+- Document quality tests
+- Template tests (bidding, HSYC, circulars)
+- Edge cases and validators
+- Database tests
+- Context formatting tests
+- Retrieval tests (with/without filters)
+
+**Files:** `test_e2e_pipeline.py`, `test_context_formatter.py`, `test_retrieval*.py`, etc.
+
+### `/preprocessing/`
+**Document loading and preprocessing tests:**
+- Loader tests (DOCX, DOC, PDF, Bidding, Report)
+- Preprocessing pipeline tests
+- All loaders integration test
+
+**Files:** `test_*_loader.py`, `test_bidding_preprocessing.py`, `test_all_loaders.py`
+
+### `/chunking/`
+**Chunking strategy tests:**
+- Hybrid chunker tests
+- Chunking integration tests
+- Chunking strategies comparison
+- Chunk pipeline tests
+
+**Files:** `test_bidding_hybrid_chunker.py`, `test_chunking_*.py`, `test_chunk_pipeline.py`
+
+### `/pipeline/`
+**Document processing pipeline tests:**
+- Decree pipeline
+- Circular pipeline
+- DOCX pipeline
+- E2E pipeline
+- All pipelines format validation
+
+**Files:** `test_*_pipeline.py`, `test_all_pipelines_format.py`
+
+## 🚀 Running Tests
 
 ### Quick Start
 
@@ -12,12 +53,8 @@ Run all integration tests at once:
 
 ```bash
 cd scripts/test
-python run_integration_tests.py
+python integration/run_integration_tests.py
 ```
-
-This will:
-- Run all 5 integration tests sequentially
-- Generate comprehensive report at `data/outputs/INTEGRATION_TEST_REPORT.md`
 - Show pass/fail status for each test
 - Estimated time: ~15-30 minutes
 
