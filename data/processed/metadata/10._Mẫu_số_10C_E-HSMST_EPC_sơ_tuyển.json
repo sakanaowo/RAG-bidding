@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "10. EPC (tư vấn_hàng hóa_xây lắp)",
   "chunk_count": 19,
-  "output_file": "data/processed/chunks/10._Mẫu_số_10C_E-HSMST_EPC_sơ_tuyển.jsonl",
-  "processed_at": "2025-11-02T01:01:55.055389"
+  "output_file": "data/processed_enriched/chunks/10._Mẫu_số_10C_E-HSMST_EPC_sơ_tuyển.jsonl",
+  "processed_at": "2025-11-04T12:13:40.463992"
 }

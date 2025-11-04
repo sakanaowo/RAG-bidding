@@ -3,6 +3,6 @@
   "document_type": "decree",
   "category": "ND 214 - 4.8.2025 - Thay thế NĐ24-original.docx",
   "chunk_count": 595,
-  "output_file": "data/processed/chunks/ND_214_-_4.8.2025_-_Thay_thế_NĐ24-original.jsonl",
-  "processed_at": "2025-11-02T01:02:05.604235"
+  "output_file": "data/processed_enriched/chunks/ND_214_-_4.8.2025_-_Thay_thế_NĐ24-original.jsonl",
+  "processed_at": "2025-11-04T12:13:51.566371"
 }

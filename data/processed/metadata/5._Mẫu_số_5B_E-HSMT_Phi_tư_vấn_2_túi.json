@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "5. Phi TV",
   "chunk_count": 71,
-  "output_file": "data/processed/chunks/5._Mẫu_số_5B_E-HSMT_Phi_tư_vấn_2_túi.jsonl",
-  "processed_at": "2025-11-02T01:01:49.444800"
+  "output_file": "data/processed_enriched/chunks/5._Mẫu_số_5B_E-HSMT_Phi_tư_vấn_2_túi.jsonl",
+  "processed_at": "2025-11-04T12:13:34.147021"
 }

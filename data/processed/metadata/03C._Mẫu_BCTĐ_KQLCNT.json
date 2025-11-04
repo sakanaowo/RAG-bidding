@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "3. Báo cáo thẩm định",
   "chunk_count": 11,
-  "output_file": "data/processed/chunks/03C._Mẫu_BCTĐ_KQLCNT.jsonl",
-  "processed_at": "2025-11-02T01:02:04.025558"
+  "output_file": "data/processed_enriched/chunks/03C._Mẫu_BCTĐ_KQLCNT.jsonl",
+  "processed_at": "2025-11-04T12:13:49.438376"
 }
