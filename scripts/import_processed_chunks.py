@@ -142,6 +142,7 @@ def main():
     print(f"Database: {settings.database_url.split('@')[-1]}")
     print(f"Collection: {settings.collection}")
     print(f"Embedding Model: {settings.embed_model}")
+    print(f"Embedding Dimensions: 3072 (native)")
     print(f"Dry run: {args.dry_run}")
     print()
 
@@ -179,7 +180,15 @@ def main():
 
     # Initialize vector store
     print("\n🔌 Connecting to database...")
-    embeddings = OpenAIEmbeddings(model=settings.embed_model)
+
+    # Use native 3072 dimensions for text-embedding-3-large
+    embeddings = OpenAIEmbeddings(
+        model=settings.embed_model,
+        # No dimensions parameter = native 3072 dims
+    )
+
+    print(f"   Using {settings.embed_model} with native 3072 dimensions")
+
     vector_store = PGVector(
         embeddings=embeddings,
         collection_name=settings.collection,

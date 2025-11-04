@@ -28,6 +28,7 @@ from src.preprocessing.loaders.doc_loader import DocLoader
 from src.preprocessing.base.models import ProcessedDocument
 from src.chunking.chunk_factory import create_chunker
 from src.chunking.base_chunker import UniversalChunk
+from src.preprocessing.enrichment import ChunkEnricher
 
 # Setup logging
 logging.basicConfig(
@@ -90,11 +91,13 @@ class BatchProcessor:
         output_dir: Path,
         max_workers: int = 4,
         batch_size: int = 10,
+        enable_enrichment: bool = True,
     ):
         self.raw_dir = Path(raw_dir)
         self.output_dir = Path(output_dir)
         self.max_workers = max_workers
         self.batch_size = batch_size
+        self.enable_enrichment = enable_enrichment
 
         # Create output directories
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -107,6 +110,14 @@ class BatchProcessor:
         # Initialize loaders
         self.docx_loader = DocxLoader()
         self.doc_loader = DocLoader()
+
+        # Initialize enricher if enabled
+        if self.enable_enrichment:
+            self.enricher = ChunkEnricher()
+            logger.info("✨ Enrichment enabled")
+        else:
+            self.enricher = None
+            logger.info("⚠️  Enrichment disabled")
 
         # Log .doc support status
         if self.doc_loader.can_process():
@@ -257,10 +268,49 @@ class BatchProcessor:
             if not chunks:
                 return False, None, "No chunks generated"
 
+            # Step 4: Enrich chunks (if enabled)
+            if self.enable_enrichment and self.enricher:
+                try:
+                    chunks = self._enrich_chunks(chunks)
+                except Exception as e:
+                    logger.warning(
+                        f"Enrichment failed: {e}, continuing without enrichment"
+                    )
+                    # Continue with unenriched chunks
+
             return True, chunks, None
 
         except Exception as e:
             return False, None, f"Unexpected error: {str(e)}"
+
+    def _enrich_chunks(self, chunks: List[UniversalChunk]) -> List[UniversalChunk]:
+        """
+        Enrich chunks with semantic metadata.
+
+        Adds entities, concepts, keywords to chunk.extra_metadata
+        """
+        # Convert UniversalChunk to dict format for enricher
+        chunk_dicts = []
+        for chunk in chunks:
+            chunk_dict = {
+                "content": chunk.content,
+                "metadata": chunk.extra_metadata or {},
+            }
+            chunk_dicts.append(chunk_dict)
+
+        # Enrich
+        enriched_dicts = self.enricher.enrich_chunks(chunk_dicts)
+
+        # Merge back to UniversalChunk objects
+        for i, chunk in enumerate(chunks):
+            enriched_metadata = enriched_dicts[i].get("metadata", {})
+
+            # Update extra_metadata with enrichment results
+            if chunk.extra_metadata is None:
+                chunk.extra_metadata = {}
+            chunk.extra_metadata.update(enriched_metadata)
+
+        return chunks
 
     def save_chunks(
         self, chunks: List[UniversalChunk], doc_mapping: DocumentMapping
@@ -409,12 +459,20 @@ def main():
     parser.add_argument(
         "--dry-run", action="store_true", help="Discover documents but don't process"
     )
+    parser.add_argument(
+        "--no-enrichment",
+        action="store_true",
+        help="Disable semantic enrichment (NER, concepts, keywords)",
+    )
 
     args = parser.parse_args()
 
     # Initialize processor
     processor = BatchProcessor(
-        raw_dir=args.raw_dir, output_dir=args.output_dir, max_workers=args.max_workers
+        raw_dir=args.raw_dir,
+        output_dir=args.output_dir,
+        max_workers=args.max_workers,
+        enable_enrichment=not args.no_enrichment,
     )
 
     # Discover documents
