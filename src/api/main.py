@@ -11,10 +11,18 @@ from src.retrieval.query_processing.query_enhancer import (
     QueryEnhancer,
     QueryEnhancerConfig,
 )
+from .routers import upload
 
 
 setup_logging()
-app = FastAPI(title="RAG API (LangChain)")
+app = FastAPI(
+    title="RAG Bidding API",
+    description="Vietnamese Legal & Bidding Document RAG System",
+    version="2.0.0",
+)
+
+# Include routers
+app.include_router(upload.router)
 
 
 @app.on_event("startup")
