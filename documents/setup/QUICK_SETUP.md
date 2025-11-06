@@ -102,12 +102,3 @@ sudo systemctl start postgresql
 ```bash
 sudo apt-get install postgresql-18-pgvector
 ```
-
-**Import fails?**
-Check OPENAI_API_KEY in `.env`
-
----
-
-**Setup time:** ~10 minutes  
-**Database size:** ~500MB (with 4,512 chunks)  
-**Ready to use!** 🎉
