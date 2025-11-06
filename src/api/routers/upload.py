@@ -28,6 +28,7 @@ classifier = DocumentClassifier()
 async def upload_files(
     background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
+    batch_name: Optional[str] = None,
     auto_classify: bool = True,
     override_type: Optional[DocumentType] = None,
     chunk_size: Optional[int] = 1000,
@@ -68,6 +69,7 @@ async def upload_files(
 
     # Create processing options
     options = ProcessingOptions(
+        batch_name=batch_name,
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
         enable_enrichment=enable_enrichment,
@@ -85,9 +87,27 @@ async def upload_files(
 
 
 @router.get("/status/{upload_id}")
-async def get_upload_status(upload_id: str):
+async def get_upload_status_by_path(upload_id: str):
     """
-    Get processing status for uploaded files.
+    Get processing status for uploaded files (path parameter).
+    
+    **URL:** `/upload/status/{upload_id}`
+    """
+    try:
+        status = await upload_service.get_processing_status(upload_id)
+        return status
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/status")
+async def get_upload_status_by_query(upload_id: str):
+    """
+    Get processing status for uploaded files (query parameter).
+    
+    **URL:** `/upload/status?upload_id=xxx`
 
     **Status types:**
     - pending: Queued for processing
@@ -104,6 +124,11 @@ async def get_upload_status(upload_id: str):
     - Per-file progress percentage
     - Error details (if any)
     - Processing time metrics
+    
+    **Example:**
+    ```
+    GET /upload/status?upload_id=75ab0ff6-880d-4c8a-9408-dd3c4f8f59fa
+    ```
     """
     try:
         status = await upload_service.get_processing_status(upload_id)

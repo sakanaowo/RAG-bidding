@@ -116,6 +116,7 @@ class BatchProcessingResponse(BaseModel):
 class ProcessingOptions(BaseModel):
     """Configuration options for processing"""
 
+    batch_name: Optional[str] = None
     chunk_size: Optional[int] = Field(default=1000, ge=100, le=5000)
     chunk_overlap: Optional[int] = Field(default=200, ge=0, le=1000)
     enable_enrichment: bool = True

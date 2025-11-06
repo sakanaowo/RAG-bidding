@@ -24,7 +24,7 @@ from ..schemas.upload_schemas import (
     ProcessingOptions,
 )
 from .document_classifier import DocumentClassifier
-from ...preprocessing.pipelines import LawPipeline
+from ...preprocessing.upload_pipeline import WorkingUploadPipeline
 from ...preprocessing.loaders import DocxLoader, PdfLoader, TxtLoader
 from ...embedding.embedders.openai_embedder import OpenAIEmbedder
 from ...embedding.store.pgvector_store import PGVectorStore
@@ -52,17 +52,8 @@ class UploadProcessingService:
         self.processing_jobs: Dict[str, Dict] = {}
         self.executor = ThreadPoolExecutor(max_workers=4)
 
-        # Pipeline mapping
-        self.pipelines = {
-            DocumentType.LAW: LawPipeline,
-            # TODO: Add other pipelines when implemented
-            # DocumentType.DECREE: DecreePipeline,
-            # DocumentType.CIRCULAR: CircularPipeline,
-            # DocumentType.DECISION: DecisionPipeline,
-            # DocumentType.BIDDING: BiddingPipeline,
-            # DocumentType.REPORT: ReportPipeline,
-            # DocumentType.EXAM: ExamPipeline,
-        }
+        # Initialize working pipeline
+        self.working_pipeline = WorkingUploadPipeline(enable_enrichment=True)
 
         # Loader mapping by file extension
         self.loaders = {
@@ -176,10 +167,11 @@ class UploadProcessingService:
         stored_files = []
 
         for file in files:
-            # Generate unique filename
+            # Generate unique filename but preserve original name for pipeline compatibility
             file_id = str(uuid.uuid4())
             ext = Path(file.filename).suffix
-            temp_path = temp_dir / f"{file_id}{ext}"
+            # Use original filename for pipeline compatibility
+            temp_path = temp_dir / file.filename
 
             # Save file content
             content = await file.read()
@@ -277,18 +269,16 @@ class UploadProcessingService:
                 content.content if hasattr(content, "content") else str(content),
             )
 
-            # Step 3: Preprocess with appropriate pipeline
+            # Step 3: Process with working pipeline
             progress.status = ProcessingStatus.PREPROCESSING
             progress.current_step = f"Processing as {doc_type.value}"
             progress.progress_percent = 40
 
-            if doc_type in self.pipelines:
-                pipeline_class = self.pipelines[doc_type]
-                pipeline = pipeline_class()
-                chunks = await self._run_pipeline(pipeline, file_info["temp_path"])
-            else:
-                # Fallback: basic chunking for unsupported types
-                chunks = await self._basic_chunking(content, file_info)
+            # Use working pipeline for all document types
+            batch_name = job["options"].batch_name
+            chunks = await self._run_working_pipeline(
+                file_info["temp_path"], doc_type.value, batch_name
+            )
 
             # Step 4: Generate embeddings
             progress.status = ProcessingStatus.EMBEDDING
@@ -297,7 +287,7 @@ class UploadProcessingService:
 
             embeddings = []
             for chunk in chunks:
-                embedding = await self.embedder.embed_text(chunk.content)
+                embedding = self.embedder.embed_text(chunk.content)
                 embeddings.append({"chunk": chunk, "embedding": embedding})
 
             # Step 5: Store in vector database
@@ -305,14 +295,25 @@ class UploadProcessingService:
             progress.current_step = "Storing in database"
             progress.progress_percent = 90
 
-            stored_count = 0
+            # Batch all documents for single vector store operation
+            documents = []
             for item in embeddings:
-                await self.vector_store.add_document(
-                    content=item["chunk"].content,
-                    embedding=item["embedding"],
-                    metadata=item["chunk"].metadata.__dict__,
+                # Convert UniversalChunk to metadata dict
+                chunk_metadata = item["chunk"].to_dict()
+                # Remove content from metadata to avoid duplication
+                chunk_metadata.pop("content", None)
+
+                # Create LangChain Document
+                from langchain_core.documents import Document
+
+                doc = Document(
+                    page_content=item["chunk"].content, metadata=chunk_metadata
                 )
-                stored_count += 1
+                documents.append(doc)
+
+            # Single batch operation
+            self.vector_store.add_documents(documents)
+            stored_count = len(documents)
 
             # Step 6: Complete
             progress.status = ProcessingStatus.COMPLETED
@@ -328,11 +329,20 @@ class UploadProcessingService:
             progress.error_message = str(e)
             progress.processing_time_ms = int((time.time() - start_time) * 1000)
 
-    async def _run_pipeline(self, pipeline, file_path: str):
-        """Run document through preprocessing pipeline"""
+    async def _run_working_pipeline(
+        self, file_path: str, document_type: str, batch_name: str = None
+    ):
+        """Run document through working pipeline"""
 
         def _sync_pipeline():
-            return pipeline.process(file_path)
+            from pathlib import Path
+
+            success, chunks, error_msg = self.working_pipeline.process_file(
+                Path(file_path), document_type=document_type, batch_name=batch_name
+            )
+            if not success:
+                raise Exception(f"Working pipeline failed: {error_msg}")
+            return chunks
 
         # Run in thread pool for CPU-intensive work
         loop = asyncio.get_event_loop()
@@ -340,7 +350,7 @@ class UploadProcessingService:
 
     async def _basic_chunking(self, content, file_info: Dict):
         """Fallback basic chunking for unsupported document types"""
-        from ...chunking.chunkers.semantic_chunker import SemanticChunker
+        from ...chunking.semantic_chunker import SemanticChunker
         from ...preprocessing.schema import (
             UnifiedLegalChunk,
             DocumentInfo,
