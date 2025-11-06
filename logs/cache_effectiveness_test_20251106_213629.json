@@ -1,0 +1,85 @@
+{
+  "test_start": "2025-11-06T21:34:38.972726",
+  "cache_tests": {
+    "individual_tests": {
+      "query_2": {
+        "query": "Thời hạn nộp hồ sơ dự thầu theo quy định",
+        "cold_run": {
+          "time_ms": 17523,
+          "server_time_ms": 13176
+        },
+        "warm_runs": {
+          "count": 1,
+          "times_ms": [
+            14089
+          ],
+          "avg_time_ms": 14089,
+          "min_time_ms": 14089,
+          "max_time_ms": 14089,
+          "std_time_ms": 0
+        },
+        "cache_analysis": {
+          "speedup_factor": 1.2437362481368444,
+          "improvement_percent": 19.597100953033156,
+          "cache_effective": true
+        }
+      }
+    },
+    "pattern_tests": {
+      "group_3": {
+        "queries": [
+          "Điều kiện tham gia đấu thầu của nhà thầu",
+          "Điều kiện tham gia đấu thầu"
+        ],
+        "results": [
+          {
+            "query": "Điều kiện tham gia đấu thầu của nhà thầu",
+            "cold_run": {
+              "time_ms": 18449,
+              "server_time_ms": 14788
+            },
+            "warm_runs": {
+              "count": 1,
+              "times_ms": [
+                17591
+              ],
+              "avg_time_ms": 17591,
+              "min_time_ms": 17591,
+              "max_time_ms": 17591,
+              "std_time_ms": 0
+            },
+            "cache_analysis": {
+              "speedup_factor": 1.0487749417315673,
+              "improvement_percent": 4.65065857228034,
+              "cache_effective": false
+            }
+          }
+        ],
+        "analysis": {
+          "avg_speedup": 1.0487749417315673,
+          "avg_improvement_pct": 4.65065857228034,
+          "cache_effective_count": 0,
+          "total_queries": 1
+        }
+      }
+    },
+    "concurrent_test": {
+      "error": "No successful queries in concurrent test"
+    }
+  },
+  "summary": {
+    "total_tests": 1,
+    "cache_effectiveness": {
+      "avg_speedup": 1.2437362481368444,
+      "avg_improvement_pct": 19.597100953033156,
+      "effective_rate": 1.0,
+      "best_speedup": 1.2437362481368444,
+      "worst_speedup": 1.2437362481368444
+    },
+    "performance_metrics": {},
+    "recommendations": [
+      "Cache effectiveness below optimal. Consider tuning cache TTL or size.",
+      "Low throughput detected. Consider optimizing database connections."
+    ]
+  }
+}

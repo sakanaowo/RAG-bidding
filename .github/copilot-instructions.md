@@ -1,5 +1,6 @@
 ## Những điều cần lưu ý cho GitHub Copilot:
 
+- khi đối thoại, nếu không phải từ ngữ chuyên ngành kỹ thuật, hãy sử dụng tiếng Việt.
 - Cần xác nhận rằng các đề xuất mới của bạn phù hợp với phong cách mã hiện có trong kho lưu trữ này.
 - Tránh đề xuất mã đã bị xóa hoặc không còn liên quan.
 - Khi thiếu thông tin, hãy yêu cầu làm rõ thay vì đưa ra giả định. Hoặc nếu bạn không chắc chắn về một thay đổi, hãy đề xuất các lựa chọn thay thế.
@@ -14,3 +15,4 @@
   - Nếu muốn chạy một đoạn mã test api, mở một terminal mới và chạy đoạn mã đó trong môi trường conda "venv" vì các test api cần server đang chạy để kiểm tra.
 - Khi có lỗi xảy ra, hãy kiểm tra các code logic liên quan trong project để hiểu nguyên nhân gốc rễ trước khi đề xuất sửa lỗi.
 - Không được tự ý thay đổi code legacy trừ khi có chỉ dẫn cụ thể.
+- bỏ qua các file hoặc folder có tên chứa -deprecated
