@@ -1,0 +1,8 @@
+{
+  "source_file": "data/raw/Ho so moi thau/12. Chào giá trực tuyến/12. Mẫu số 12C CGTT HH_rút gọn.docx",
+  "document_type": "bidding",
+  "category": "12. Chào giá trực tuyến",
+  "chunk_count": 11,
+  "output_file": "data/processed_enriched/chunks/12._Mẫu_số_12C_CGTT_HH_rút_gọn.jsonl",
+  "processed_at": "2025-11-04T12:13:35.852068"
+}

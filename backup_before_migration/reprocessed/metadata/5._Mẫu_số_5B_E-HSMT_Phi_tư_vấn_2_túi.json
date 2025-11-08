@@ -1,0 +1,8 @@
+{
+  "source_file": "data/raw/Ho so moi thau/5. Phi TV/5. Mẫu số 5B E-HSMT Phi tư vấn 2 túi.docx",
+  "document_type": "bidding",
+  "category": "5. Phi TV",
+  "chunk_count": 71,
+  "output_file": "data/reprocessed/chunks/5._Mẫu_số_5B_E-HSMT_Phi_tư_vấn_2_túi.jsonl",
+  "processed_at": "2025-11-02T01:01:49.444800"
+}

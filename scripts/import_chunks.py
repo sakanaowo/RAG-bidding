@@ -11,7 +11,7 @@ from typing import List, Dict, Any
 sys.path.append(str(Path(__file__).parent.parent))
 
 from src.embedding.store.pgvector_store import vector_store, bootstrap
-from config.models import settings
+from src.config.models import settings
 from langchain.schema import Document
 
 

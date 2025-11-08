@@ -15,7 +15,7 @@ def create_retriever(
     mode: str = "balanced",
     enable_reranking: bool = True,
     reranker: Optional[BaseReranker] = None,
-    filter_status: Optional[str] = "active",  # 🆕 Default to active documents only
+    filter_status: Optional[str] = None,  # 🆕 Default to None (no filtering)
 ):
     """
     Factory function to create retriever based on mode.

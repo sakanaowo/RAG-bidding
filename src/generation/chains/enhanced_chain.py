@@ -16,7 +16,7 @@ from src.generation.prompts.qa_prompts import (
     FACT_CHECK_PROMPT,
 )
 from src.retrieval.retrievers.base_retriever import retriever
-from config.models import settings
+from src.config.models import settings
 
 
 # Models cho các giai đoạn khác nhau
