@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
-from ..enums import ProcessingStage
+from ..enums import ProcessingStage, ProcessingStatus
 
 
 class ProcessingMetadata(BaseModel):
@@ -32,13 +32,36 @@ class ProcessingMetadata(BaseModel):
         None, ge=0, description="Processing time in milliseconds"
     )
 
-    # Stage tracking
+    # Stage tracking (WHERE in pipeline)
     current_stage: ProcessingStage = Field(
         default=ProcessingStage.INGESTION, description="Current pipeline stage"
     )
 
     completed_stages: List[ProcessingStage] = Field(
         default_factory=list, description="List of completed pipeline stages"
+    )
+
+    # Status tracking (HOW it went) - 🆕 NEW FIELD
+    processing_status: ProcessingStatus = Field(
+        default=ProcessingStatus.PENDING,
+        description="Current processing status (pending/in_progress/completed/failed/etc.)",
+    )
+
+    # Error handling - 🆕 ENHANCED FIELDS
+    error_message: Optional[str] = Field(
+        None,
+        description="Detailed error message if processing_status=failed",
+    )
+
+    retry_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of retry attempts for this document",
+    )
+
+    last_retry_at: Optional[datetime] = Field(
+        None,
+        description="Timestamp of last retry attempt",
     )
 
     # Technical details
@@ -86,6 +109,9 @@ class ProcessingMetadata(BaseModel):
                         "enrichment",
                         "quality_check",
                     ],
+                    "processing_status": "completed",
+                    "error_message": None,
+                    "retry_count": 0,
                     "extractor_used": "docx",
                     "chunking_strategy": "hierarchical",
                     "embedding_model": "bge-m3",
