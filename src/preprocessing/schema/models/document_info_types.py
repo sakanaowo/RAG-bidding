@@ -10,7 +10,7 @@ from typing import Optional, Literal, Union
 from pydantic import BaseModel, Field, field_validator, model_validator
 import re
 
-from ..enums import IssuingAuthority
+from ..enums import IssuingAuthority, DocumentStatus
 
 
 class LegalDocumentInfo(BaseModel):
@@ -56,6 +56,12 @@ class LegalDocumentInfo(BaseModel):
 
     source_url: Optional[str] = Field(
         None, description="URL if document was crawled from web"
+    )
+
+    # 🆕 Document validity status
+    document_status: DocumentStatus = Field(
+        default=DocumentStatus.ACTIVE,
+        description="Current validity status of this document (active/outdated/superseded/etc.)",
     )
 
     @field_validator("doc_id")
@@ -142,6 +148,12 @@ class TemplateDocumentInfo(BaseModel):
         None, description="URL if template was downloaded"
     )
 
+    # 🆕 Document validity status
+    document_status: DocumentStatus = Field(
+        default=DocumentStatus.ACTIVE,
+        description="Template validity status (active if current version, outdated/superseded if replaced)",
+    )
+
     @field_validator("title")
     @classmethod
     def validate_title(cls, v: str) -> str:
@@ -207,6 +219,12 @@ class ExamDocumentInfo(BaseModel):
     source_file: str = Field(..., description="Original source file path (usually PDF)")
 
     source_url: Optional[str] = Field(None, description="URL if exam was downloaded")
+
+    # 🆕 Document validity status
+    document_status: DocumentStatus = Field(
+        default=DocumentStatus.ACTIVE,
+        description="Exam bank validity status (active if current, archived if old version)",
+    )
 
     @field_validator("title")
     @classmethod

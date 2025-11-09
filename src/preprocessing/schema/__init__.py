@@ -7,11 +7,13 @@ from .unified_schema import UnifiedLegalChunk
 from .enums import (
     DocType,
     LegalStatus,
+    DocumentStatus,  # 🆕 NEW - Document validity status
     LegalLevel,
     RelationType,
     ChunkType,
     ContentFormat,
     ProcessingStage,
+    ProcessingStatus,  # Processing execution status
     QualityLevel,
     IssuingAuthority,
     DocumentDomain,
@@ -28,11 +30,13 @@ __all__ = [
     # Enums
     "DocType",
     "LegalStatus",
+    "DocumentStatus",  # 🆕 NEW - Document validity status
     "LegalLevel",
     "RelationType",
     "ChunkType",
     "ContentFormat",
     "ProcessingStage",
+    "ProcessingStatus",  # Processing execution status
     "QualityLevel",
     "IssuingAuthority",
     "DocumentDomain",
