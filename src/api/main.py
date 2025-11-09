@@ -12,6 +12,7 @@ from src.retrieval.query_processing.query_enhancer import (
     QueryEnhancerConfig,
 )
 from .routers import upload
+from .routers import document_status
 
 
 setup_logging()
@@ -22,7 +23,8 @@ app = FastAPI(
 )
 
 # Include routers
-app.include_router(upload.router)
+app.include_router(upload.router, prefix="/api")
+app.include_router(document_status.router, prefix="/api")
 
 
 @app.on_event("startup")
