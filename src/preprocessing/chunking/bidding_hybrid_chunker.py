@@ -15,7 +15,7 @@ from typing import List, Dict, Any, Optional
 import re
 import hashlib
 
-from src.chunking.base_chunker import BaseLegalChunker, UniversalChunk
+from src.preprocessing.chunking.base_chunker import BaseLegalChunker, UniversalChunk
 from src.preprocessing.base.models import ProcessedDocument
 
 

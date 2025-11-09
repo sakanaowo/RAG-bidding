@@ -11,7 +11,7 @@ from typing import List, Dict, Any, Optional, Union
 from datetime import datetime, date
 import hashlib
 
-from src.chunking.base_chunker import UniversalChunk
+from src.preprocessing.chunking.base_chunker import UniversalChunk
 from src.preprocessing.schema.unified_schema import UnifiedLegalChunk
 from src.preprocessing.schema.models.document_info_types import (
     create_document_info,
@@ -725,8 +725,8 @@ def create_chunker(document_type: str):
         chunker = create_chunker("law")
         chunks = chunker.chunk(document)
     """
-    from src.chunking.hierarchical_chunker import HierarchicalChunker
-    from src.chunking.semantic_chunker import SemanticChunker
+    from src.preprocessing.chunking.hierarchical_chunker import HierarchicalChunker
+    from src.preprocessing.chunking.semantic_chunker import SemanticChunker
 
     doc_type = document_type.lower()
 
