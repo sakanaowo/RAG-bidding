@@ -9,8 +9,8 @@ Compares:
 import pytest
 from pathlib import Path
 
-from src.chunking.semantic_chunker import SemanticChunker
-from src.chunking.bidding_hybrid_chunker import BiddingHybridChunker
+from src.preprocessing.chunking.semantic_chunker import SemanticChunker
+from src.preprocessing.chunking.bidding_hybrid_chunker import BiddingHybridChunker
 
 
 def load_bidding_document():
@@ -213,7 +213,7 @@ def test_bidding_chunker_comparison(bidding_doc):
 
 def test_bidding_chunker_full_pipeline_integration(bidding_doc):
     """Test BiddingHybridChunker + ChunkFactory conversion."""
-    from src.chunking.chunk_factory import ChunkFactory
+    from src.preprocessing.chunking.chunk_factory import ChunkFactory
 
     chunker = BiddingHybridChunker()
     factory = ChunkFactory(pipeline_version="2.0.0")

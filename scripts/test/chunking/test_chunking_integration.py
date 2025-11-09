@@ -21,7 +21,7 @@ from src.preprocessing.loaders import (
     PdfLoader,
 )
 from src.preprocessing.base.models import ProcessedDocument
-from src.chunking import (
+from src.preprocessing.chunking import (
     HierarchicalChunker,
     SemanticChunker,
     ChunkFactory,

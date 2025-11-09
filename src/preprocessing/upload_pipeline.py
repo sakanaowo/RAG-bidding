@@ -15,8 +15,8 @@ from datetime import datetime
 from .loaders.docx_loader import DocxLoader
 from .loaders.doc_loader import DocLoader
 from .base.models import ProcessedDocument
-from ..chunking.chunk_factory import create_chunker
-from ..chunking.base_chunker import UniversalChunk
+from .chunking.chunk_factory import create_chunker
+from .chunking.base_chunker import UniversalChunk
 from .enrichment import ChunkEnricher
 
 logger = logging.getLogger(__name__)

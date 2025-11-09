@@ -350,7 +350,7 @@ class UploadProcessingService:
 
     async def _basic_chunking(self, content, file_info: Dict):
         """Fallback basic chunking for unsupported document types"""
-        from ...chunking.semantic_chunker import SemanticChunker
+        from ...preprocessing.chunking.semantic_chunker import SemanticChunker
         from ...preprocessing.schema import (
             UnifiedLegalChunk,
             DocumentInfo,

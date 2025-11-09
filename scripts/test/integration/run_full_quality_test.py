@@ -16,9 +16,9 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from docx import Document as DocxDocument
-from src.chunking.bidding_hybrid_chunker import BiddingHybridChunker
-from src.chunking.hierarchical_chunker import HierarchicalChunker
-from src.chunking.report_hybrid_chunker import ReportHybridChunker
+from src.preprocessing.chunking.bidding_hybrid_chunker import BiddingHybridChunker
+from src.preprocessing.chunking.hierarchical_chunker import HierarchicalChunker
+from src.preprocessing.chunking.report_hybrid_chunker import ReportHybridChunker
 from src.preprocessing.base.models import ProcessedDocument
 
 

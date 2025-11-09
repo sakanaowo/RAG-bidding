@@ -25,7 +25,7 @@ import tempfile
 from docx import Document as DocxDocument
 from docx.shared import Pt
 from src.preprocessing.base.models import ProcessedDocument
-from src.chunking.chunk_factory import create_chunker
+from src.preprocessing.chunking.chunk_factory import create_chunker
 
 
 def create_test_docx(content: str, output_path: Path) -> None:

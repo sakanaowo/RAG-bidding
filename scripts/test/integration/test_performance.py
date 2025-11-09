@@ -25,7 +25,7 @@ from dataclasses import asdict
 
 from docx import Document as DocxDocument
 from src.preprocessing.base.models import ProcessedDocument
-from src.chunking.chunk_factory import create_chunker
+from src.preprocessing.chunking.chunk_factory import create_chunker
 
 
 def get_memory_usage() -> float:

@@ -9,7 +9,7 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from docx import Document
-from src.chunking.hierarchical_chunker import HierarchicalChunker
+from src.preprocessing.chunking.hierarchical_chunker import HierarchicalChunker
 from src.preprocessing.base.models import ProcessedDocument
 
 
