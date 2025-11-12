@@ -72,11 +72,44 @@
   - Component interaction patterns
   - Architecture optimization strategies
 
+### **🔥 reranking-analysis/** 🚨 **CRITICAL ISSUE**
+*Phân tích memory leak và chiến lược reranking*
+
+- **`TOM_TAT_TIENG_VIET.md`** ⭐ **BẮT ĐẦU TỪ ĐÂY**
+  - Tóm tắt toàn diện bằng tiếng Việt
+  - Giải thích vấn đề memory leak (20GB RAM usage)
+  - 2 giải pháp với code mẫu chi tiết
+  - FAQ và checklist triển khai
+
+- **`RERANKER_FIX_URGENT.md`** 🔥 **URGENT FIX (3 phút đọc)**
+  - Quick fix guide cho production issue
+  - Singleton pattern implementation
+  - Expected impact: 20GB → 1.5GB, 5 → 50+ users
+  - Testing commands và verification steps
+
+- **`RERANKER_MEMORY_ANALYSIS.md`** 📊 **DEEP DIVE (15 phút)**
+  - Root cause analysis chi tiết
+  - Code flow diagrams và industry comparisons
+  - 3 solution strategies với pros/cons
+  - Implementation roadmap
+
+- **`RERANKING_STRATEGIES.md`** 📚 **STRATEGY COMPARISON (20 phút)**
+  - BGE vs Cohere vs ms-marco vs PhoBERT benchmark
+  - Performance metrics: MRR@5, latency, memory, cost
+  - Industry best practices (Perplexity, You.com, ChatGPT)
+  - Migration path recommendations
+
 ---
 
 ## 🎯 QUICK NAVIGATION
 
 ### **🚀 BẮT ĐẦU TỪ ĐÂY:**
+
+#### **🚨 CRITICAL - Memory Leak Issue:**
+1. **`reranking-analysis/TOM_TAT_TIENG_VIET.md`** - Memory leak (20GB RAM) explanation & fix
+2. **`reranking-analysis/RERANKER_FIX_URGENT.md`** - Apply singleton fix NOW (30 min)
+
+#### **📊 Performance Optimization:**
 1. **`performance-analysis/PERFORMANCE_TEST_ANALYSIS.md`** - Hiểu current issues
 2. **`executive-summaries/EXECUTIVE_SUMMARY_PERFORMANCE_PLAN.md`** - Overview plan
 3. **`implementation-plans/NON_INVASIVE_PERFORMANCE_PLAN.md`** - Execute plan
@@ -84,21 +117,27 @@
 ### **📊 THEO ROLE:**
 
 **🔧 DEVELOPER:**
+- 🚨 `reranking-analysis/RERANKER_FIX_URGENT.md` - **FIX NGAY** (memory leak)
+- `reranking-analysis/RERANKER_MEMORY_ANALYSIS.md` - Deep technical analysis
 - `implementation-plans/NON_INVASIVE_PERFORMANCE_PLAN.md`
 - `optimization-strategies/CONNECTION_POOLING_STRATEGY.md`
 - `system-architecture/CACHE_AND_HNSW_EXPLAINED.md`
 
 **👔 MANAGER/EXECUTIVE:**
+- 🚨 `reranking-analysis/TOM_TAT_TIENG_VIET.md` - **CRITICAL ISSUE** (dễ hiểu)
 - `executive-summaries/EXECUTIVE_SUMMARY_PERFORMANCE_PLAN.md`
 - `performance-analysis/PERFORMANCE_TEST_ANALYSIS.md`
 - `executive-summaries/SYSTEM_IMPROVEMENT_EXECUTIVE_SUMMARY.md`
 
 **📋 PROJECT MANAGER:**
+- 🚨 `reranking-analysis/RERANKER_FIX_URGENT.md` - Urgent fix timeline
 - `implementation-plans/DETAILED_IMPLEMENTATION_PLAN.md`
 - `implementation-plans/NON_INVASIVE_PERFORMANCE_PLAN.md`
 - `optimization-strategies/SYSTEM_IMPROVEMENT_PLAN.md`
 
 **🏗️ ARCHITECT:**
+- `reranking-analysis/RERANKING_STRATEGIES.md` - Strategy comparison
+- `reranking-analysis/RERANKER_MEMORY_ANALYSIS.md` - Technical deep-dive
 - `system-architecture/PIPELINE_INTEGRATION_SUMMARY.md`
 - `optimization-strategies/OPTIMIZATION_STRATEGY.md`
 - `system-architecture/CACHE_AND_HNSW_EXPLAINED.md`
@@ -107,24 +146,57 @@
 
 ## 📈 CURRENT STATUS
 
-### **⚠️ CRITICAL ISSUES (từ Performance Test):**
+### **🚨 CRITICAL ISSUES:**
+
+#### **1. Memory Leak (BLOCKING PRODUCTION):**
+- **BGEReranker**: Load 1.2GB model mỗi request thay vì singleton
+- **RAM Usage**: 20GB+ cho performance test (expected: 1.5GB)
+- **CUDA OOM**: `torch.OutOfMemoryError` với 10.35 GiB used
+- **Concurrent Capacity**: Maximum 5 users (breaking at 10 users)
+- **Fix Time**: 30 phút (singleton) hoặc 1 giờ (FastAPI DI)
+- **Expected Impact**: 20GB → 1.5GB, 5 → 50+ users
+
+#### **2. Performance Issues (từ Performance Test):**
 - **Query Latency**: TIMEOUT sau 10 phút
 - **Success Rate**: 37% (60%+ failures)
 - **Response Time**: 9.6 giây với 10 users
-- **Concurrent Capacity**: Maximum 5-10 users
+- **Root Cause**: Connection pooling + Memory leak compound effect
 
 ### **🎯 TARGET IMPROVEMENTS:**
+
+#### **Immediate (Memory Leak Fix):**
+- **Memory Usage**: 20GB → 1.5GB (13x reduction)
+- **Concurrent Users**: 5 → 50+ (10x improvement)
+- **Success Rate**: 36.7% → 95%+ (2.6x improvement)
+
+#### **Long-term (Full Optimization):**
 - **Response Time**: 9.6s → <1.5s (85% improvement)
-- **Success Rate**: 37% → 95%+ (157% improvement)
+- **Success Rate**: 37% → 99%+ 
 - **Concurrent Users**: 10 → 100+ (1000% improvement)
 
-### **✅ RECOMMENDED ACTION:**
-👉 **Start with `implementation-plans/NON_INVASIVE_PERFORMANCE_PLAN.md`**
+### **✅ RECOMMENDED ACTIONS (PRIORITY ORDER):**
+1. 🚨 **URGENT**: Fix memory leak với `reranking-analysis/RERANKER_FIX_URGENT.md` (30 phút)
+2. � **HIGH**: PostgreSQL optimization với `implementation-plans/NON_INVASIVE_PERFORMANCE_PLAN.md`
+3. 🔄 **MEDIUM**: Connection pooling implementation
+4. 📈 **LOW**: Cache optimization và monitoring
 
 ---
 
 ## 📚 DOCUMENT RELATIONSHIP
 
+### **🚨 Critical Path (Memory Leak):**
+```
+reranking-analysis/TOM_TAT_TIENG_VIET.md (Vietnamese overview)
+    ↓ (explains problem)
+reranking-analysis/RERANKER_FIX_URGENT.md (Quick fix)
+    ↓ (implement singleton)
+reranking-analysis/RERANKER_MEMORY_ANALYSIS.md (Deep dive)
+    ↓ (understand root cause)
+reranking-analysis/RERANKING_STRATEGIES.md (Future optimization)
+    ↓ (consider alternatives: Cohere API, etc.)
+```
+
+### **📊 Performance Optimization Path:**
 ```
 performance-analysis/PERFORMANCE_TEST_ANALYSIS.md
     ↓ (identifies issues)
@@ -183,4 +255,6 @@ system-architecture/CACHE_AND_HNSW_EXPLAINED.md
 
 ---
 
-**🎯 NEXT ACTION: Start with Phase 1 PostgreSQL optimization từ NON_INVASIVE_PERFORMANCE_PLAN.md**
+**🎯 NEXT ACTIONS (IN ORDER):**
+1. 🚨 **IMMEDIATE**: Fix memory leak - `reranking-analysis/RERANKER_FIX_URGENT.md` (30 phút)
+2. 📊 **THEN**: PostgreSQL optimization - `implementation-plans/NON_INVASIVE_PERFORMANCE_PLAN.md` Phase 1
