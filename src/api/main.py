@@ -68,7 +68,7 @@ def ask(body: AskIn):
     # retriever = create_retriever(mode=body.mode, enable_reranking=enable_reranking)
     # → answer() đã tạo retriever bên trong (qa_chain.py line 137)
     # → Tạo 2 lần = waste memory + không dùng instance từ API endpoint
-    
+
     if not body.question or not body.question.strip():
         raise HTTPException(400, detail="question is required")
     try:
