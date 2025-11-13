@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     AsyncEngine,
 )
-from sqlalchemy.pool import QueuePool
+from sqlalchemy.pool import NullPool
 from sqlalchemy.engine.events import event
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -36,6 +36,8 @@ class DatabaseConfig:
     2. Pre-ping validation → Prevent stale connections
     3. Pool monitoring → Track performance metrics
     4. Async session management → Better concurrency
+
+    Note: Using NullPool for async engine compatibility.
     """
 
     def __init__(self, database_url: str):
@@ -54,29 +56,16 @@ class DatabaseConfig:
         self._engine = create_async_engine(
             self.database_url,
             # Connection Pool Configuration
-            poolclass=QueuePool,
-            pool_size=20,  # Core connections kept alive
-            max_overflow=30,  # Additional connections when needed
-            pool_recycle=3600,  # Recycle connections after 1 hour
+            # Note: NullPool is used for async compatibility
+            poolclass=NullPool,
             pool_pre_ping=True,  # Validate connections before use
-            pool_reset_on_return="commit",  # Reset state on return
-            pool_timeout=30,  # Max wait time for connection
             # Performance Settings
             echo=False,  # Set True for SQL debugging
             echo_pool=False,  # Set True for pool debugging
             future=True,  # Enable SQLAlchemy 2.0 style
-            # Connection Settings cho PostgreSQL + pgvector optimization
-            connect_args={
-                "server_settings": {
-                    "application_name": "rag_bidding_app",
-                    "jit": "off",  # Disable JIT for faster startup
-                    "shared_preload_libraries": "vector",  # pgvector support
-                },
-                "command_timeout": 30,  # Individual query timeout
-            },
         )
 
-        logger.info(f"Database engine initialized with pool_size=20, max_overflow=30")
+        logger.info(f"Database engine initialized with NullPool (async compatible)")
 
     def _setup_session_factory(self):
         """Setup async session factory"""
@@ -171,67 +160,24 @@ class DatabaseConfig:
 
         Returns:
             Dict containing pool metrics
+
+        Note: With NullPool, most metrics are not available.
         """
         if not self._engine:
             return {"error": "Engine not initialized"}
 
         pool = self._engine.pool
 
-        # Calculate pool utilization
-        total_capacity = pool.size() + pool.overflow()
-        checked_out_count = pool.checkedout()
-        utilization = (
-            (checked_out_count / total_capacity * 100) if total_capacity > 0 else 0
-        )
-
         return {
             "pool_metrics": {
-                "pool_size": pool.size(),
-                "checked_in": pool.checkedin(),
-                "checked_out": checked_out_count,
-                "overflow": pool.overflow(),
-                "invalid": pool.invalid(),
-                "total_capacity": total_capacity,
-            },
-            "utilization_metrics": {
-                "usage_percent": round(utilization, 2),
-                "available_connections": pool.size() - checked_out_count,
-                "is_healthy": utilization < 85,  # Alert if >85% utilization
+                "pool_class": pool.__class__.__name__,
+                "note": "NullPool creates connections on-demand, no persistent pool",
             },
             "performance_stats": self._pool_stats,
-            "recommendations": self._generate_pool_recommendations(utilization, pool),
+            "recommendations": [
+                "Using NullPool - connections created per request. Consider implementing connection pooling with pgBouncer for production."
+            ],
         }
-
-    def _generate_pool_recommendations(self, utilization: float, pool) -> list:
-        """Generate pool performance recommendations"""
-        recommendations = []
-
-        if utilization > 90:
-            recommendations.append(
-                "CRITICAL: Pool utilization >90%. Increase pool_size immediately."
-            )
-        elif utilization > 80:
-            recommendations.append(
-                "WARNING: High pool utilization. Consider increasing pool_size."
-            )
-
-        if pool.overflow() > 20:
-            recommendations.append(
-                "Frequent overflow detected. Increase max_overflow setting."
-            )
-
-        if pool.invalid() > 5:
-            recommendations.append("High invalid connections. Check network stability.")
-
-        if self._pool_stats["queries_executed"] > 10000:
-            recommendations.append(
-                "High query volume. Monitor for performance optimization opportunities."
-            )
-
-        if not recommendations:
-            recommendations.append("Pool performing optimally.")
-
-        return recommendations
 
     async def warm_up_pool(self, min_connections: int = 5):
         """
@@ -239,27 +185,10 @@ class DatabaseConfig:
 
         Args:
             min_connections: Minimum connections to pre-create
+
+        Note: With NullPool, this has minimal effect.
         """
-        logger.info(f"Warming up connection pool with {min_connections} connections...")
-
-        sessions = []
-        try:
-            # Create multiple sessions to warm up pool
-            for i in range(min_connections):
-                session = self._session_factory()
-                await session.execute(text("SELECT 1"))
-                sessions.append(session)
-                logger.debug(f"Warmed up connection {i+1}/{min_connections}")
-
-        except Exception as e:
-            logger.error(f"Pool warm-up failed: {e}")
-
-        finally:
-            # Close all warming sessions
-            for session in sessions:
-                await session.close()
-
-        logger.info("Connection pool warm-up completed")
+        logger.info(f"NullPool in use - connection warm-up not applicable")
 
     async def execute_health_check(self) -> Dict[str, Any]:
         """
@@ -271,7 +200,7 @@ class DatabaseConfig:
         health_status = {
             "timestamp": asyncio.get_event_loop().time(),
             "database_accessible": False,
-            "pool_healthy": False,
+            "pool_healthy": True,  # NullPool always "healthy"
             "pgvector_available": False,
             "response_time_ms": None,
         }
@@ -291,12 +220,6 @@ class DatabaseConfig:
                     )
                 )
                 health_status["pgvector_available"] = result.scalar()
-
-                # Pool health
-                pool_status = await self.get_pool_status()
-                health_status["pool_healthy"] = pool_status["utilization_metrics"][
-                    "is_healthy"
-                ]
 
                 # Calculate response time
                 end_time = asyncio.get_event_loop().time()

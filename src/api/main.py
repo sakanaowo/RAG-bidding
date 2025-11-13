@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import List, Literal
 from src.config.logging_config import setup_logging
 from src.config.models import settings
+from src.config.database import init_database, startup_database, shutdown_database
 from src.embedding.store.pgvector_store import bootstrap
 from src.generation.chains.qa_chain import answer
 from src.retrieval.query_processing.query_enhancer import (
@@ -13,6 +14,7 @@ from src.retrieval.query_processing.query_enhancer import (
 )
 from .routers import upload
 from .routers import document_status
+from .routers import documents_chat
 
 
 setup_logging()
@@ -25,22 +27,38 @@ app = FastAPI(
 # Include routers
 app.include_router(upload.router, prefix="/api")
 app.include_router(document_status.router, prefix="/api")
+app.include_router(
+    documents_chat.router, prefix="/api"
+)  # 🆕 Documents & Chat endpoints
 
 
 @app.on_event("startup")
-def init_vector_store() -> None:
-    bootstrap()
+async def init_services() -> None:
+    """Initialize all services on startup."""
+    # Initialize database connection pool first
+    init_database()
+    await startup_database()
+
+
+@app.on_event("shutdown")
+async def cleanup_services() -> None:
+    """Cleanup on shutdown."""
+    await shutdown_database()
+
+
+# Initialize vector store at module level (sync)
+bootstrap()
 
 
 class AskIn(BaseModel):
     question: str
     mode: Literal["fast", "balanced", "quality", "adaptive"] = "balanced"
+    reranker: Literal["bge", "openai"] = "bge"  # 🆕 Toggle reranker type
 
 
 class AskResponse(BaseModel):
     answer: str
     sources: list[str]
-    # phase1_mode: str
     adaptive_retrieval: dict
     enhanced_features: list[str]
     processing_time_ms: int = None
@@ -75,8 +93,13 @@ def ask(body: AskIn):
         import time
 
         start_time = time.time()
-        # ✅ answer() sẽ tạo retriever với singleton pattern
-        result = answer(body.question, mode=body.mode, use_enhancement=True)
+        # ✅ answer() sẽ tạo retriever với singleton pattern + reranker selection
+        result = answer(
+            body.question,
+            mode=body.mode,
+            use_enhancement=True,
+            reranker_type=body.reranker,  # 🆕 Pass reranker type
+        )
         processing_time = int((time.time() - start_time) * 1000)
         result["processing_time_ms"] = processing_time
         return result
@@ -100,16 +123,45 @@ def get_system_stats():
             "reranking": settings.enable_reranking,
             "answer_validation": settings.enable_answer_validation,
         },
-        "current_mode": settings.rag_mode,
-        "chunk_stats": {
-            "chunk_size": settings.chunk_size,
-            "chunk_overlap": settings.chunk_overlap,
-        },
     }
 
 
-# TODO: remove non-relative data
+@app.get("/features")
+def get_feature_flags():
+    """
+    Get current feature flags and production readiness status.
 
-# TODO: endpoint to toggle status
+    Shows:
+    - Database pooling status (pgBouncer vs NullPool)
+    - Cache configuration (L1/L2/L3 layers)
+    - Session storage (Redis vs In-Memory)
+    - Reranking settings (BGE singleton, OpenAI parallel)
 
-# TODO: endpoint to upsert data
+    See: src/config/feature_flags.py for configuration
+    See: documents/technical/POOLING_CACHE_PLAN.md for implementation plan
+    """
+    from src.config.feature_flags import get_feature_status
+
+    return {
+        "status": "ok",
+        "features": get_feature_status(),
+        "deployment_guide": "/documents/technical/POOLING_CACHE_PLAN.md",
+    }
+
+
+@app.get("/")
+def root():
+    """API root with helpful links."""
+    return {
+        "api": "RAG Bidding System",
+        "version": "2.0.0",
+        "endpoints": {
+            "health": "/health - Database connectivity check",
+            "stats": "/stats - System configuration",
+            "features": "/features - Feature flags & production readiness",
+            "ask": "POST /ask - Question answering",
+            "documents": "/api/documents - Document management",
+            "chat": "/api/chat/sessions - Chat session management",
+        },
+        "docs": "/docs - Swagger UI",
+    }

@@ -127,14 +127,21 @@ def format_document_reference(doc, index: int) -> str:
 
 
 def answer(
-    question: str, mode: str | None = None, use_enhancement: bool = True
+    question: str,
+    mode: str | None = None,
+    use_enhancement: bool = True,
+    reranker_type: str = "bge",  # 🆕 Support BGE or OpenAI reranker
 ) -> Dict:
     selected_mode = mode or settings.rag_mode or "balanced"
     apply_preset(selected_mode)
 
-    # ✅ Create retriever dynamically based on selected_mode
+    # ✅ Create retriever dynamically based on selected_mode and reranker_type
     enable_reranking = settings.enable_reranking and selected_mode != "fast"
-    retriever = create_retriever(mode=selected_mode, enable_reranking=enable_reranking)
+    retriever = create_retriever(
+        mode=selected_mode,
+        enable_reranking=enable_reranking,
+        reranker_type=reranker_type,  # 🆕 Pass reranker type
+    )
 
     # ✅ Select prompt based on query complexity
     use_detailed_prompt = is_complex_query(question)
