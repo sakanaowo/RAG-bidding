@@ -7,7 +7,7 @@ Migration Guide:
     Option 1 (Recommended): Use BGEReranker
         from src.retrieval.ranking import get_singleton_reranker
         reranker = get_singleton_reranker()
-    
+
     Option 2 (Custom): Implement your own legal scoring on top of BGE
         See DEPRECATED_RERANKERS.md for example implementation
 

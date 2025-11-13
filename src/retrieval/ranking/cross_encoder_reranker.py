@@ -7,11 +7,11 @@ Note: BGEReranker ALREADY uses CrossEncoder internally!
 
 Migration Guide:
     BGE is a cross-encoder model, so no separate implementation needed:
-    
+
     # OLD (not implemented):
     from src.retrieval.ranking import CrossEncoderReranker
     reranker = CrossEncoderReranker()
-    
+
     # NEW (BGE IS a cross-encoder):
     from src.retrieval.ranking import get_singleton_reranker
     reranker = get_singleton_reranker()

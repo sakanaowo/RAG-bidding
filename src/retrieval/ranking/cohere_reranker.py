@@ -5,11 +5,11 @@ This file was never implemented and is now deprecated.
 
 Migration Guide:
     Use BGEReranker instead (free, offline, privacy-friendly):
-    
+
     # OLD (not implemented):
     from src.retrieval.ranking import CohereReranker
     reranker = CohereReranker()
-    
+
     # NEW (recommended):
     from src.retrieval.ranking import get_singleton_reranker
     reranker = get_singleton_reranker()

@@ -32,30 +32,30 @@ def get_singleton_reranker(
 ) -> "BGEReranker":
     """
     Factory function để lấy singleton instance của BGEReranker.
-    
+
     Thread-safe implementation với double-checked locking pattern.
     Nếu model đã được load, sẽ reuse instance thay vì tạo mới → giảm memory.
-    
+
     Args:
         model_name: Hugging Face model name (default: BAAI/bge-reranker-v2-m3)
         device: "auto", "cuda", hoặc "cpu"
         max_length: Max sequence length cho model
         batch_size: Batch size cho reranking (auto-adjust based on device)
-    
+
     Returns:
         BGEReranker instance (singleton)
-    
+
     Example:
         >>> reranker = get_singleton_reranker()  # Lần đầu: load model (1.2GB)
         >>> reranker2 = get_singleton_reranker()  # Lần sau: reuse instance
         >>> assert reranker is reranker2  # True - cùng instance
     """
     global _reranker_instance
-    
+
     # Fast path: Nếu đã có instance, return ngay (không cần lock)
     if _reranker_instance is not None:
         return _reranker_instance
-    
+
     # ✅ Auto-detect device TRƯỚC khi tạo instance
     # CrossEncoder không chấp nhận "auto", chỉ chấp nhận "cpu" hoặc "cuda"
     if device == "auto":
@@ -69,7 +69,7 @@ def get_singleton_reranker(
         except Exception as e:
             logger.warning(f"⚠️  CUDA check failed ({str(e)}), falling back to CPU")
             device = "cpu"
-    
+
     # Slow path: Tạo instance mới (cần lock)
     with _reranker_lock:
         # Double-check: Có thể thread khác đã tạo xong trong lúc chờ lock
@@ -90,14 +90,14 @@ def get_singleton_reranker(
 def reset_singleton_reranker() -> None:
     """
     Reset singleton instance (CHỈ dùng cho testing).
-    
+
     Gọi cleanup method nếu có, sau đó set instance về None.
     Cho phép test cases tạo reranker mới với config khác nhau.
-    
+
     ⚠️ WARNING: KHÔNG gọi trong production code!
     """
     global _reranker_instance
-    
+
     with _reranker_lock:
         if _reranker_instance is not None:
             logger.warning("⚠️ Resetting singleton reranker (testing only)")
@@ -293,7 +293,7 @@ class BGEReranker(BaseReranker):
     def __del__(self):
         """
         Cleanup method để free GPU/CPU memory khi instance bị destroy.
-        
+
         Gọi torch.cuda.empty_cache() để clear CUDA cache nếu dùng GPU.
         Đảm bảo model được unload khi không còn dùng (testing hoặc shutdown).
         """
@@ -304,4 +304,3 @@ class BGEReranker(BaseReranker):
         except Exception as e:
             # Ignore errors during cleanup (best effort)
             logger.warning(f"⚠️ Error during BGEReranker cleanup: {e}")
-

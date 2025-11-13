@@ -30,9 +30,9 @@ def cleanup_cuda_cache():
     # Before test
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    
+
     yield
-    
+
     # After test
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -64,7 +64,7 @@ class TestSingletonPattern:
         # Should be DIFFERENT instances (memory leak!)
         assert reranker1 is not reranker2
         assert id(reranker1) != id(reranker2)
-        
+
         # Cleanup immediately để free memory
         del reranker1
         del reranker2
@@ -194,6 +194,7 @@ class TestFunctionality:
         assert all(isinstance(r[0], Document) for r in results)
         # Scores can be float or numpy float (both acceptable)
         import numpy as np
+
         assert all(isinstance(r[1], (float, np.floating)) for r in results)
         # Scores should be in descending order
         assert results[0][1] >= results[1][1]
@@ -241,7 +242,7 @@ class TestPerformance:
         for _ in range(10):
             instances.append(BGEReranker(device="cpu"))
         direct_time = time.time() - start
-        
+
         # Cleanup
         del instances
         if torch.cuda.is_available():
@@ -303,8 +304,10 @@ class TestEdgeCases:
         assert reranker1 is reranker2
         # Batch size should remain from first call (may be auto-adjusted by device)
         assert reranker2.batch_size == first_batch_size
-        
-        print(f"\n📝 Batch size test: {first_batch_size} (auto-adjusted based on device)")
+
+        print(
+            f"\n📝 Batch size test: {first_batch_size} (auto-adjusted based on device)"
+        )
 
     def test_reset_clears_cuda_cache_if_available(self):
         """Verify reset calls __del__ để clear CUDA cache"""

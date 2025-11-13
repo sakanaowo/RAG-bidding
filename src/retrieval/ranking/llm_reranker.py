@@ -10,11 +10,11 @@ This file was never implemented and is now deprecated.
 
 Migration Guide:
     Use BGEReranker instead (10-30x faster, free, proven accuracy):
-    
+
     # OLD (not implemented):
     from src.retrieval.ranking import LLMReranker
     reranker = LLMReranker()
-    
+
     # NEW (recommended):
     from src.retrieval.ranking import get_singleton_reranker
     reranker = get_singleton_reranker()

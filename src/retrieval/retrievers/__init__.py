@@ -8,7 +8,10 @@ from .adaptive_k_retriever import AdaptiveKRetriever
 
 from src.embedding.store.pgvector_store import vector_store
 from src.retrieval.query_processing import EnhancementStrategy
-from src.retrieval.ranking import BaseReranker, get_singleton_reranker  # ⭐ Import singleton factory
+from src.retrieval.ranking import (
+    BaseReranker,
+    get_singleton_reranker,
+)  # ⭐ Import singleton factory
 
 
 def create_retriever(
