@@ -62,19 +62,20 @@ def health():
 
 
 @app.post("/ask", response_model=AskResponse)
+@app.post("/ask", response_model=AskResponse)
 def ask(body: AskIn):
-    from src.retrieval.retrievers import create_retriever
-
-    # 🆕 Enable reranking based on config (default: True for balanced/quality/adaptive)
-    enable_reranking = settings.enable_reranking and body.mode != "fast"
-    retriever = create_retriever(mode=body.mode, enable_reranking=enable_reranking)
-
+    # ⚠️ REMOVED: Duplicate retriever creation
+    # retriever = create_retriever(mode=body.mode, enable_reranking=enable_reranking)
+    # → answer() đã tạo retriever bên trong (qa_chain.py line 137)
+    # → Tạo 2 lần = waste memory + không dùng instance từ API endpoint
+    
     if not body.question or not body.question.strip():
         raise HTTPException(400, detail="question is required")
     try:
         import time
 
         start_time = time.time()
+        # ✅ answer() sẽ tạo retriever với singleton pattern
         result = answer(body.question, mode=body.mode, use_enhancement=True)
         processing_time = int((time.time() - start_time) * 1000)
         result["processing_time_ms"] = processing_time
