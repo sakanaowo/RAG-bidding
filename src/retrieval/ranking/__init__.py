@@ -6,7 +6,7 @@ ranking quality của retrieved documents.
 """
 
 from .base_reranker import BaseReranker
-from .bge_reranker import BGEReranker
+from .bge_reranker import BGEReranker, get_singleton_reranker, reset_singleton_reranker
 
 # Import các rerankers khác nếu đã implement
 try:
@@ -33,6 +33,8 @@ except ImportError:
 __all__ = [
     "BaseReranker",
     "BGEReranker",
+    "get_singleton_reranker",  # ⭐ Singleton factory (production use)
+    "reset_singleton_reranker",  # ⚠️ Testing only
 ]
 
 # Thêm vào __all__ nếu available

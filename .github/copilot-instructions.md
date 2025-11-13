@@ -192,30 +192,37 @@ torch.cuda.empty_cache()
 ## 📚 Reference Documentation
 
 ### 🚨 **CRITICAL ISSUES - READ FIRST:**
+
 1. **Memory Leak (BLOCKING)**: `documents/technical/reranking-analysis/` - 20GB RAM, 5 users max
 2. **Performance Issues**: `documents/technical/performance-analysis/` - 37% success rate, 9.6s latency
 
 ### Core Architecture
+
 - Pipeline Integration: `documents/technical/system-architecture/PIPELINE_INTEGRATION_SUMMARY.md`
 - Technical Index: `documents/technical/README.md` (full navigation)
 
 ### Setup & Configuration
+
 - Quick Setup: `documents/setup/QUICK_SETUP.md`
 - Database Setup: `documents/setup/DATABASE_SETUP.md`
 
 ### Performance & Optimization
+
 - **Non-Invasive Plan** (recommended): `documents/technical/implementation-plans/NON_INVASIVE_PERFORMANCE_PLAN.md`
 - Executive Summary: `documents/technical/executive-summaries/EXECUTIVE_SUMMARY_PERFORMANCE_PLAN.md`
 - Connection Pooling: `documents/technical/optimization-strategies/CONNECTION_POOLING_STRATEGY.md`
 
 ### Reranking (Memory Leak Issue) 🚨 **CRITICAL - READ FIRST**
+
 **⭐ Start Here**: `documents/technical/reranking-analysis/TOM_TAT_TIENG_VIET.md` (Vietnamese comprehensive guide)
+
 - **Fix Urgent** (3 min English): `documents/technical/reranking-analysis/RERANKER_FIX_URGENT.md`
 - **Root Cause** (15 min deep-dive): `documents/technical/reranking-analysis/RERANKER_MEMORY_ANALYSIS.md`
 - **Strategies** (20 min comparison): `documents/technical/reranking-analysis/RERANKING_STRATEGIES.md`
 - **Navigation Guide**: `documents/technical/reranking-analysis/README.md`
 
 **Quick Summary:**
+
 - **Problem**: BGEReranker loads 1.2GB model per request → 20GB RAM usage → CUDA OOM
 - **Impact**: Max 5 concurrent users, 36.7% success rate, production blocking
 - **Solution**: Implement singleton pattern (30 min) or FastAPI DI (1 hour)

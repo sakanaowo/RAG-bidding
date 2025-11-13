@@ -8,7 +8,7 @@ from .adaptive_k_retriever import AdaptiveKRetriever
 
 from src.embedding.store.pgvector_store import vector_store
 from src.retrieval.query_processing import EnhancementStrategy
-from src.retrieval.ranking import BGEReranker, BaseReranker
+from src.retrieval.ranking import BaseReranker, get_singleton_reranker  # ⭐ Import singleton factory
 
 
 def create_retriever(
@@ -51,9 +51,11 @@ def create_retriever(
     - Educational materials: 5yr validity
     """
 
-    # Initialize reranker if enabled
+    # ✅ Reranking bằng BGE cross-encoder nếu enable
     if enable_reranking and reranker is None:
-        reranker = BGEReranker()  # Auto-detects GPU
+        # ⭐ FIXED: Dùng singleton thay vì tạo instance mới
+        # Giảm memory: 60 instances (20GB) → 1 instance (1.2GB)
+        reranker = get_singleton_reranker()
 
     # Base retriever with status filtering
     base = BaseVectorRetriever(k=5, filter_status=filter_status)
