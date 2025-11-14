@@ -112,7 +112,7 @@ async def list_documents(
         # Build query
         query = """
             SELECT 
-                uuid AS id,
+                id,
                 cmetadata->>'document_id' AS document_id,
                 cmetadata->>'title' AS title,
                 cmetadata->>'document_type' AS document_type,
@@ -204,7 +204,7 @@ async def get_document(
     try:
         query = """
             SELECT 
-                uuid AS id,
+                id,
                 cmetadata->>'document_id' AS document_id,
                 cmetadata->>'title' AS title,
                 cmetadata->>'document_type' AS document_type,
@@ -218,7 +218,7 @@ async def get_document(
                 cmetadata->>'status' AS status,
                 cmetadata->>'url' AS url
             FROM langchain_pg_embedding
-            WHERE uuid::text = :doc_id 
+            WHERE id = :doc_id 
                OR cmetadata->>'document_id' = :doc_id
             LIMIT 1
         """
@@ -315,9 +315,20 @@ async def get_document_stats(
 
 # ===== CHAT SESSION ENDPOINTS =====
 
+# TODO [CHAT-MIGRATION]: Replace Redis with PostgreSQL for chat sessions
+# See: /documents/technical/implementation-plans/CHAT_SESSION_POSTGRESQL_PLAN.md
+# Current: RedisChatSessionStore (temporary)
+# Target: PostgresChatSessionStore (persistent, queryable)
+# Changes needed:
+#   1. Disable ENABLE_REDIS_SESSIONS in .env
+#   2. Replace RedisChatSessionStore → PostgresChatSessionStore
+#   3. Add session_title auto-generation
+#   4. Update endpoint responses with session metadata
+# Estimated: 1.5 hours
+
 # Session storage configuration
-# TODO: Enable Redis when installed (see documents/technical/POOLING_CACHE_PLAN.md)
-ENABLE_REDIS_SESSIONS = False  # 🚫 Feature flag - Set True after Redis installation
+# ✅ Redis is installed and running - Enable Redis sessions
+from src.config.feature_flags import ENABLE_REDIS_SESSIONS
 
 # Initialize session store (singleton)
 _session_store = None
@@ -328,9 +339,10 @@ def get_session_store():
     Get or create session store singleton.
 
     Current: In-memory storage (development mode)
-    TODO: Enable Redis for production (persistent, multi-instance support)
+    TODO [CHAT-MIGRATION]: Enable PostgreSQL for production
+    Replace RedisChatSessionStore with PostgresChatSessionStore
 
-    See implementation plan: documents/technical/POOLING_CACHE_PLAN.md - Phase 2
+    See implementation plan: documents/technical/implementation-plans/CHAT_SESSION_POSTGRESQL_PLAN.md
     """
     global _session_store
 
@@ -338,6 +350,7 @@ def get_session_store():
         if ENABLE_REDIS_SESSIONS:
             try:
                 # Redis storage (production-ready)
+                # TODO [CHAT-MIGRATION]: Replace this entire block with PostgresChatSessionStore
                 _session_store = RedisChatSessionStore(
                     redis_host="localhost",
                     redis_port=6379,
