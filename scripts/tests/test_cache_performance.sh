@@ -29,7 +29,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 START1=$(date +%s%3N)
 RESPONSE1=$(curl -s -X POST "$API_URL/ask" \
   -H "Content-Type: application/json" \
-  -d "{\"query\": \"$QUERY\", \"mode\": \"balanced\"}")
+  -d "{\"question\": \"$QUERY\", \"mode\": \"balanced\"}")
 END1=$(date +%s%3N)
 LATENCY1=$((END1 - START1))
 
@@ -57,7 +57,7 @@ sleep 1  # Đợi Redis write xong
 START2=$(date +%s%3N)
 RESPONSE2=$(curl -s -X POST "$API_URL/ask" \
   -H "Content-Type: application/json" \
-  -d "{\"query\": \"$QUERY\", \"mode\": \"balanced\"}")
+  -d "{\"question\": \"$QUERY\", \"mode\": \"balanced\"}")
 END2=$(date +%s%3N)
 LATENCY2=$((END2 - START2))
 
@@ -81,7 +81,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 START3=$(date +%s%3N)
 RESPONSE3=$(curl -s -X POST "$API_URL/ask" \
   -H "Content-Type: application/json" \
-  -d "{\"query\": \"$QUERY\", \"mode\": \"balanced\"}")
+  -d "{\"question\": \"$QUERY\", \"mode\": \"balanced\"}")
 END3=$(date +%s%3N)
 LATENCY3=$((END3 - START3))
 
