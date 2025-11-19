@@ -82,7 +82,7 @@ class OpenAIReranker(BaseReranker):
         self.use_parallel = use_parallel
 
         # Get API key from param or environment
-        api_key = api_key or os.getenv("OPENAI_API_KEY")
+        api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError(
                 "OpenAI API key required! "
@@ -197,7 +197,6 @@ Văn bản:
                 Điểm số (0-10):"""
 
         try:
-            # 🆕 Use async client
             response = await self.async_client.chat.completions.create(
                 model=self.model_name,
                 messages=[
@@ -260,8 +259,6 @@ Văn bản:
     ) -> List[Tuple[Document, float]]:
         """
         Rerank documents using OpenAI API.
-
-        🆕 Now supports parallel processing for 10-20x speedup!
 
         Args:
             query: User query (Vietnamese)

@@ -12,8 +12,17 @@ Yêu cầu: OPENAI_API_KEY environment variable
 import os
 import sys
 import time
+
 import pytest
 from langchain_core.documents import Document
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv()
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
