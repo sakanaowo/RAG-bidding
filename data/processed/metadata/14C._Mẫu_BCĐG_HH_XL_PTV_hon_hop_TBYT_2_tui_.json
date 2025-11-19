@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "14. Báo cáo đánh giá",
   "chunk_count": 43,
-  "output_file": "data/processed_enriched/chunks/14C._Mẫu_BCĐG_HH_XL_PTV_hon_hop_TBYT_2_tui_.jsonl",
+  "output_file": "data/processed/chunks/14C._Mẫu_BCĐG_HH_XL_PTV_hon_hop_TBYT_2_tui_.jsonl",
   "processed_at": "2025-11-04T12:13:49.832947"
 }

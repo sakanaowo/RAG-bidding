@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "4. Mẫu kiểm tra",
   "chunk_count": 10,
-  "output_file": "data/processed_enriched/chunks/04.2._Mẫu_Đề_cương_báo_cáo_đấu_thầu_lựa_chọn_nhà_thầu,_NĐT.jsonl",
+  "output_file": "data/processed/chunks/04.2._Mẫu_Đề_cương_báo_cáo_đấu_thầu_lựa_chọn_nhà_thầu,_NĐT.jsonl",
   "processed_at": "2025-11-04T12:13:37.604379"
 }

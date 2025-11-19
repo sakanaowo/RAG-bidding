@@ -1,0 +1,8 @@
+{
+  "source_file": "data/raw/Luat chinh/Luat so 90 2025-qh15.docx",
+  "document_type": "law",
+  "category": "Luat so 90 2025-qh15.docx",
+  "chunk_count": 255,
+  "output_file": "data/processed_enriched/chunks/Luat_so_90_2025-qh15.jsonl",
+  "processed_at": "2025-11-04T12:13:30.931913"
+}

@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "6. Tư vấn",
   "chunk_count": 46,
-  "output_file": "data/processed_enriched/chunks/6._Mẫu_số_6A_E-HSMT_tư_vấn.jsonl",
+  "output_file": "data/processed/chunks/6._Mẫu_số_6A_E-HSMT_tư_vấn.jsonl",
   "processed_at": "2025-11-04T12:13:35.481950"
 }

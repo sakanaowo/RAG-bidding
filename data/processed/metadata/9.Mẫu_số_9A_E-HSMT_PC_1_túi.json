@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "9. PC (hàng hóa_xây lắp)",
   "chunk_count": 120,
-  "output_file": "data/processed_enriched/chunks/9.Mẫu_số_9A_E-HSMT_PC_1_túi.jsonl",
+  "output_file": "data/processed/chunks/9.Mẫu_số_9A_E-HSMT_PC_1_túi.jsonl",
   "processed_at": "2025-11-04T12:13:44.670428"
 }
