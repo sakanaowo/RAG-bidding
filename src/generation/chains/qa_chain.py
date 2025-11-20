@@ -129,8 +129,8 @@ def format_document_reference(doc, index: int) -> str:
 def answer(
     question: str,
     mode: str | None = None,
-    use_enhancement: bool = True,
-    reranker_type: str = "bge",  # 🆕 Support BGE or OpenAI reranker
+    reranker_type: str = "openai",  # Default: OpenAI (API-based) (BGE is singleton, faster)
+    filter_status: str | None = "active",  # ✅ Default to 'active' (only active docs)
 ) -> Dict:
     selected_mode = mode or settings.rag_mode or "balanced"
     apply_preset(selected_mode)
@@ -141,6 +141,7 @@ def answer(
         mode=selected_mode,
         enable_reranking=enable_reranking,
         reranker_type=reranker_type,  # 🆕 Pass reranker type
+        filter_status=filter_status,  # ✅ Pass status filter (default: 'active')
     )
 
     # ✅ Select prompt based on query complexity

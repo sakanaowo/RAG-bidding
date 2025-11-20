@@ -65,20 +65,26 @@ def bootstrap():
 
 class PGVectorStore:
     """
-    Wrapper class for PGVector store for upload service compatibility
+    Wrapper class for PGVector store.
+
+    Write operations (add_texts, add_documents) always use raw vector store.
+    Read operations (similarity_search) use cached wrapper if enabled.
     """
 
     def __init__(self):
+        # Use cached wrapper for reads (if available)
         self.store = vector_store
+        # Always use raw vector store for writes (bypass cache)
+        self._raw_store = _raw_vector_store
 
     def add_texts(self, texts: list[str], metadatas: list[dict] = None):
-        """Add texts with metadata to vector store"""
-        return self.store.add_texts(texts, metadatas=metadatas)
+        """Add texts with metadata to vector store (bypasses cache)"""
+        return self._raw_store.add_texts(texts, metadatas=metadatas)
 
     def add_documents(self, documents):
-        """Add documents to vector store"""
-        return self.store.add_documents(documents)
+        """Add documents to vector store (bypasses cache)"""
+        return self._raw_store.add_documents(documents)
 
     def similarity_search(self, query: str, k: int = 5):
-        """Search for similar documents"""
+        """Search for similar documents (uses cache if enabled)"""
         return self.store.similarity_search(query, k=k)

@@ -42,10 +42,24 @@ except FileNotFoundError:
 except Exception as e:
     logger.error(f"❌ Error loading document name mapping: {e}")
 
-router = APIRouter(prefix="/documents/catalog", tags=["document-management"])
+router = APIRouter(prefix="/documents", tags=["documents"])
 
 
 # ===== MODELS =====
+
+
+class DocumentMetadata(BaseModel):
+    """Document metadata from documents table."""
+
+    document_id: str = Field(..., description="Unique document identifier")
+    document_name: str = Field(..., description="Document name/title")
+    document_type: str = Field(..., description="Type: law, decree, bidding, etc.")
+    category: str = Field(..., description="Category classification")
+    file_name: str = Field(..., description="Original file name")
+    total_chunks: int = Field(..., description="Number of chunks")
+    status: str = Field(..., description="Document status: active, archived, etc.")
+    created_at: str = Field(..., description="Creation timestamp")
+    updated_at: str = Field(..., description="Last update timestamp")
 
 
 class DocumentSummary(BaseModel):
@@ -174,7 +188,234 @@ def extract_status_history(cmetadata: dict) -> List[Dict[str, Any]]:
 # ===== ENDPOINTS =====
 
 
-@router.get("", response_model=List[DocumentSummary])
+@router.get("", response_model=List[DocumentMetadata])
+async def list_documents(
+    limit: int = Query(default=50, le=500, description="Max results"),
+    offset: int = Query(default=0, ge=0, description="Offset for pagination"),
+    document_type: Optional[str] = Query(None, description="Filter by document type"),
+    category: Optional[str] = Query(None, description="Filter by category"),
+    status: Optional[str] = Query(None, description="Filter by status"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List all documents from documents table.
+
+    Returns documents uploaded via /api/upload with:
+    - Document ID, name, type, category
+    - File information
+    - Status (active, archived, etc.)
+    - Total chunks count
+    - Timestamps
+
+    Example:
+        GET /documents?document_type=bidding&status=active&limit=20
+    """
+    try:
+        # Build query from documents table
+        query = """
+            SELECT 
+                document_id,
+                document_name,
+                document_type,
+                category,
+                file_name,
+                total_chunks,
+                status,
+                created_at,
+                updated_at
+            FROM documents
+            WHERE 1=1
+        """
+
+        params = {}
+
+        # Add filters
+        if document_type:
+            query += " AND document_type = :document_type"
+            params["document_type"] = document_type
+
+        if category:
+            query += " AND category = :category"
+            params["category"] = category
+
+        if status:
+            query += " AND status = :status"
+            params["status"] = status
+
+        # Add pagination
+        query += """
+            ORDER BY created_at DESC
+            LIMIT :limit OFFSET :offset
+        """
+        params["limit"] = limit
+        params["offset"] = offset
+
+        # Execute query
+        result = await db.execute(text(query), params)
+        rows = result.fetchall()
+
+        # Format response
+        documents = [
+            DocumentMetadata(
+                document_id=row.document_id,
+                document_name=row.document_name,
+                document_type=row.document_type,
+                category=row.category,
+                file_name=row.file_name,
+                total_chunks=row.total_chunks,
+                status=row.status,
+                created_at=row.created_at.isoformat() if row.created_at else None,
+                updated_at=row.updated_at.isoformat() if row.updated_at else None,
+            )
+            for row in rows
+        ]
+
+        logger.info(
+            f"📄 Listed {len(documents)} documents from documents table (limit={limit}, offset={offset})"
+        )
+        return documents
+
+    except Exception as e:
+        logger.error(f"❌ Error listing documents: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{document_id}", response_model=DocumentMetadata)
+async def get_document(
+    document_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get detailed information for a specific document.
+
+    Returns full document metadata from documents table.
+
+    Example:
+        GET /documents/6-Mau-so-6C-E-TVCN-tu-van-ca-nhan
+    """
+    try:
+        query = """
+            SELECT 
+                document_id,
+                document_name,
+                document_type,
+                category,
+                file_name,
+                total_chunks,
+                status,
+                created_at,
+                updated_at
+            FROM documents
+            WHERE document_id = :document_id
+        """
+
+        result = await db.execute(text(query), {"document_id": document_id})
+        row = result.fetchone()
+
+        if not row:
+            raise HTTPException(
+                status_code=404, detail=f"Document {document_id} not found"
+            )
+
+        document = DocumentMetadata(
+            document_id=row.document_id,
+            document_name=row.document_name,
+            document_type=row.document_type,
+            category=row.category,
+            file_name=row.file_name,
+            total_chunks=row.total_chunks,
+            status=row.status,
+            created_at=row.created_at.isoformat() if row.created_at else None,
+            updated_at=row.updated_at.isoformat() if row.updated_at else None,
+        )
+
+        logger.info(f"📄 Retrieved document detail: {document_id}")
+        return document
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error getting document {document_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/{document_id}/status")
+async def toggle_document_status(
+    document_id: str,
+    new_status: str = Query(..., description="New status (e.g., active, archived)"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Toggle document status.
+
+    Updates status in both documents table AND all chunks in vector store
+    to maintain consistency.
+
+    Example:
+        PATCH /documents/{document_id}/status?new_status=archived
+    """
+    try:
+        # 1. Check if document exists
+        check_query = "SELECT status FROM documents WHERE document_id = :document_id"
+        result = await db.execute(text(check_query), {"document_id": document_id})
+        row = result.fetchone()
+
+        if not row:
+            raise HTTPException(
+                status_code=404, detail=f"Document {document_id} not found"
+            )
+
+        old_status = row.status
+
+        # 2. Update documents table
+        update_documents_query = """
+            UPDATE documents 
+            SET status = :new_status, updated_at = NOW()
+            WHERE document_id = :document_id
+        """
+        await db.execute(
+            text(update_documents_query),
+            {"document_id": document_id, "new_status": new_status},
+        )
+
+        # 3. Update all chunks in vector store (sync metadata)
+        # Use string literal cast to avoid SQLAlchemy parameter issues
+        update_chunks_query = f"""
+            UPDATE langchain_pg_embedding
+            SET cmetadata = jsonb_set(cmetadata, '{{status}}', '"{new_status}"'::jsonb)
+            WHERE cmetadata->>'document_id' = :document_id
+        """
+        result = await db.execute(
+            text(update_chunks_query),
+            {"document_id": document_id},
+        )
+        chunks_updated = result.rowcount
+
+        await db.commit()
+
+        logger.info(
+            f"✅ Updated document {document_id} status: {old_status} → {new_status} "
+            f"(synced {chunks_updated} chunks)"
+        )
+
+        return {
+            "success": True,
+            "document_id": document_id,
+            "old_status": old_status,
+            "new_status": new_status,
+            "chunks_updated": chunks_updated,
+            "message": f"Status updated successfully and synced to {chunks_updated} chunks",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"❌ Error updating document status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/catalog/list", response_model=List[DocumentSummary])
 async def list_document_catalog(
     document_type: Optional[str] = Query(None, description="Filter by type"),
     status: Optional[str] = Query(None, description="Filter by status"),
@@ -200,6 +441,7 @@ async def list_document_catalog(
         where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
         # Query to get unique documents with aggregated data
+        # JOIN with documents table to get status
         query = text(
             f"""
             WITH document_groups AS (
@@ -208,15 +450,20 @@ async def list_document_catalog(
                     cmetadata->>'document_type' as document_type,
                     COUNT(*) as chunk_count,
                     MIN((cmetadata->>'chunk_index')::int) as first_chunk_idx,
+                    MAX(CAST(cmetadata->>'created_at' AS TIMESTAMP)) as created_at,
                     array_agg(id ORDER BY (cmetadata->>'chunk_index')::int) as chunk_ids,
                     (array_agg(cmetadata ORDER BY (cmetadata->>'chunk_index')::int))[1] as first_chunk_metadata
                 FROM langchain_pg_embedding
                 {where_sql}
                 GROUP BY cmetadata->>'document_id', cmetadata->>'document_type'
-                ORDER BY document_id
-                LIMIT :limit OFFSET :offset
             )
-            SELECT * FROM document_groups
+            SELECT 
+                dg.*,
+                COALESCE(d.status, 'active') as doc_status
+            FROM document_groups dg
+            LEFT JOIN documents d ON d.document_id = dg.document_id
+            ORDER BY dg.created_at DESC NULLS LAST, dg.document_id
+            LIMIT :limit OFFSET :offset
             """
         )
 
@@ -232,8 +479,8 @@ async def list_document_catalog(
             # Extract title
             title = extract_title_from_metadata(metadata)
 
-            # Extract status
-            current_status = extract_current_status(metadata)
+            # Get status from documents table (via JOIN)
+            current_status = row.doc_status
 
             # Filter by status if requested
             if status and current_status != status:
@@ -299,13 +546,18 @@ async def get_document_detail(
     - Aggregated statistics
     """
     try:
-        # Query all chunks for this document
+        # Query all chunks for this document + status from documents table
         query = text(
             """
-            SELECT id, document, cmetadata
-            FROM langchain_pg_embedding
-            WHERE cmetadata->>'document_id' = :document_id
-            ORDER BY (cmetadata->>'chunk_index')::int
+            SELECT 
+                e.id, 
+                e.document, 
+                e.cmetadata,
+                COALESCE(d.status, 'active') as doc_status
+            FROM langchain_pg_embedding e
+            LEFT JOIN documents d ON d.document_id = e.cmetadata->>'document_id'
+            WHERE e.cmetadata->>'document_id' = :document_id
+            ORDER BY (e.cmetadata->>'chunk_index')::int
             """
         )
 
@@ -321,7 +573,7 @@ async def get_document_detail(
         first_metadata = rows[0].cmetadata
         title = extract_title_from_metadata(first_metadata)
         doc_type = first_metadata.get("document_type", "unknown")
-        current_status = extract_current_status(first_metadata)
+        current_status = rows[0].doc_status  # From documents table
         status_history = extract_status_history(first_metadata)
 
         # Build chunks list
@@ -437,10 +689,23 @@ async def update_document_status(
             )
             updated_count += 1
 
+        # Also update documents table
+        update_doc_table = text(
+            """
+            UPDATE documents
+            SET status = :new_status, updated_at = NOW()
+            WHERE document_id = :document_id
+            """
+        )
+        await db.execute(
+            update_doc_table,
+            {"new_status": request.status, "document_id": document_id},
+        )
+
         await db.commit()
 
         logger.info(
-            f"✅ Updated status for document {document_id}: {old_status} → {request.status} ({updated_count} chunks)"
+            f"✅ Updated status for document {document_id}: {old_status} → {request.status} ({updated_count} chunks + documents table)"
         )
 
         return {

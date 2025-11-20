@@ -27,15 +27,14 @@ app = FastAPI(
 
 # Include routers
 # ⚠️ ORDER MATTERS: Specific paths MUST come before dynamic paths
-# /documents/catalog (specific) must be registered before /documents/{id} (dynamic)
 app.include_router(upload.router, prefix="/api")
 app.include_router(document_status.router, prefix="/api")
 app.include_router(
     documents_management.router, prefix="/api"
-)  # 🆕 Document Management - MUST be before documents_chat (specific paths first)
+)  # Document Management - /documents endpoints
 app.include_router(
     documents_chat.router, prefix="/api"
-)  # Documents & Chat endpoints (has dynamic /{document_id} path)
+)  # Chat endpoints - /chat/sessions
 
 
 @app.on_event("startup")
@@ -59,7 +58,7 @@ bootstrap()
 class AskIn(BaseModel):
     question: str
     mode: Literal["fast", "balanced", "quality", "adaptive"] = "balanced"
-    reranker: Literal["bge", "openai"] = "openai"
+    reranker: Literal["bge", "openai"] = "bge"  # Default: BGE (singleton, faster)
 
 
 class AskResponse(BaseModel):
@@ -98,8 +97,7 @@ def ask(body: AskIn):
         result = answer(
             body.question,
             mode=body.mode,
-            use_enhancement=True,
-            reranker_type=body.reranker,  # 🆕 Pass reranker type
+            reranker_type=body.reranker,
         )
         processing_time = int((time.time() - start_time) * 1000)
         result["processing_time_ms"] = processing_time

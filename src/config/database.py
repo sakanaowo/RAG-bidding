@@ -341,3 +341,39 @@ async def execute_transaction(queries: list, params_list: list = None) -> bool:
         except Exception as e:
             logger.error(f"Transaction failed: {e}")
             return False
+
+
+# Synchronous database access (for non-async contexts like background tasks)
+def get_db_sync():
+    """
+    Get synchronous database session for non-async contexts.
+
+    WARNING: This uses synchronous SQLAlchemy and should only be used
+    in background tasks or non-async code paths. Prefer async get_db() for API endpoints.
+
+    Returns:
+        Database session (psycopg2 style)
+    """
+    import psycopg2
+    from urllib.parse import urlparse
+
+    # Parse async database URL and convert to sync
+    db_url = settings.database_url
+
+    # Convert postgresql+asyncpg:// to postgresql://
+    if db_url.startswith("postgresql+asyncpg://"):
+        db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+
+    # Parse URL
+    parsed = urlparse(db_url)
+
+    # Create psycopg2 connection
+    conn = psycopg2.connect(
+        host=parsed.hostname,
+        port=parsed.port or 5432,
+        database=parsed.path.lstrip("/"),
+        user=parsed.username,
+        password=parsed.password,
+    )
+
+    return conn

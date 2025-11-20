@@ -77,8 +77,10 @@ class ReportHybridChunker(BaseLegalChunker):
         # Parse structure
         structure = self._parse_structure(full_text)
 
-        # Generate document ID
-        doc_id = self._generate_document_id(document)
+        # Get document ID from metadata or generate if not present
+        doc_id = document.metadata.get("document_id")
+        if not doc_id:
+            doc_id = self._generate_document_id(document)
 
         # Build initial chunks
         chunks = self._build_chunks_from_structure(
