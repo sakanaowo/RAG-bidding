@@ -1,0 +1,8 @@
+{
+  "source_file": "data/raw/Ho so moi thau/10. EPC (tư vấn_hàng hóa_xây lắp)/10. Mẫu số 10A_E-HSMT_EPC 01 túi.docx",
+  "document_type": "bidding",
+  "category": "10. EPC (tư vấn_hàng hóa_xây lắp)",
+  "chunk_count": 180,
+  "output_file": "data/processed_enriched/chunks/10._Mẫu_số_10A_E-HSMT_EPC_01_túi.jsonl",
+  "processed_at": "2025-11-04T12:13:40.170173"
+}

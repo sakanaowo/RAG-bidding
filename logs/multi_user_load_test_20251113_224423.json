@@ -1,0 +1,126 @@
+{
+  "test_start": "2025-11-13T22:42:54.183637",
+  "test_config": {},
+  "load_tests": {
+    "main_test": {
+      "test_config": {
+        "num_users": 10,
+        "queries_per_user": 3,
+        "user_distribution": {
+          "legal_researcher": 0.3,
+          "bidding_consultant": 0.25,
+          "government_officer": 0.2,
+          "contractor": 0.15,
+          "quick_lookup": 0.1
+        },
+        "delay_range": [
+          1.0,
+          3.0
+        ]
+      },
+      "overall_metrics": {
+        "total_time_s": 88.85256576538086,
+        "total_sessions": 10,
+        "successful_sessions": 10,
+        "failed_sessions": 0,
+        "session_success_rate": 1.0,
+        "total_queries": 30,
+        "successful_queries": 23,
+        "failed_queries": 7,
+        "query_success_rate": 0.7666666666666667,
+        "queries_per_second": 0.2588557775667674,
+        "concurrent_users": 10
+      },
+      "response_time_metrics": {
+        "avg_ms": 16857.608695652172,
+        "median_ms": 15187,
+        "min_ms": 1671,
+        "max_ms": 27330,
+        "std_ms": 7241.958811732503,
+        "percentile_95_ms": 26872,
+        "percentile_99_ms": 27330
+      },
+      "session_metrics": {
+        "avg_session_success_rate": 0.7666666666666666,
+        "avg_session_response_time_ms": 17263.433333333334
+      },
+      "user_type_breakdown": {
+        "legal_researcher": {
+          "sessions": 3,
+          "total_queries": 9,
+          "successful_queries": 8,
+          "response_times": [
+            13334,
+            24548,
+            9286,
+            27330,
+            14866,
+            8359,
+            8733,
+            8279
+          ],
+          "avg_response_time_ms": 14341.875,
+          "success_rate": 0.8888888888888888
+        },
+        "contractor": {
+          "sessions": 1,
+          "total_queries": 3,
+          "successful_queries": 2,
+          "response_times": [
+            18913,
+            11593
+          ],
+          "avg_response_time_ms": 15253,
+          "success_rate": 0.6666666666666666
+        },
+        "government_officer": {
+          "sessions": 3,
+          "total_queries": 9,
+          "successful_queries": 8,
+          "response_times": [
+            12608,
+            22420,
+            25081,
+            14261,
+            23073,
+            1671,
+            24352,
+            24020
+          ],
+          "avg_response_time_ms": 18435.75,
+          "success_rate": 0.8888888888888888
+        },
+        "bidding_consultant": {
+          "sessions": 2,
+          "total_queries": 6,
+          "successful_queries": 3,
+          "response_times": [
+            23156,
+            17802,
+            11981
+          ],
+          "avg_response_time_ms": 17646.333333333332,
+          "success_rate": 0.5
+        },
+        "quick_lookup": {
+          "sessions": 1,
+          "total_queries": 3,
+          "successful_queries": 2,
+          "response_times": [
+            15187,
+            26872
+          ],
+          "avg_response_time_ms": 21029.5,
+          "success_rate": 0.6666666666666666
+        }
+      },
+      "performance_indicators": {
+        "system_stable": true,
+        "acceptable_response_time": false,
+        "high_throughput": false,
+        "low_error_rate": false
+      }
+    }
+  },
+  "summary": {}
+}

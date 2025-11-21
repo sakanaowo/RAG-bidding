@@ -1,0 +1,8 @@
+{
+  "source_file": "data/raw/Ho so moi thau/7. EP (tư vấn_hàng hóa)/7. Mẫu số 7B. E-HSMT_EP qua mạng 2 túi.doc",
+  "document_type": "bidding",
+  "category": "7. EP (tư vấn_hàng hóa)",
+  "chunk_count": 144,
+  "output_file": "data/processed_enriched/chunks/7._Mẫu_số_7B._E-HSMT_EP_qua_mạng_2_túi.jsonl",
+  "processed_at": "2025-11-04T12:13:33.049521"
+}

@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "8. EC (tư vấn_xây lắp)",
   "chunk_count": 17,
-  "output_file": "data/processed_enriched/chunks/8._Mẫu_số_8C._E-HSMST_EC_sơ_tuyển.jsonl",
+  "output_file": "data/processed/chunks/8._Mẫu_số_8C._E-HSMST_EC_sơ_tuyển.jsonl",
   "processed_at": "2025-11-04T12:13:46.311276"
 }

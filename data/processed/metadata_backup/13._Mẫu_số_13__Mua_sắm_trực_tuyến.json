@@ -1,0 +1,8 @@
+{
+  "source_file": "data/raw/Ho so moi thau/13. Mua sắm trực tuyến/13. Mẫu số 13_ Mua sắm trực tuyến.docx",
+  "document_type": "bidding",
+  "category": "13. Mua sắm trực tuyến",
+  "chunk_count": 21,
+  "output_file": "data/processed_enriched/chunks/13._Mẫu_số_13__Mua_sắm_trực_tuyến.jsonl",
+  "processed_at": "2025-11-04T12:13:32.765592"
+}

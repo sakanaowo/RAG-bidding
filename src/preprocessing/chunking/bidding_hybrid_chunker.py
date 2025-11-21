@@ -90,8 +90,10 @@ class BiddingHybridChunker(BaseLegalChunker):
         # Clean text
         full_text = self._clean_text(full_text)
 
-        # Generate document ID
-        doc_id = self._generate_document_id(document)
+        # Get document ID from metadata or generate if not present
+        doc_id = document.metadata.get("document_id")
+        if not doc_id:
+            doc_id = self._generate_document_id(document)
 
         # Split into paragraphs
         paragraphs = self._split_paragraphs(full_text)

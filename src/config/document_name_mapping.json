@@ -1,0 +1,42 @@
+{
+  "FORM-Bidding/2025#bee720": {
+    "name": "Hồ sơ mời thầu - Mẫu biểu và phụ lục",
+    "category": "Bidding Templates",
+    "source_file": "data/raw/Ho so moi thau/",
+    "document_type": "bidding",
+    "total_chunks": 2831,
+    "description": "Tổng hợp các mẫu hồ sơ yêu cầu, biểu mẫu đấu thầu cho xây lắp, hàng hóa, tư vấn"
+  },
+  "LAW-Law/2025#cd5116": {
+    "name": "Luật đấu thầu 2023 và các văn bản liên quan",
+    "category": "Laws",
+    "source_file": "data/raw/Luat chinh/",
+    "document_type": "law",
+    "total_chunks": 1154,
+    "description": "Luật số 90/2025/QH15 và các văn bản hợp nhất về đấu thầu"
+  },
+  "ND-Decree/2025#95b863": {
+    "name": "Nghị định hướng dẫn thi hành Luật đấu thầu",
+    "category": "Decrees",
+    "source_file": "data/raw/Nghi dinh/",
+    "document_type": "decree",
+    "total_chunks": 595,
+    "description": "Nghị định quy định chi tiết và hướng dẫn thi hành Luật đấu thầu"
+  },
+  "TT-Circular/2025#3be8b6": {
+    "name": "Thông tư quy định mẫu hồ sơ và báo cáo đấu thầu",
+    "category": "Circulars",
+    "source_file": "data/raw/Thong tu/",
+    "document_type": "circular",
+    "total_chunks": 123,
+    "description": "Thông tư quy định chi tiết mẫu hồ sơ yêu cầu, báo cáo đánh giá, báo cáo thẩm định"
+  },
+  "DOC-Document/2025#787999": {
+    "name": "Quyết định và văn bản hành chính khác",
+    "category": "Documents",
+    "source_file": "data/raw/Quyet dinh/",
+    "document_type": "decision",
+    "total_chunks": 5,
+    "description": "Các quyết định và văn bản hành chính liên quan đến đấu thầu"
+  }
+}

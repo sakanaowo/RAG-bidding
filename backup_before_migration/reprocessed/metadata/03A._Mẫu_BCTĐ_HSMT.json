@@ -1,8 +1,0 @@
-{
-  "source_file": "data/raw/Mau bao cao/3. Báo cáo thẩm định/03A. Mẫu BCTĐ HSMT.docx",
-  "document_type": "bidding",
-  "category": "3. Báo cáo thẩm định",
-  "chunk_count": 8,
-  "output_file": "data/reprocessed/chunks/03A._Mẫu_BCTĐ_HSMT.jsonl",
-  "processed_at": "2025-11-02T01:02:03.961010"
-}

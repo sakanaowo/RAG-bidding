@@ -1,0 +1,8 @@
+{
+  "source_file": "data/raw/Ho so moi thau/1. Mẫu HSYC/01B. Mẫu HSYC hàng hóa.docx",
+  "document_type": "bidding",
+  "category": "1. Mẫu HSYC",
+  "chunk_count": 55,
+  "output_file": "data/processed_enriched/chunks/01B._Mẫu_HSYC_hàng_hóa.jsonl",
+  "processed_at": "2025-11-04T12:13:41.459114"
+}

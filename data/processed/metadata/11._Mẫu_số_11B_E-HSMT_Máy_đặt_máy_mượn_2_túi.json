@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "11. Máy đặt máy mượn",
   "chunk_count": 104,
-  "output_file": "data/processed_enriched/chunks/11._Mẫu_số_11B_E-HSMT_Máy_đặt_máy_mượn_2_túi.jsonl",
+  "output_file": "data/processed/chunks/11._Mẫu_số_11B_E-HSMT_Máy_đặt_máy_mượn_2_túi.jsonl",
   "processed_at": "2025-11-04T12:13:43.193216"
 }

@@ -1,0 +1,409 @@
+{
+  "test_start": "2025-11-13T15:21:28.716662",
+  "cache_tests": {
+    "individual_tests": {
+      "query_1": {
+        "query": "Quy trình đấu thầu rộng rãi là gì?",
+        "cold_run": {
+          "time_ms": 9627,
+          "server_time_ms": 9626
+        },
+        "warm_runs": {
+          "count": 4,
+          "times_ms": [
+            7900,
+            8788,
+            8734,
+            7479
+          ],
+          "avg_time_ms": 8225.25,
+          "min_time_ms": 7479,
+          "max_time_ms": 8788,
+          "std_time_ms": 642.4408533086918
+        },
+        "cache_analysis": {
+          "speedup_factor": 1.1704203519649858,
+          "improvement_percent": 14.560610782175132,
+          "cache_effective": false
+        }
+      },
+      "query_2": {
+        "query": "Thời hạn nộp hồ sơ dự thầu theo quy định",
+        "cold_run": {
+          "time_ms": 9774,
+          "server_time_ms": 9772
+        },
+        "warm_runs": {
+          "count": 4,
+          "times_ms": [
+            9448,
+            11390,
+            9331,
+            8529
+          ],
+          "avg_time_ms": 9674.5,
+          "min_time_ms": 8529,
+          "max_time_ms": 11390,
+          "std_time_ms": 1214.4141248629592
+        },
+        "cache_analysis": {
+          "speedup_factor": 1.0102847692387202,
+          "improvement_percent": 1.0180069572334767,
+          "cache_effective": false
+        }
+      },
+      "query_3": {
+        "query": "Các loại hình đấu thầu trong Luật đấu thầu",
+        "cold_run": {
+          "time_ms": 7436,
+          "server_time_ms": 7434
+        },
+        "warm_runs": {
+          "count": 4,
+          "times_ms": [
+            8246,
+            7772,
+            7831,
+            6410
+          ],
+          "avg_time_ms": 7564.75,
+          "min_time_ms": 6410,
+          "max_time_ms": 8246,
+          "std_time_ms": 798.2043911179642
+        },
+        "cache_analysis": {
+          "speedup_factor": 0.9829802703327936,
+          "improvement_percent": -1.7314416352877893,
+          "cache_effective": false
+        }
+      },
+      "query_4": {
+        "query": "Điều kiện tham gia đấu thầu của nhà thầu",
+        "cold_run": {
+          "time_ms": 14246,
+          "server_time_ms": 14244
+        },
+        "warm_runs": {
+          "count": 4,
+          "times_ms": [
+            9237,
+            10660,
+            12015,
+            10033
+          ],
+          "avg_time_ms": 10486.25,
+          "min_time_ms": 9237,
+          "max_time_ms": 12015,
+          "std_time_ms": 1173.7868560063762
+        },
+        "cache_analysis": {
+          "speedup_factor": 1.3585409464775302,
+          "improvement_percent": 26.391618699985962,
+          "cache_effective": true
+        }
+      },
+      "query_5": {
+        "query": "Hồ sơ mời thầu bao gồm những gì?",
+        "cold_run": {
+          "time_ms": 7411,
+          "server_time_ms": 7408
+        },
+        "warm_runs": {
+          "count": 4,
+          "times_ms": [
+            11080,
+            6842,
+            7356,
+            8033
+          ],
+          "avg_time_ms": 8327.75,
+          "min_time_ms": 6842,
+          "max_time_ms": 11080,
+          "std_time_ms": 1898.552848004676
+        },
+        "cache_analysis": {
+          "speedup_factor": 0.8899162438834018,
+          "improvement_percent": -12.370125489137768,
+          "cache_effective": false
+        }
+      },
+      "query_6": {
+        "query": "Quy trình đấu thầu rộng rãi",
+        "cold_run": {
+          "time_ms": 7741,
+          "server_time_ms": 7739
+        },
+        "warm_runs": {
+          "count": 4,
+          "times_ms": [
+            9213,
+            8318,
+            8129,
+            9088
+          ],
+          "avg_time_ms": 8687,
+          "min_time_ms": 8129,
+          "max_time_ms": 9213,
+          "std_time_ms": 543.139638276076
+        },
+        "cache_analysis": {
+          "speedup_factor": 0.8911016461379072,
+          "improvement_percent": -12.220643327735434,
+          "cache_effective": false
+        }
+      },
+      "query_7": {
+        "query": "Quy trình đấu thầu hạn chế",
+        "cold_run": {
+          "time_ms": 9075,
+          "server_time_ms": 9074
+        },
+        "warm_runs": {
+          "count": 4,
+          "times_ms": [
+            7664,
+            6451,
+            6885,
+            7286
+          ],
+          "avg_time_ms": 7071.5,
+          "min_time_ms": 6451,
+          "max_time_ms": 7664,
+          "std_time_ms": 521.8138237596496
+        },
+        "cache_analysis": {
+          "speedup_factor": 1.283320370501308,
+          "improvement_percent": 22.077134986225897,
+          "cache_effective": true
+        }
+      }
+    },
+    "pattern_tests": {
+      "group_1": {
+        "queries": [
+          "Quy trình đấu thầu rộng rãi là gì?",
+          "Quy trình đấu thầu rộng rãi"
+        ],
+        "results": [
+          {
+            "query": "Quy trình đấu thầu rộng rãi là gì?",
+            "cold_run": {
+              "time_ms": 7279,
+              "server_time_ms": 7277
+            },
+            "warm_runs": {
+              "count": 3,
+              "times_ms": [
+                7699,
+                6900,
+                8021
+              ],
+              "avg_time_ms": 7540,
+              "min_time_ms": 6900,
+              "max_time_ms": 8021,
+              "std_time_ms": 577.166353835703
+            },
+            "cache_analysis": {
+              "speedup_factor": 0.9653846153846154,
+              "improvement_percent": -3.5856573705179287,
+              "cache_effective": false
+            }
+          },
+          {
+            "query": "Quy trình đấu thầu rộng rãi",
+            "cold_run": {
+              "time_ms": 8070,
+              "server_time_ms": 8068
+            },
+            "warm_runs": {
+              "count": 3,
+              "times_ms": [
+                9147,
+                9985,
+                7361
+              ],
+              "avg_time_ms": 8831,
+              "min_time_ms": 7361,
+              "max_time_ms": 9985,
+              "std_time_ms": 1340.2372924225024
+            },
+            "cache_analysis": {
+              "speedup_factor": 0.9138262937379685,
+              "improvement_percent": -9.42998760842627,
+              "cache_effective": false
+            }
+          }
+        ],
+        "analysis": {
+          "avg_speedup": 0.939605454561292,
+          "avg_improvement_pct": -6.507822489472099,
+          "cache_effective_count": 0,
+          "total_queries": 2
+        }
+      },
+      "group_2": {
+        "queries": [
+          "Thời hạn nộp hồ sơ dự thầu",
+          "Thời hạn nộp hồ sơ mời thầu"
+        ],
+        "results": [
+          {
+            "query": "Thời hạn nộp hồ sơ dự thầu",
+            "cold_run": {
+              "time_ms": 8577,
+              "server_time_ms": 8576
+            },
+            "warm_runs": {
+              "count": 3,
+              "times_ms": [
+                6103,
+                7333,
+                10429
+              ],
+              "avg_time_ms": 7955,
+              "min_time_ms": 6103,
+              "max_time_ms": 10429,
+              "std_time_ms": 2229.06527495271
+            },
+            "cache_analysis": {
+              "speedup_factor": 1.0781898177247013,
+              "improvement_percent": 7.251952897283433,
+              "cache_effective": false
+            }
+          },
+          {
+            "query": "Thời hạn nộp hồ sơ mời thầu",
+            "cold_run": {
+              "time_ms": 6327,
+              "server_time_ms": 6326
+            },
+            "warm_runs": {
+              "count": 3,
+              "times_ms": [
+                6914,
+                6127,
+                5322
+              ],
+              "avg_time_ms": 6121,
+              "min_time_ms": 5322,
+              "max_time_ms": 6914,
+              "std_time_ms": 796.0169596183237
+            },
+            "cache_analysis": {
+              "speedup_factor": 1.0336546315961443,
+              "improvement_percent": 3.2558874664137822,
+              "cache_effective": false
+            }
+          }
+        ],
+        "analysis": {
+          "avg_speedup": 1.055922224660423,
+          "avg_improvement_pct": 5.253920181848607,
+          "cache_effective_count": 0,
+          "total_queries": 2
+        }
+      },
+      "group_3": {
+        "queries": [
+          "Điều kiện tham gia đấu thầu của nhà thầu",
+          "Điều kiện tham gia đấu thầu"
+        ],
+        "results": [
+          {
+            "query": "Điều kiện tham gia đấu thầu của nhà thầu",
+            "cold_run": {
+              "time_ms": 11162,
+              "server_time_ms": 11160
+            },
+            "warm_runs": {
+              "count": 3,
+              "times_ms": [
+                11535,
+                15041,
+                11792
+              ],
+              "avg_time_ms": 12789.333333333334,
+              "min_time_ms": 11535,
+              "max_time_ms": 15041,
+              "std_time_ms": 1954.2298568319268
+            },
+            "cache_analysis": {
+              "speedup_factor": 0.8727585487906588,
+              "improvement_percent": -14.57922713970018,
+              "cache_effective": false
+            }
+          },
+          {
+            "query": "Điều kiện tham gia đấu thầu",
+            "cold_run": {
+              "time_ms": 10900,
+              "server_time_ms": 10898
+            },
+            "warm_runs": {
+              "count": 3,
+              "times_ms": [
+                11070,
+                12218,
+                10041
+              ],
+              "avg_time_ms": 11109.666666666666,
+              "min_time_ms": 10041,
+              "max_time_ms": 12218,
+              "std_time_ms": 1089.041933689118
+            },
+            "cache_analysis": {
+              "speedup_factor": 0.9811275465810556,
+              "improvement_percent": -1.923547400611615,
+              "cache_effective": false
+            }
+          }
+        ],
+        "analysis": {
+          "avg_speedup": 0.9269430476858572,
+          "avg_improvement_pct": -8.251387270155897,
+          "cache_effective_count": 0,
+          "total_queries": 2
+        }
+      }
+    },
+    "concurrent_test": {
+      "total_queries": 12,
+      "successful_queries": 12,
+      "failed_queries": 0,
+      "success_rate": 1.0,
+      "total_test_time_s": 36.63223743438721,
+      "queries_per_second": 0.3275803183328198,
+      "response_times": {
+        "avg_ms": 10143.916666666666,
+        "median_ms": 9723.0,
+        "min_ms": 6460,
+        "max_ms": 16977,
+        "std_ms": 3030.5994144073316
+      },
+      "concurrent_performance": {
+        "cache_contention_detected": false,
+        "performance_degradation_pct": 0
+      }
+    }
+  },
+  "summary": {
+    "total_tests": 7,
+    "cache_effectiveness": {
+      "avg_speedup": 1.0837949426480924,
+      "avg_improvement_pct": 5.389308710494211,
+      "effective_rate": 0.2857142857142857,
+      "best_speedup": 1.3585409464775302,
+      "worst_speedup": 0.8899162438834018
+    },
+    "performance_metrics": {
+      "concurrent_success_rate": 1.0,
+      "queries_per_second": 0.3275803183328198,
+      "avg_response_time_ms": 10143.916666666666
+    },
+    "recommendations": [
+      "Cache effectiveness below optimal. Consider tuning cache TTL or size.",
+      "Low cache hit rate. Review caching strategy and query patterns.",
+      "Low throughput detected. Consider optimizing database connections."
+    ]
+  }
+}

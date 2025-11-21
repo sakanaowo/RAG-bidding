@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "3. Xây lắp",
   "chunk_count": 102,
-  "output_file": "data/processed_enriched/chunks/3._Mẫu_số_3A_E-HSMT_Xây_lắp_1_túi.jsonl",
+  "output_file": "data/processed/chunks/3._Mẫu_số_3A_E-HSMT_Xây_lắp_1_túi.jsonl",
   "processed_at": "2025-11-04T12:13:37.557835"
 }

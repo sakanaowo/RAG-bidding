@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "2. Báo cáo đánh giá",
   "chunk_count": 37,
-  "output_file": "data/processed_enriched/chunks/02B._Mẫu_BCĐG_cho_1_giai_đoạn_2_túi_hồ_sơ.jsonl",
+  "output_file": "data/processed/chunks/02B._Mẫu_BCĐG_cho_1_giai_đoạn_2_túi_hồ_sơ.jsonl",
   "processed_at": "2025-11-04T12:13:50.503413"
 }
