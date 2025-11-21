@@ -1,470 +1,774 @@
 """
-Hierarchical Chunker for Vietnamese Legal Documents
-Strategy: Chunk by Điều with parent-child hierarchy preservation
+Hierarchical chunking for legal documents.
 
-Refactored from:
-- src/chunking/strategies/chunk_strategy.py (LegalDocumentChunker)
-- archive/preprocessing_v1/parsers_original/optimal_chunker.py
+Strategy:
+- Chunk by Điều (Article) as primary unit
+- Preserve hierarchy: Phần → Chương → Mục → Điều → Khoản
+- Add parent context for better retrieval
+- Split large Điều by Khoản if needed
 
-Integrated with V2 Unified Schema
+Supports:
+- Luật (Law)
+- Nghị định (Decree)
+- Thông tư (Circular)
+- Quyết định (Decision)
 """
 
-from __future__ import annotations
 import re
 from typing import List, Dict, Optional, Tuple
-from dataclasses import dataclass
-from pathlib import Path
+from datetime import datetime
 
-from ..loaders import RawDocxContent
-from ..schema import UnifiedLegalChunk, ContentStructure, ProcessingMetadata
-
-
-@dataclass
-class HierarchyNode:
-    """Represents a node in Vietnamese legal document hierarchy"""
-
-    type: str  # 'phan', 'chuong', 'muc', 'dieu', 'khoan', 'diem'
-    number: str  # e.g., "I", "1", "a"
-    title: str
-    content: str
-    parent_path: List[str]  # Hierarchy path from root
-    start_pos: int
-    end_pos: int
-    children: List["HierarchyNode"] = None
-
-    def __post_init__(self):
-        if self.children is None:
-            self.children = []
+from src.preprocessing.chunking.base_chunker import BaseLegalChunker, UniversalChunk
+from src.preprocessing.base.models import ProcessedDocument
 
 
-class HierarchicalChunker:
+class HierarchicalChunker(BaseLegalChunker):
     """
-    Hierarchical chunking strategy for Vietnamese legal documents.
+    Hierarchical chunking for legal documents.
 
-    Strategy:
-    1. Parse document into hierarchy tree (Phần > Chương > Mục > Điều > Khoản > Điểm)
-    2. Primary chunking level: Điều (Article)
-    3. Split large Điều by Khoản (Clause) if needed
-    4. Preserve parent context in metadata
-    5. Build parent-child relationships
+    Refactored from chunk_strategy.py with improvements:
+    - Uses UniversalChunk format
+    - Supports Phần/Mục (previously only Chương/Điều)
+    - Better Khoản splitting logic
+    - Consistent with V2 UnifiedLegalChunk schema
 
-    Example:
-        Chương I -> QUY ĐỊNH CHUNG
-            Điều 1 -> Phạm vi điều chỉnh
-                Khoản 1 -> ...
-                Khoản 2 -> ...
-            Điều 2 -> Đối tượng áp dụng
+    Chunking unit: Điều (Article)
+    - Optimal size: 500-1,500 chars
+    - If Điều too long (>1,500 chars): split by Khoản
+    - If Khoản too long: use overlap splitting
+
+    Hierarchy structure:
+    Luật/Nghị định/Thông tư
+    ├── PHẦN I (optional)
+    │   ├── CHƯƠNG I
+    │   │   ├── Mục 1 (optional)
+    │   │   │   ├── Điều 1
+    │   │   │   │   ├── Khoản 1
+    │   │   │   │   │   ├── Điểm a
     """
+
+    # Regex patterns for legal structure
+    PATTERNS = {
+        "phan": r"^(PHẦN|Phần)\s+([IVXLCDM]+|THỨ\s+[A-Z]+)[:\.]?\s*(.+?)$",
+        "chuong": r"^(CHƯƠNG|Chương)\s+([IVXLCDM]+)[:\.]?\s*(.+?)$",
+        "muc": r"^(MỤC|Mục)\s+(\d+)[:\.]?\s*(.+?)$",
+        "dieu": r"^Điều\s+(\d+[a-z]?)[:\.]?\s*(.+?)$",
+        "khoan": r"^(\d+)\.\s+(.+)",
+        "diem": r"^([a-zđ])\)\s+(.+)",
+    }
 
     def __init__(
         self,
-        max_chunk_size: int = 2000,
-        min_chunk_size: int = 300,
-        overlap_size: int = 150,
-        preserve_parent_context: bool = True,
+        min_size: int = 300,
+        max_size: int = 1500,
+        target_size: int = 800,
+        overlap: int = 100,
+        preserve_context: bool = True,
         split_large_dieu: bool = True,
     ):
         """
         Args:
-            max_chunk_size: Maximum characters per chunk
-            min_chunk_size: Minimum characters per chunk (avoid tiny chunks)
-            overlap_size: Overlap between consecutive chunks (for context)
-            preserve_parent_context: Include parent titles in chunk text
-            split_large_dieu: Split Điều by Khoản if exceeds max_chunk_size
+            split_large_dieu: If True, split Điều larger than max_size by Khoản
         """
-        self.max_chunk_size = max_chunk_size
-        self.min_chunk_size = min_chunk_size
-        self.overlap_size = overlap_size
-        self.preserve_parent_context = preserve_parent_context
+        super().__init__(min_size, max_size, target_size, overlap, preserve_context)
         self.split_large_dieu = split_large_dieu
 
-        # Vietnamese legal structure regex patterns
-        self.patterns = {
-            "phan": re.compile(
-                r"^PHẦN\s+(THỨ\s+)?([IVXLCDM]+|MỘT|HAI|BA|BỐN|NÃM|SÁU|BẢY|TÁM|CHÍN|MƯỜI)[:\.]?\s*(.+?)$",
-                re.IGNORECASE,
-            ),
-            "chuong": re.compile(
-                r"^CHƯƠNG\s+([IVXLCDM]+|[0-9]+)[:\.]?\s*(.+?)$", re.IGNORECASE
-            ),
-            "muc": re.compile(
-                r"^MỤC\s+([0-9]+|[IVXLCDM]+)[:\.]?\s*(.+?)$", re.IGNORECASE
-            ),
-            "dieu": re.compile(r"^Điều\s+(\d+[a-z]?)\.\s*(.+?)$"),
-            "khoan": re.compile(r"^(\d+)\.\s+(.+)"),
-            "diem": re.compile(r"^([a-zđ])\)\s+(.+)"),
-        }
-
-    def chunk(
-        self,
-        raw_content: RawDocxContent,
-        doc_id: str,
-        base_metadata: Dict,
-    ) -> List[UnifiedLegalChunk]:
+    def chunk(self, document: ProcessedDocument) -> List[UniversalChunk]:
         """
-        Main chunking method.
+        Chunk legal document hierarchically.
 
         Args:
-            raw_content: RawDocxContent from DocxLoader
-            doc_id: Document ID (e.g., "43/2013/QH13")
-            base_metadata: Base metadata to include in all chunks
+            document: ProcessedDocument from DocxLoader
 
         Returns:
-            List of UnifiedLegalChunk objects
+            List of UniversalChunk objects
+
+        Raises:
+            ValueError: If document type not legal
         """
-        # Step 1: Build hierarchy tree from structure
-        hierarchy_tree = self._build_hierarchy_tree(raw_content.structure)
-
-        # Step 2: Extract all Điều nodes
-        dieu_nodes = self._extract_dieu_nodes(hierarchy_tree)
-
-        # Step 3: Create chunks from Điều
-        chunks = []
-        for idx, dieu_node in enumerate(dieu_nodes):
-            dieu_chunks = self._chunk_dieu(
-                dieu_node=dieu_node,
-                doc_id=doc_id,
-                chunk_index=idx,
-                base_metadata=base_metadata,
+        # Validate document type
+        doc_type = document.metadata.get("document_type", "")
+        if not doc_type or doc_type == "unknown":
+            raise ValueError(
+                "HierarchicalChunker requires valid 'document_type' in metadata. "
+                "Missing or invalid document type. "
+                "Expected one of: law, decree, circular, decision"
             )
-            chunks.extend(dieu_chunks)
+        if doc_type not in ["law", "decree", "circular", "decision"]:
+            raise ValueError(
+                f"HierarchicalChunker only supports legal document types. "
+                f"Got '{doc_type}' in metadata, expected one of: law, decree, circular, decision"
+            )
 
-        # Step 4: Add parent-child relationships
-        chunks = self._build_relationships(chunks)
+        # Get full text
+        full_text = document.content.get("full_text", "")
+        if not full_text:
+            return []
+
+        # Clean text
+        full_text = self._clean_text(full_text)
+
+        # Parse hierarchical structure
+        structure = self._parse_structure(full_text)
+
+        # Use document_id from metadata (generated by DocumentIDGenerator in upload_pipeline)
+        # Only fallback to _generate_document_id() if not present
+        doc_id = document.metadata.get("document_id")
+        if not doc_id:
+            doc_id = self._generate_document_id(document)
+
+        # Build chunks
+        chunks = self._build_chunks_from_structure(
+            structure=structure,
+            document=document,
+            doc_id=doc_id,
+        )
+
+        # Update statistics
+        self._update_statistics(chunks)
 
         return chunks
 
-    def _build_hierarchy_tree(self, structure: List[Dict]) -> List[HierarchyNode]:
+    def _parse_structure(self, text: str) -> List[Dict]:
         """
-        Build hierarchy tree from RawDocxContent.structure.
+        Parse legal document structure.
+
+        Identifies:
+        - Phần (Part)
+        - Chương (Chapter)
+        - Mục (Section)
+        - Điều (Article)
+        - Khoản (Clause)
+        - Điểm (Point)
 
         Args:
-            structure: List of structure dicts from DocxLoader
+            text: Full document text
 
         Returns:
-            List of top-level HierarchyNode objects (Phần or Chương)
+            List of structured elements with hierarchy
         """
-        nodes = []
+        lines = text.split("\n")
+        structure = []
+
+        # Current hierarchy context
         current_phan = None
         current_chuong = None
         current_muc = None
         current_dieu = None
-        current_khoan = None
 
-        for item in structure:
-            item_type = item["type"]
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
 
-            if item_type == "phan":
-                current_phan = HierarchyNode(
-                    type="phan",
-                    number=item.get("number", ""),
-                    title=item["text"],
-                    content="",
-                    parent_path=[],
-                    start_pos=0,
-                    end_pos=0,
-                )
-                nodes.append(current_phan)
-                current_chuong = None
-                current_muc = None
-                current_dieu = None
+            if not line:
+                i += 1
+                continue
 
-            elif item_type == "chuong":
-                parent = current_phan if current_phan else None
-                parent_path = [current_phan.title] if current_phan else []
+            # Check Phần
+            phan_match = re.match(self.PATTERNS["phan"], line)
+            if phan_match:
+                current_phan = {
+                    "type": "phan",
+                    "number": phan_match.group(2),
+                    "title": phan_match.group(3).strip(),
+                    "full_title": line,
+                }
+                structure.append(current_phan)
+                i += 1
+                continue
 
-                current_chuong = HierarchyNode(
-                    type="chuong",
-                    number=item.get("number", ""),
-                    title=item["text"],
-                    content="",
-                    parent_path=parent_path,
-                    start_pos=0,
-                    end_pos=0,
-                )
+            # Check Chương
+            chuong_match = re.match(self.PATTERNS["chuong"], line)
+            if chuong_match:
+                current_chuong = {
+                    "type": "chuong",
+                    "number": chuong_match.group(2),
+                    "title": chuong_match.group(3).strip(),
+                    "full_title": line,
+                    "phan": current_phan["full_title"] if current_phan else None,
+                }
+                structure.append(current_chuong)
+                i += 1
+                continue
 
-                if parent:
-                    parent.children.append(current_chuong)
-                else:
-                    nodes.append(current_chuong)
+            # Check Mục
+            muc_match = re.match(self.PATTERNS["muc"], line)
+            if muc_match:
+                current_muc = {
+                    "type": "muc",
+                    "number": muc_match.group(2),
+                    "title": muc_match.group(3).strip(),
+                    "full_title": line,
+                    "chuong": current_chuong["full_title"] if current_chuong else None,
+                    "phan": current_phan["full_title"] if current_phan else None,
+                }
+                structure.append(current_muc)
+                i += 1
+                continue
 
-                current_muc = None
-                current_dieu = None
+            # Check Điều
+            dieu_match = re.match(self.PATTERNS["dieu"], line)
+            if dieu_match:
+                dieu_num = dieu_match.group(1)
+                dieu_title = dieu_match.group(2).strip()
 
-            elif item_type == "muc":
-                parent = current_chuong if current_chuong else current_phan
-                parent_path = []
-                if current_phan:
-                    parent_path.append(current_phan.title)
-                if current_chuong:
-                    parent_path.append(current_chuong.title)
+                # Collect Điều content (until next Điều/Chương/Mục)
+                content_lines = [line]
+                j = i + 1
 
-                current_muc = HierarchyNode(
-                    type="muc",
-                    number=item.get("number", ""),
-                    title=item["text"],
-                    content="",
-                    parent_path=parent_path,
-                    start_pos=0,
-                    end_pos=0,
-                )
+                while j < len(lines):
+                    next_line = lines[j].strip()
 
-                if parent:
-                    parent.children.append(current_muc)
-                else:
-                    nodes.append(current_muc)
+                    # Stop at next structural element
+                    if (
+                        re.match(self.PATTERNS["phan"], next_line)
+                        or re.match(self.PATTERNS["chuong"], next_line)
+                        or re.match(self.PATTERNS["muc"], next_line)
+                        or re.match(self.PATTERNS["dieu"], next_line)
+                    ):
+                        break
 
-                current_dieu = None
+                    content_lines.append(lines[j])
+                    j += 1
 
-            elif item_type == "dieu":
-                parent = (
-                    current_muc
-                    if current_muc
-                    else (current_chuong if current_chuong else current_phan)
-                )
-                parent_path = []
-                if current_phan:
-                    parent_path.append(current_phan.title)
-                if current_chuong:
-                    parent_path.append(current_chuong.title)
-                if current_muc:
-                    parent_path.append(current_muc.title)
+                current_dieu = {
+                    "type": "dieu",
+                    "number": dieu_num,
+                    "title": dieu_title,
+                    "full_title": line,
+                    "content": "\n".join(content_lines),
+                    "muc": current_muc["full_title"] if current_muc else None,
+                    "chuong": current_chuong["full_title"] if current_chuong else None,
+                    "phan": current_phan["full_title"] if current_phan else None,
+                }
 
-                current_dieu = HierarchyNode(
-                    type="dieu",
-                    number=item.get("number", ""),
-                    title=item["text"],
-                    content=item.get("content", ""),
-                    parent_path=parent_path,
-                    start_pos=0,
-                    end_pos=0,
-                )
+                structure.append(current_dieu)
+                i = j
+                continue
 
-                if parent:
-                    parent.children.append(current_dieu)
-                else:
-                    nodes.append(current_dieu)
+            i += 1
 
-                current_khoan = None
+        return structure
 
-            elif item_type == "khoan" and current_dieu:
-                parent_path = current_dieu.parent_path + [current_dieu.title]
+    def _build_chunks_from_structure(
+        self,
+        structure: List[Dict],
+        document: ProcessedDocument,
+        doc_id: str,
+    ) -> List[UniversalChunk]:
+        """
+        Build chunks from parsed structure.
 
-                khoan_node = HierarchyNode(
-                    type="khoan",
-                    number=item.get("number", ""),
-                    title=f"Khoản {item.get('number', '')}",
-                    content=item["text"],
-                    parent_path=parent_path,
-                    start_pos=0,
-                    end_pos=0,
-                )
+        Strategy:
+        1. Each Điều = 1 chunk (primary unit)
+        2. If Điều > max_size: split by Khoản
+        3. If Khoản > max_size: use overlap splitting
+        4. Add parent context (Chương/Mục title)
+        5. MERGE small chunks recursively to reach min_size (NEW!)
 
-                current_dieu.children.append(khoan_node)
-                current_khoan = khoan_node
+        Args:
+            structure: Parsed structure from _parse_structure
+            document: Original ProcessedDocument
+            doc_id: Generated document ID
 
-            elif item_type == "diem" and current_khoan:
-                parent_path = current_khoan.parent_path + [current_khoan.title]
+        Returns:
+            List of UniversalChunk objects
+        """
+        chunks = []
+        chunk_index = 0
 
-                diem_node = HierarchyNode(
-                    type="diem",
-                    number=item.get("number", ""),
-                    title=f"Điểm {item.get('number', '')}",
-                    content=item["text"],
-                    parent_path=parent_path,
-                    start_pos=0,
-                    end_pos=0,
-                )
+        # Filter only Điều elements
+        dieu_elements = [item for item in structure if item["type"] == "dieu"]
+        total_dieu = len(dieu_elements)
 
-                current_khoan.children.append(diem_node)
+        for dieu in dieu_elements:
+            dieu_chunks = self._chunk_dieu(
+                dieu=dieu,
+                document=document,
+                doc_id=doc_id,
+                chunk_index=chunk_index,
+            )
 
-        return nodes
+            chunks.extend(dieu_chunks)
+            chunk_index += len(dieu_chunks)
 
-    def _extract_dieu_nodes(self, tree: List[HierarchyNode]) -> List[HierarchyNode]:
-        """Extract all Điều nodes from hierarchy tree (DFS)"""
-        dieu_nodes = []
+        # NEW: Merge small chunks recursively
+        chunks = self._merge_small_chunks_recursive(chunks, document, doc_id)
 
-        def traverse(node: HierarchyNode):
-            if node.type == "dieu":
-                dieu_nodes.append(node)
-            for child in node.children:
-                traverse(child)
+        # Update total_chunks for all chunks
+        for idx, chunk in enumerate(chunks):
+            chunk.chunk_index = idx
+            chunk.total_chunks = len(chunks)
 
-        for root in tree:
-            traverse(root)
-
-        return dieu_nodes
+        return chunks
 
     def _chunk_dieu(
         self,
-        dieu_node: HierarchyNode,
+        dieu: Dict,
+        document: ProcessedDocument,
         doc_id: str,
         chunk_index: int,
-        base_metadata: Dict,
-    ) -> List[UnifiedLegalChunk]:
+    ) -> List[UniversalChunk]:
         """
-        Create chunk(s) from a Điều node.
+        Chunk a single Điều.
 
-        If Điều is small enough: return 1 chunk
-        If Điều is too large: split by Khoản and return multiple chunks
+        Logic:
+        - If Điều size <= max_size: return as single chunk
+        - If Điều size > max_size AND split_large_dieu: split by Khoản
+        - Otherwise: use overlap splitting
+
+        Args:
+            dieu: Điều element from structure
+            document: Original ProcessedDocument
+            doc_id: Document ID
+            chunk_index: Current chunk index
+
+        Returns:
+            List of chunks (usually 1, sometimes multiple)
         """
-        # Build full text with context
-        chunk_text = self._build_chunk_text(dieu_node)
+        content = dieu["content"]
+        size = len(content)
 
-        # If within size limit, return single chunk
-        if len(chunk_text) <= self.max_chunk_size or not self.split_large_dieu:
+        # Case 1: Điều fits in one chunk
+        if size <= self.max_size:
             return [
                 self._create_chunk(
-                    chunk_id=f"{doc_id}_dieu_{dieu_node.number}",
-                    text=chunk_text,
-                    dieu_node=dieu_node,
+                    content=content,
+                    dieu=dieu,
+                    document=document,
+                    doc_id=doc_id,
                     chunk_index=chunk_index,
-                    base_metadata=base_metadata,
+                    khoan_number=None,
                 )
             ]
 
-        # Split by Khoản
-        return self._split_dieu_by_khoan(
-            dieu_node=dieu_node,
-            doc_id=doc_id,
-            chunk_index=chunk_index,
-            base_metadata=base_metadata,
-        )
-
-    def _build_chunk_text(self, dieu_node: HierarchyNode) -> str:
-        """Build chunk text with optional parent context"""
-        parts = []
-
-        # Add parent context if enabled
-        if self.preserve_parent_context and dieu_node.parent_path:
-            parts.append(" > ".join(dieu_node.parent_path))
-            parts.append("")  # Empty line
-
-        # Add Điều title
-        parts.append(f"Điều {dieu_node.number}. {dieu_node.title}")
-        parts.append("")  # Empty line
-
-        # Add Điều content
-        if dieu_node.content:
-            parts.append(dieu_node.content)
-
-        # Add Khoản content
-        for khoan in dieu_node.children:
-            if khoan.type == "khoan":
-                parts.append(f"{khoan.number}. {khoan.content}")
-
-                # Add Điểm content
-                for diem in khoan.children:
-                    if diem.type == "diem":
-                        parts.append(f"{diem.number}) {diem.content}")
-
-        return "\n".join(parts)
-
-    def _split_dieu_by_khoan(
-        self,
-        dieu_node: HierarchyNode,
-        doc_id: str,
-        chunk_index: int,
-        base_metadata: Dict,
-    ) -> List[UnifiedLegalChunk]:
-        """Split large Điều into multiple chunks by Khoản"""
-        chunks = []
-
-        # If no Khoản children, return as single chunk anyway
-        khoan_children = [c for c in dieu_node.children if c.type == "khoan"]
-        if not khoan_children:
-            chunk_text = self._build_chunk_text(dieu_node)
-            return [
-                self._create_chunk(
-                    chunk_id=f"{doc_id}_dieu_{dieu_node.number}",
-                    text=chunk_text,
-                    dieu_node=dieu_node,
-                    chunk_index=chunk_index,
-                    base_metadata=base_metadata,
-                )
-            ]
-
-        # Create one chunk per Khoản
-        for khoan_idx, khoan in enumerate(khoan_children, 1):
-            chunk_parts = []
-
-            # Context
-            if self.preserve_parent_context and dieu_node.parent_path:
-                chunk_parts.append(" > ".join(dieu_node.parent_path))
-                chunk_parts.append("")
-
-            # Điều header
-            chunk_parts.append(f"Điều {dieu_node.number}. {dieu_node.title}")
-            chunk_parts.append("")
-
-            # Khoản content
-            chunk_parts.append(f"{khoan.number}. {khoan.content}")
-
-            # Điểm content
-            for diem in khoan.children:
-                if diem.type == "diem":
-                    chunk_parts.append(f"{diem.number}) {diem.content}")
-
-            chunk_text = "\n".join(chunk_parts)
-
-            chunk = self._create_chunk(
-                chunk_id=f"{doc_id}_dieu_{dieu_node.number}_khoan_{khoan.number}",
-                text=chunk_text,
-                dieu_node=dieu_node,
-                khoan_node=khoan,
-                chunk_index=chunk_index * 1000 + khoan_idx,  # Unique index
-                base_metadata=base_metadata,
+        # Case 2: Điều too large, try splitting by Khoản
+        if self.split_large_dieu:
+            khoan_chunks = self._split_by_khoan(
+                dieu=dieu,
+                document=document,
+                doc_id=doc_id,
+                chunk_index=chunk_index,
             )
 
+            if khoan_chunks:
+                return khoan_chunks
+
+        # Case 3: Fallback to overlap splitting
+        return self._split_by_overlap(
+            content=content,
+            dieu=dieu,
+            document=document,
+            doc_id=doc_id,
+            chunk_index=chunk_index,
+        )
+
+    def _split_by_khoan(
+        self,
+        dieu: Dict,
+        document: ProcessedDocument,
+        doc_id: str,
+        chunk_index: int,
+    ) -> List[UniversalChunk]:
+        """
+        Split Điều by Khoản (clauses).
+
+        Args:
+            dieu: Điều element
+            document: ProcessedDocument
+            doc_id: Document ID
+            chunk_index: Starting chunk index
+
+        Returns:
+            List of chunks (one per Khoản), or empty list if no Khoản found
+        """
+        content = dieu["content"]
+        lines = content.split("\n")
+
+        # Find Khoản boundaries
+        khoan_starts = []
+        for i, line in enumerate(lines):
+            if re.match(self.PATTERNS["khoan"], line):
+                khoan_match = re.match(self.PATTERNS["khoan"], line)
+                khoan_num = int(khoan_match.group(1))
+                khoan_starts.append((i, khoan_num))
+
+        # No Khoản found
+        if not khoan_starts:
+            return []
+
+        # Build chunks for each Khoản
+        chunks = []
+
+        for idx, (start_line, khoan_num) in enumerate(khoan_starts):
+            # Determine end line (next Khoản or end of content)
+            if idx + 1 < len(khoan_starts):
+                end_line = khoan_starts[idx + 1][0]
+            else:
+                end_line = len(lines)
+
+            # Extract Khoản content
+            khoan_lines = lines[start_line:end_line]
+            khoan_content = "\n".join(khoan_lines)
+
+            # Add Điều title for context
+            dieu_title = dieu["full_title"]
+            full_content = f"{dieu_title}\n\n{khoan_content}"
+
+            # Check if Khoản still too large
+            if len(full_content) > self.max_size:
+                # Further split with overlap
+                sub_chunks = self._split_with_overlap(
+                    text=full_content,
+                    max_size=self.max_size,
+                    overlap=self.overlap,
+                )
+
+                for sub_idx, sub_content in enumerate(sub_chunks):
+                    chunk = self._create_chunk(
+                        content=sub_content,
+                        dieu=dieu,
+                        document=document,
+                        doc_id=doc_id,
+                        chunk_index=chunk_index + len(chunks),
+                        khoan_number=f"{khoan_num}.{sub_idx+1}",
+                    )
+                    chunks.append(chunk)
+            else:
+                # Khoản fits in one chunk
+                chunk = self._create_chunk(
+                    content=full_content,
+                    dieu=dieu,
+                    document=document,
+                    doc_id=doc_id,
+                    chunk_index=chunk_index + len(chunks),
+                    khoan_number=str(khoan_num),
+                )
+                chunks.append(chunk)
+
+        return chunks
+
+    def _split_by_overlap(
+        self,
+        content: str,
+        dieu: Dict,
+        document: ProcessedDocument,
+        doc_id: str,
+        chunk_index: int,
+    ) -> List[UniversalChunk]:
+        """
+        Split content using overlap strategy (fallback).
+
+        Used when:
+        - Điều has no Khoản structure
+        - Khoản too large to fit in max_size
+
+        Args:
+            content: Content to split
+            dieu: Điều element
+            document: ProcessedDocument
+            doc_id: Document ID
+            chunk_index: Starting chunk index
+
+        Returns:
+            List of overlapping chunks
+        """
+        sub_texts = self._split_with_overlap(
+            text=content,
+            max_size=self.max_size,
+            overlap=self.overlap,
+        )
+
+        chunks = []
+        for idx, sub_text in enumerate(sub_texts):
+            chunk = self._create_chunk(
+                content=sub_text,
+                dieu=dieu,
+                document=document,
+                doc_id=doc_id,
+                chunk_index=chunk_index + idx,
+                khoan_number=f"part{idx+1}",
+                is_complete_unit=False,  # Overlap split = incomplete unit
+            )
             chunks.append(chunk)
 
         return chunks
 
     def _create_chunk(
         self,
-        chunk_id: str,
-        text: str,
-        dieu_node: HierarchyNode,
+        content: str,
+        dieu: Dict,
+        document: ProcessedDocument,
+        doc_id: str,
         chunk_index: int,
-        base_metadata: Dict,
-        khoan_node: Optional[HierarchyNode] = None,
-    ) -> UnifiedLegalChunk:
-        """Create UnifiedLegalChunk from Điều/Khoản node"""
+        khoan_number: Optional[str] = None,
+        is_complete_unit: bool = True,
+    ) -> UniversalChunk:
+        """
+        Create a UniversalChunk from Điều/Khoản content.
 
+        Args:
+            content: Chunk content
+            dieu: Điều element with hierarchy info
+            document: Original ProcessedDocument
+            doc_id: Document ID
+            chunk_index: Chunk position
+            khoan_number: Khoản number if applicable
+            is_complete_unit: Whether chunk is semantically complete
+
+        Returns:
+            UniversalChunk object
+        """
         # Build hierarchy path
-        hierarchy_path = dieu_node.parent_path + [f"Điều {dieu_node.number}"]
-        if khoan_node:
-            hierarchy_path.append(f"Khoản {khoan_node.number}")
+        hierarchy = []
+        if dieu.get("phan"):
+            hierarchy.append(dieu["phan"])
+        if dieu.get("chuong"):
+            hierarchy.append(dieu["chuong"])
+        if dieu.get("muc"):
+            hierarchy.append(dieu["muc"])
+        hierarchy.append(dieu["full_title"])
+        if khoan_number:
+            hierarchy.append(f"Khoản {khoan_number}")
 
-        # Build ContentStructure
-        content_structure = ContentStructure(
-            hierarchy_path=hierarchy_path,
-            level=khoan_node.type if khoan_node else dieu_node.type,
-            section_title=dieu_node.title,
-            parent_sections=dieu_node.parent_path,
+        # Parent context (for embedding)
+        parent_titles = []
+        if dieu.get("chuong"):
+            parent_titles.append(dieu["chuong"])
+        if dieu.get("muc"):
+            parent_titles.append(dieu["muc"])
+
+        parent_context = " > ".join(parent_titles) if parent_titles else None
+
+        # Add context to content
+        enhanced_content = self._add_parent_context(
+            chunk_content=content,
+            parent_title=parent_context,
+            section_title=dieu["full_title"],
         )
+
+        # Generate chunk ID
+        level = "khoan" if khoan_number else "dieu"
+        chunk_id = self._generate_chunk_id(
+            document_id=doc_id,
+            chunk_index=chunk_index,
+            level=level,
+        )
+
+        # Detect special content
+        special_flags = self._detect_special_content(content)
 
         # Create chunk
-        chunk = UnifiedLegalChunk(
+        chunk = UniversalChunk(
+            content=enhanced_content,
             chunk_id=chunk_id,
-            content=text,
-            char_count=len(text),
-            structure=content_structure,
+            document_id=doc_id,
+            document_type=document.metadata.get("document_type", ""),
+            hierarchy=hierarchy,
+            level=level,
+            parent_context=parent_context,
+            section_title=dieu["title"],
+            char_count=len(enhanced_content),
+            chunk_index=chunk_index,
+            total_chunks=0,  # Will be updated later
+            is_complete_unit=is_complete_unit,
+            has_table=special_flags["has_table"],
+            has_list=special_flags["has_list"],
+            extra_metadata={
+                "dieu_number": dieu["number"],
+                "khoan_number": khoan_number,
+                "phan": dieu.get("phan"),
+                "chuong": dieu.get("chuong"),
+                "muc": dieu.get("muc"),
+            },
         )
-
-        # Copy base metadata fields
-        for key, value in base_metadata.items():
-            if hasattr(chunk, key):
-                setattr(chunk, key, value)
 
         return chunk
 
-    def _build_relationships(
-        self, chunks: List[UnifiedLegalChunk]
-    ) -> List[UnifiedLegalChunk]:
-        """Build parent-child relationships and update metadata"""
+    def _generate_document_id(self, document: ProcessedDocument) -> str:
+        """
+        Generate document ID from metadata.
 
-        # TODO: Add parent_chunk_id, child_chunk_ids if needed in schema
-        # For now, parent-child info is preserved in hierarchy_path
+        Format: {doc_type}_{legal_id}
+        Example: law_43_2013, decree_63_2014
+
+        Args:
+            document: ProcessedDocument
+
+        Returns:
+            Document ID string
+        """
+        doc_type = document.metadata.get("document_type", "unknown")
+
+        # Try to get legal ID
+        legal_metadata = document.metadata.get("legal_metadata", {})
+        legal_id = legal_metadata.get("legal_id", "")
+
+        if legal_id:
+            # Clean legal ID (replace / with _)
+            legal_id_clean = legal_id.replace("/", "_").replace(" ", "_")
+            return f"{doc_type}_{legal_id_clean}"
+
+        # Fallback: use title slug
+        title = document.metadata.get("title", "untitled")
+        title_slug = re.sub(r"[^a-z0-9]+", "_", title.lower())[:50]
+
+        return f"{doc_type}_{title_slug}"
+
+    def _merge_small_chunks_recursive(
+        self,
+        chunks: List[UniversalChunk],
+        document: ProcessedDocument,
+        doc_id: str,
+    ) -> List[UniversalChunk]:
+        """
+        Recursively merge adjacent small chunks to reach min_size.
+
+        Strategy (same as BiddingHybridChunker):
+        1. Find chunks < min_size
+        2. Merge with next chunk if combined size <= max_size
+        3. Repeat until no more merges possible
+        4. Preserve hierarchy context
+
+        Args:
+            chunks: List of chunks to optimize
+            document: Original ProcessedDocument
+            doc_id: Document ID
+
+        Returns:
+            Optimized list of chunks
+        """
+        if not chunks:
+            return chunks
+
+        max_iterations = 10  # Prevent infinite loops
+        iteration = 0
+
+        while iteration < max_iterations:
+            merged_any = False
+            new_chunks = []
+            i = 0
+
+            while i < len(chunks):
+                current = chunks[i]
+
+                # Check if current chunk is too small
+                if len(current.content) < self.min_size and i < len(chunks) - 1:
+                    next_chunk = chunks[i + 1]
+
+                    # Check if they can be merged (same hierarchy parent)
+                    if self._can_merge_chunks(current, next_chunk):
+                        combined_size = len(current.content) + len(next_chunk.content)
+
+                        if combined_size <= self.max_size:
+                            # Merge chunks
+                            merged = self._merge_two_chunks(
+                                current, next_chunk, document, doc_id
+                            )
+                            new_chunks.append(merged)
+                            merged_any = True
+                            i += 2  # Skip next chunk (already merged)
+                            continue
+
+                # Keep current chunk as-is
+                new_chunks.append(current)
+                i += 1
+
+            chunks = new_chunks
+            iteration += 1
+
+            # Stop if no merges happened
+            if not merged_any:
+                break
 
         return chunks
+
+    def _can_merge_chunks(self, chunk1: UniversalChunk, chunk2: UniversalChunk) -> bool:
+        """
+        Check if two chunks can be merged.
+
+        Criteria:
+        - Same document
+        - Same parent context (Chương/Mục)
+        - Adjacent chunks (consecutive Điều)
+
+        Args:
+            chunk1: First chunk
+            chunk2: Second chunk
+
+        Returns:
+            True if chunks can be merged
+        """
+        # Must be same document
+        if chunk1.document_id != chunk2.document_id:
+            return False
+
+        # Must have same parent context (or both None)
+        if chunk1.parent_context != chunk2.parent_context:
+            return False
+
+        # Both must be complete units (not overlap-split)
+        if not chunk1.is_complete_unit or not chunk2.is_complete_unit:
+            return False
+
+        return True
+
+    def _merge_two_chunks(
+        self,
+        chunk1: UniversalChunk,
+        chunk2: UniversalChunk,
+        document: ProcessedDocument,
+        doc_id: str,
+    ) -> UniversalChunk:
+        """
+        Merge two chunks into one.
+
+        Args:
+            chunk1: First chunk
+            chunk2: Second chunk
+            document: Original ProcessedDocument
+            doc_id: Document ID
+
+        Returns:
+            Merged UniversalChunk
+        """
+        # Combine content
+        combined_content = f"{chunk1.content}\n\n{chunk2.content}"
+
+        # Merge hierarchy (take all unique elements)
+        merged_hierarchy = chunk1.hierarchy.copy()
+        for item in chunk2.hierarchy:
+            if item not in merged_hierarchy:
+                merged_hierarchy.append(item)
+
+        # Combine section titles
+        merged_title = f"{chunk1.section_title} + {chunk2.section_title}"
+
+        # Merge extra metadata
+        merged_metadata = chunk1.extra_metadata.copy()
+        merged_metadata["merged_with"] = chunk2.extra_metadata.get("dieu_number", "")
+        merged_metadata["is_merged"] = True
+
+        # Detect special content in combined text
+        special_flags = self._detect_special_content(combined_content)
+
+        # Create merged chunk
+        merged_chunk = UniversalChunk(
+            content=combined_content,
+            chunk_id=f"{chunk1.chunk_id}_merged",
+            document_id=doc_id,
+            document_type=chunk1.document_type,
+            hierarchy=merged_hierarchy,
+            level=chunk1.level,
+            parent_context=chunk1.parent_context,
+            section_title=merged_title,
+            char_count=len(combined_content),
+            chunk_index=chunk1.chunk_index,
+            total_chunks=0,  # Will be updated later
+            is_complete_unit=True,
+            has_table=special_flags["has_table"],
+            has_list=special_flags["has_list"],
+            extra_metadata=merged_metadata,
+        )
+
+        return merged_chunk

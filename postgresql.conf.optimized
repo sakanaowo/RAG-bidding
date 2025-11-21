@@ -1,0 +1,204 @@
+# PostgreSQL Configuration Optimization cho RAG Bidding System
+# Optimized để giải quyết performance bottlenecks từ test results
+# Target: Tăng concurrent users từ 10 → 50+, giảm response time từ 9.6s → <2s
+
+# =============================================================================
+# CONNECTIONS AND AUTHENTICATION
+# =============================================================================
+
+# Tăng connection limit để support connection pooling
+max_connections = 200                    # increased from default 100
+superuser_reserved_connections = 3       # reserve connections for admin
+
+# Connection timeout settings
+tcp_keepalives_idle = 600               # seconds before sending keepalive
+tcp_keepalives_interval = 30            # seconds between keepalive probes
+tcp_keepalives_count = 3                # number of failed probes before connection fails
+
+# =============================================================================
+# RESOURCE USAGE (MEMORY)
+# =============================================================================
+
+# Memory settings optimized cho pgvector operations
+shared_buffers = 512MB                  # 25% of system RAM (assuming 2GB)
+huge_pages = try                        # use huge pages if available
+
+# Work memory settings
+work_mem = 8MB                         # per-connection memory for sorting/hashing
+maintenance_work_mem = 128MB           # memory for maintenance operations
+hash_mem_multiplier = 2.0             # additional memory for hash tables
+
+# Effective cache size (should reflect total system memory available for caching)
+effective_cache_size = 1536MB          # 75% of system RAM
+
+# Other memory settings
+shared_preload_libraries = 'vector'    # preload pgvector extension
+max_worker_processes = 8               # background worker processes
+max_parallel_workers = 4               # max parallel workers per query
+max_parallel_workers_per_gather = 2    # max parallel workers per Gather node
+max_parallel_maintenance_workers = 2   # max parallel workers for maintenance
+
+# =============================================================================
+# WRITE-AHEAD LOGGING (WAL)
+# =============================================================================
+
+# WAL configuration for better write performance
+wal_buffers = 16MB                     # WAL buffer size
+wal_level = replica                    # sufficient for streaming replication
+max_wal_size = 2GB                    # maximum size to let WAL grow
+min_wal_size = 512MB                  # minimum size to shrink WAL to
+checkpoint_completion_target = 0.9     # spread checkpoints over this fraction
+checkpoint_timeout = 15min            # maximum time between checkpoints
+
+# =============================================================================
+# QUERY TUNING
+# =============================================================================
+
+# Query planner settings
+random_page_cost = 1.1                # assume SSD storage
+effective_io_concurrency = 200        # concurrent I/O operations (for SSD)
+seq_page_cost = 1.0                   # cost of sequential page fetch
+cpu_tuple_cost = 0.01                 # cost of processing each tuple
+cpu_index_tuple_cost = 0.005          # cost of processing each index tuple
+cpu_operator_cost = 0.0025            # cost of processing each operator
+
+# Join and sort settings
+join_collapse_limit = 8               # FROM items beyond which subqueries won't be collapsed
+from_collapse_limit = 8               # FROM items beyond which subqueries won't be collapsed
+geqo_threshold = 12                   # use genetic query optimization for complex queries
+
+# =============================================================================
+# LOCKS AND TRANSACTIONS
+# =============================================================================
+
+# Lock settings optimized cho vector operations
+max_locks_per_transaction = 1024      # increased for vector operations
+max_pred_locks_per_transaction = 64   # predicate locks per transaction
+max_pred_locks_per_relation = 64      # predicate locks per relation
+max_pred_locks_per_page = 2           # predicate locks per page
+
+# Statement timeout settings
+statement_timeout = 60s               # 60 second timeout for individual statements
+lock_timeout = 30s                    # 30 second timeout for lock acquisition
+idle_in_transaction_session_timeout = 300s  # 5 minute timeout for idle transactions
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+
+# Logging configuration for monitoring và debugging
+logging_collector = on                # enable logging collector
+log_destination = 'stderr'           # log to stderr
+log_directory = 'log'                # directory for log files
+log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'  # log file naming pattern
+log_rotation_age = 1d                # rotate daily
+log_rotation_size = 100MB           # rotate when file reaches 100MB
+
+# What to log
+log_min_duration_statement = 1000    # log statements taking longer than 1 second
+log_connections = off                # don't log connections (too verbose with pooling)
+log_disconnections = off             # don't log disconnections
+log_lock_waits = on                  # log lock waits
+log_checkpoints = on                 # log checkpoint activity
+log_autovacuum_min_duration = 0      # log all autovacuum activity
+
+# Log line formatting
+log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
+log_timezone = 'UTC'
+
+# =============================================================================
+# AUTOVACUUM
+# =============================================================================
+
+# Autovacuum settings optimized cho high-write workloads
+autovacuum = on                      # enable autovacuum
+autovacuum_max_workers = 3           # maximum autovacuum workers
+autovacuum_naptime = 30s            # time between autovacuum runs
+autovacuum_vacuum_threshold = 50    # minimum number of updated/deleted tuples before vacuum
+autovacuum_vacuum_scale_factor = 0.1  # fraction of table size before vacuum
+autovacuum_analyze_threshold = 50   # minimum number of updated/inserted/deleted tuples before analyze
+autovacuum_analyze_scale_factor = 0.05  # fraction of table size before analyze
+autovacuum_vacuum_cost_delay = 10ms # delay between vacuum operations
+autovacuum_vacuum_cost_limit = 200  # cost limit for vacuum operations
+
+# =============================================================================
+# BACKGROUND WRITER
+# =============================================================================
+
+# Background writer settings for better I/O performance
+bgwriter_delay = 200ms              # delay between background writer rounds
+bgwriter_lru_maxpages = 100         # maximum pages to write per round
+bgwriter_lru_multiplier = 2.0       # multiple of recent buffer usage to write
+bgwriter_flush_after = 512kB        # force OS flush after this amount
+
+# =============================================================================
+# STATISTICS
+# =============================================================================
+
+# Statistics settings for query planning
+track_activities = on                # track currently active queries
+track_counts = on                   # track row and block access statistics
+track_io_timing = on                # track I/O timing statistics
+track_functions = pl                # track function call statistics
+stats_temp_directory = 'pg_stat_tmp'  # directory for temporary statistics files
+
+# =============================================================================
+# PGVECTOR SPECIFIC SETTINGS
+# =============================================================================
+
+# Settings specifically optimized cho pgvector operations
+shared_preload_libraries = 'vector'    # preload vector extension
+max_locks_per_transaction = 1024       # vector operations can require many locks
+
+# Memory settings cho vector operations
+work_mem = 8MB                         # increased for vector computations
+maintenance_work_mem = 128MB           # increased for index building
+effective_cache_size = 1536MB          # ensure vector indexes can be cached
+
+# =============================================================================
+# ADDITIONAL OPTIMIZATIONS
+# =============================================================================
+
+# JIT compilation (disable for faster connection setup)
+jit = off                           # disable JIT for faster startup
+jit_above_cost = -1                # disable JIT optimization
+jit_inline_above_cost = -1         # disable JIT inlining
+jit_optimize_above_cost = -1       # disable JIT optimization
+
+# Parallel query settings
+max_parallel_workers_per_gather = 2   # parallel workers per query
+parallel_tuple_cost = 0.1            # cost of transferring tuple between workers
+parallel_setup_cost = 1000.0         # cost of setting up parallel workers
+
+# =============================================================================
+# MONITORING QUERIES
+# =============================================================================
+
+# Để monitor performance sau khi apply config:
+# 
+# 1. Check active connections:
+# SELECT count(*) as active_connections FROM pg_stat_activity WHERE state = 'active';
+#
+# 2. Check connection pool utilization:
+# SELECT count(*) as total_connections, 
+#        sum(case when state = 'active' then 1 else 0 end) as active,
+#        sum(case when state = 'idle' then 1 else 0 end) as idle
+# FROM pg_stat_activity;
+#
+# 3. Check slow queries:
+# SELECT query, mean_exec_time, calls FROM pg_stat_statements 
+# WHERE mean_exec_time > 1000 ORDER BY mean_exec_time DESC LIMIT 10;
+#
+# 4. Check vector index usage:
+# SELECT schemaname, tablename, indexname, idx_scan, idx_tup_read, idx_tup_fetch
+# FROM pg_stat_user_indexes WHERE indexname LIKE '%vector%';
+
+# =============================================================================
+# BACKUP ORIGINAL SETTINGS
+# =============================================================================
+# Before applying this config, backup original postgresql.conf:
+# sudo cp /etc/postgresql/16/main/postgresql.conf /etc/postgresql/16/main/postgresql.conf.backup
+#
+# After applying:
+# sudo systemctl restart postgresql
+# sudo systemctl status postgresql

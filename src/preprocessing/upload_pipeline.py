@@ -15,9 +15,10 @@ from datetime import datetime
 from .loaders.docx_loader import DocxLoader
 from .loaders.doc_loader import DocLoader
 from .base.models import ProcessedDocument
-from ..chunking.chunk_factory import create_chunker
-from ..chunking.base_chunker import UniversalChunk
+from .chunking.chunk_factory import create_chunker
+from .chunking.base_chunker import UniversalChunk
 from .enrichment import ChunkEnricher
+from .utils.document_id_generator import DocumentIDGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,9 @@ class WorkingUploadPipeline:
         # Initialize loaders
         self.docx_loader = DocxLoader()
         self.doc_loader = DocLoader()
+
+        # Initialize document ID generator
+        self.doc_id_generator = DocumentIDGenerator()
 
         # Initialize enricher if enabled
         if self.enable_enrichment:
@@ -101,9 +105,17 @@ class WorkingUploadPipeline:
             if not content or len(content.strip()) < 50:
                 return False, None, "Empty or too short content"
 
-            # Step 2: Create ProcessedDocument
+            # Step 2: Generate document ID
+            document_id = self.doc_id_generator.generate(
+                filename=file_path.name,
+                doc_type=document_type,
+                title=None,  # Could extract from content later
+            )
+
+            # Step 3: Create ProcessedDocument
             processed_doc = ProcessedDocument(
                 metadata={
+                    "document_id": document_id,
                     "source_file": file_path.name,
                     "document_type": document_type,
                     "file_path": str(file_path),
@@ -116,7 +128,7 @@ class WorkingUploadPipeline:
                 },
             )
 
-            # Step 3: Select and run chunker
+            # Step 4: Select and run chunker
             try:
                 chunker = create_chunker(document_type=document_type)
             except Exception as e:
@@ -130,7 +142,7 @@ class WorkingUploadPipeline:
             if not chunks:
                 return False, None, "No chunks generated"
 
-            # Step 4: Enrich chunks (if enabled)
+            # Step 5: Enrich chunks (if enabled)
             if self.enable_enrichment and self.enricher:
                 try:
                     chunks = self._enrich_chunks(chunks)
@@ -140,7 +152,7 @@ class WorkingUploadPipeline:
                     )
                     # Continue with unenriched chunks
 
-            # Step 5: Add processing metadata
+            # Step 6: Add processing metadata
             processing_time = time.time() - start_time
             for chunk in chunks:
                 if hasattr(chunk, "extra_metadata"):
@@ -149,8 +161,11 @@ class WorkingUploadPipeline:
                     )
                     chunk.extra_metadata["batch_name"] = batch_name
                     chunk.extra_metadata["pipeline_version"] = (
-                        "working_upload_pipeline_v1.0"
+                        "working_upload_pipeline_v2.0"
                     )
+
+                # document_id is already set in chunk.document_id during chunking
+                # No need to set it again (UniversalChunk has direct fields, not .metadata)
 
             return True, chunks, None
 
@@ -164,9 +179,22 @@ class WorkingUploadPipeline:
         try:
             enriched_chunks = []
             for chunk in chunks:
-                # Use enricher to add semantic metadata
-                enriched_chunk = self.enricher.enrich_chunk(chunk)
-                enriched_chunks.append(enriched_chunk)
+                # Convert UniversalChunk to dict for enricher
+                chunk_dict = {
+                    "content": chunk.content,
+                    "metadata": (
+                        chunk.extra_metadata.copy() if chunk.extra_metadata else {}
+                    ),
+                }
+
+                # Enrich the dict
+                enriched_dict = self.enricher.enrich_chunk(chunk_dict)
+
+                # Update chunk's extra_metadata with enrichment
+                if "metadata" in enriched_dict:
+                    chunk.extra_metadata.update(enriched_dict["metadata"])
+
+                enriched_chunks.append(chunk)
 
             return enriched_chunks
         except Exception as e:

@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "2. Báo cáo đánh giá",
   "chunk_count": 38,
-  "output_file": "data/processed_enriched/chunks/02C._Mẫu_BCĐG_cho_gói_thầu_tư_vấn.jsonl",
+  "output_file": "data/processed/chunks/02C._Mẫu_BCĐG_cho_gói_thầu_tư_vấn.jsonl",
   "processed_at": "2025-11-04T12:13:50.320952"
 }

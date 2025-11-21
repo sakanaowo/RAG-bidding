@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "7. EP (tư vấn_hàng hóa)",
   "chunk_count": 144,
-  "output_file": "data/processed_enriched/chunks/7._Mẫu_số_7B._E-HSMT_EP_qua_mạng_2_túi.jsonl",
+  "output_file": "data/processed/chunks/7._Mẫu_số_7B._E-HSMT_EP_qua_mạng_2_túi.jsonl",
   "processed_at": "2025-11-04T12:13:33.049521"
 }

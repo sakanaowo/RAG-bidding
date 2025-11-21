@@ -25,8 +25,8 @@ import tempfile
 
 from docx import Document as DocxDocument
 from src.preprocessing.base.models import ProcessedDocument
-from src.chunking.chunk_factory import create_chunker
-from src.chunking.base_chunker import UniversalChunk
+from src.preprocessing.chunking.chunk_factory import create_chunker
+from src.preprocessing.chunking.base_chunker import UniversalChunk
 
 
 def create_test_chunks(num_types: int = 3) -> List[UniversalChunk]:

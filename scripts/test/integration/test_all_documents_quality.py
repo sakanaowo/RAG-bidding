@@ -28,11 +28,11 @@ from typing import List, Dict, Any, Optional
 from collections import defaultdict
 import json
 
-from src.chunking.bidding_hybrid_chunker import BiddingHybridChunker
-from src.chunking.hierarchical_chunker import HierarchicalChunker
-from src.chunking.semantic_chunker import SemanticChunker
-from src.chunking.report_hybrid_chunker import ReportHybridChunker
-from src.chunking.chunk_factory import ChunkFactory
+from src.preprocessing.chunking.bidding_hybrid_chunker import BiddingHybridChunker
+from src.preprocessing.chunking.hierarchical_chunker import HierarchicalChunker
+from src.preprocessing.chunking.semantic_chunker import SemanticChunker
+from src.preprocessing.chunking.report_hybrid_chunker import ReportHybridChunker
+from src.preprocessing.chunking.chunk_factory import ChunkFactory
 from src.preprocessing.base.models import ProcessedDocument
 
 

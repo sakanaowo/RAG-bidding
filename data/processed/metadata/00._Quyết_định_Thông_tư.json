@@ -3,6 +3,6 @@
   "document_type": "circular",
   "category": "00. Quyết định Thông tư.docx",
   "chunk_count": 19,
-  "output_file": "data/processed_enriched/chunks/00._Quyết_định_Thông_tư.jsonl",
+  "output_file": "data/processed/chunks/00._Quyết_định_Thông_tư.jsonl",
   "processed_at": "2025-11-04T12:13:32.466353"
 }

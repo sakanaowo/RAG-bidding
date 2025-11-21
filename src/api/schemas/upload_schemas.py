@@ -68,6 +68,9 @@ class ProcessingProgress(BaseModel):
 
     file_id: str
     filename: str
+    document_id: Optional[str] = (
+        None  # Actual document_id in database (available after processing)
+    )
     status: ProcessingStatus
     progress_percent: int = 0
     current_step: str = ""
@@ -92,6 +95,7 @@ class ProcessingResult(BaseModel):
 
     file_id: str
     filename: str
+    document_id: Optional[str] = None  # Actual document_id in database
     document_type: DocumentType
     status: ProcessingStatus
     chunks_created: int

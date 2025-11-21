@@ -28,6 +28,35 @@ class LegalStatus(str, Enum):
     DU_THAO = "du_thao"  # Draft (not yet effective)
 
 
+class DocumentStatus(str, Enum):
+    """
+    Document validity/effectiveness status - applies to ALL document types.
+
+    Tracks whether a document is still valid, expired, superseded, etc.
+    Different from ProcessingStatus (which tracks pipeline execution).
+
+    Use cases:
+    - Legal docs (Law/Decree/Circular): Use LegalStatus for legal validity
+    - Bidding docs: Use DocumentStatus for template validity (e.g., HSMT 2024 replaces HSMT 2023)
+    - Report templates: Track if template is current or outdated
+    - Exam questions: Track if question bank is current or retired
+
+    Examples:
+        - Bidding template HSMT 2024 replaces HSMT 2023: old template = SUPERSEDED
+        - Report template updated with new format: old version = OUTDATED
+        - Exam question bank version 2: old version = ARCHIVED
+    """
+
+    ACTIVE = "active"  # Hiện đang có hiệu lực/đang dùng
+    DRAFT = "draft"  # Bản dự thảo (chưa chính thức)
+    OUTDATED = "outdated"  # Đã lỗi thời (có phiên bản mới hơn)
+    SUPERSEDED = "superseded"  # Bị thay thế bởi tài liệu khác
+    EXPIRED = "expired"  # Hết hạn hiệu lực (có ngày hết hạn cụ thể)
+    ARCHIVED = "archived"  # Đã lưu trữ (không còn sử dụng nhưng giữ lại tham khảo)
+    DEPRECATED = "deprecated"  # Không khuyến khích dùng nữa
+    UNDER_REVISION = "under_revision"  # Đang được sửa đổi/cập nhật
+
+
 class LegalLevel(int, Enum):
     """
     Vietnamese legal hierarchy levels (5 tiers)
@@ -84,6 +113,31 @@ class ProcessingStage(str, Enum):
     ENRICHMENT = "enrichment"
     QUALITY_CHECK = "quality_check"
     OUTPUT = "output"
+
+
+class ProcessingStatus(str, Enum):
+    """
+    Status of document processing through pipeline.
+
+    Tracks how processing went at each stage (different from ProcessingStage which tracks WHERE).
+    Use this to identify failed/stuck documents and implement retry logic.
+
+    Examples:
+        - Document enters pipeline: PENDING
+        - During chunking: IN_PROGRESS
+        - Chunking completes successfully: COMPLETED
+        - Chunking fails: FAILED (with error_message in ProcessingMetadata)
+        - Document duplicate detected: SKIPPED
+        - Failed document ready for retry: RETRY
+    """
+
+    PENDING = "pending"  # Chưa xử lý
+    IN_PROGRESS = "in_progress"  # Đang xử lý
+    COMPLETED = "completed"  # Hoàn thành thành công
+    FAILED = "failed"  # Thất bại (có error_message)
+    PARTIAL = "partial"  # Một phần thành công (some chunks failed)
+    SKIPPED = "skipped"  # Bỏ qua (duplicate, blacklist, etc.)
+    RETRY = "retry"  # Cần retry (after failed)
 
 
 class QualityLevel(str, Enum):

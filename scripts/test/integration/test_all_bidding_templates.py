@@ -8,7 +8,7 @@ import pytest
 from pathlib import Path
 from docx import Document
 
-from src.chunking.bidding_hybrid_chunker import BiddingHybridChunker
+from src.preprocessing.chunking.bidding_hybrid_chunker import BiddingHybridChunker
 from src.preprocessing.base.models import ProcessedDocument
 
 

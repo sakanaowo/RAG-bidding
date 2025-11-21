@@ -1,16 +1,97 @@
-## Những điều cần lưu ý cho GitHub Copilot:
+# GitHub Copilot Instructions - RAG Bidding System
 
-- Cần xác nhận rằng các đề xuất mới của bạn phù hợp với phong cách mã hiện có trong kho lưu trữ này.
-- Tránh đề xuất mã đã bị xóa hoặc không còn liên quan.
-- Khi thiếu thông tin, hãy yêu cầu làm rõ thay vì đưa ra giả định. Hoặc nếu bạn không chắc chắn về một thay đổi, hãy đề xuất các lựa chọn thay thế.
-- Hãy nhớ rằng các đề xuất của bạn sẽ được xem xét bởi các nhà phát triển
-- Đảm bảo rằng các đề xuất của bạn tuân thủ các nguyên tắc và tiêu chuẩn mã hóa của dự án.
-- Luôn ưu tiên tính rõ ràng và bảo trì trong các đề xuất của bạn.
-- Nếu bạn nhận thấy các mẫu mã không nhất quán trong kho lưu trữ, hãy đề xuất các cải tiến để chuẩn hóa mã.
-- Project này sử dụng tiếng Việt làm ngôn ngữ chính cho tài liệu và chú thích mã. Hãy đảm bảo rằng các đề xuất của bạn phù hợp với ngôn ngữ này.
-- Project này sử dụng môi trường conda có tên là "venv". Đảm bảo rằng các đề xuất chạy code mới của bạn đã active môi trường này.
-- Khi đề xuất các test mới:
-  - hãy tham khảo cấu trúc và phong cách của các test hiện có trong `scripts/tests/TEST_README.md` để đảm bảo tính nhất quán.
-  - Nếu muốn chạy một đoạn mã test api, mở một terminal mới và chạy đoạn mã đó trong môi trường conda "venv" vì các test api cần server đang chạy để kiểm tra.
-- Khi có lỗi xảy ra, hãy kiểm tra các code logic liên quan trong project để hiểu nguyên nhân gốc rễ trước khi đề xuất sửa lỗi.
-- Không được tự ý thay đổi code legacy trừ khi có chỉ dẫn cụ thể.
+## 🎯 Project Overview
+
+RAG-based Vietnamese Legal Document Q&A system với semantic search, document reranking, và multi-tier caching.
+
+## 🏗️ Architecture & Key Components
+
+### Core Pipeline Flow
+
+```
+Query → Enhancement (Multi-Query/HyDE/Step-Back) → Vector Retrieval → Reranking (BGE) → LLM Generation
+```
+
+**4 RAG Modes** (`src/config/models.py`):
+
+- `fast`: No enhancement, no reranking (~1s)
+- `balanced`: Multi-Query + Step-Back + BGE reranking (~2-3s) ⭐ Default
+- `quality`: All 4 strategies + RRF fusion (~3-5s)
+- `adaptive`: Dynamic K selection based on query complexity
+
+### Reranking Strategy (PRODUCTION)
+
+**Currently Used**: `BGEReranker` (`src/retrieval/ranking/bge_reranker.py`)
+
+- Model: `BAAI/bge-reranker-v2-m3` (fine-tuned cross-encoder)
+- Device: Auto-detect GPU/CPU
+- Batch size: 32 (GPU) / 16 (CPU)
+- Latency: ~100-150ms cho 10 docs
+
+**Alternatives** (chưa implement production):
+
+- `cross_encoder_reranker.py`: Empty file
+- `legal_score_reranker.py`: Empty file
+- `llm_reranker.py`: Empty file (chỉ demo)
+
+**Industry Practice**:
+
+- Perplexity: Cohere Rerank API
+- You.com: Custom reranker
+- Typical flow: Retrieve 20-50 docs → Rerank → Top 5
+
+## 🔧 Development Workflows
+
+### Environment Setup
+
+```bash
+conda activate venv  # NOT rag-bidding!
+./start_server.sh    # uvicorn on port 8000
+```
+
+### Configuration Management
+
+**Settings**: `src/config/models.py`
+
+- Dataclass-based settings
+- Environment variables via `.env`
+- Preset modes: `RAGPresets.get_balanced_mode()`
+
+## 🚫 Avoid These Mistakes
+
+1. **Không modify code trong `*-deprecated` folders**
+2. **Không tạo retriever/reranker mới mỗi request** (memory leak)
+3. **Không run API tests mà không start server trước**
+4. **Không assume environment name là "rag-bidding"** (thực tế là "venv")
+5. **Không skip reranker singleton khi optimize performance**
+
+## 🔍 Debugging Tips
+
+### Memory Issues
+
+```bash
+# Check model cache
+ls -lh ~/.cache/huggingface/hub/  # BGE model ~1.2GB
+
+# Monitor GPU memory
+nvidia-smi -l 1
+
+# Clear CUDA cache (nếu OOM)
+# Thêm vào BGEReranker.rerank():
+torch.cuda.empty_cache()
+```
+
+### Performance Profiling
+
+```python
+# Logs hiện có timing info:
+# [2025-11-08 08:55:35] [INFO] src.retrieval.ranking.bge_reranker:
+# Initializing reranker: BAAI/bge-reranker-v2-m3
+```
+
+## Những điều cần lưu ý:
+
+- Khi có lỗi xảy ra, kiểm tra code logic liên quan để hiểu nguyên nhân gốc rễ
+- Ưu tiên singleton pattern cho heavy resources (embeddings, rerankers)
+- Performance tests phải được monitor memory usage
+- API changes cần update cả test suite

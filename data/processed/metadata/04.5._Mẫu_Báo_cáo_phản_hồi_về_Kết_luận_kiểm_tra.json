@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "4. Mẫu kiểm tra",
   "chunk_count": 4,
-  "output_file": "data/processed_enriched/chunks/04.5._Mẫu_Báo_cáo_phản_hồi_về_Kết_luận_kiểm_tra.jsonl",
+  "output_file": "data/processed/chunks/04.5._Mẫu_Báo_cáo_phản_hồi_về_Kết_luận_kiểm_tra.jsonl",
   "processed_at": "2025-11-04T12:13:37.589155"
 }

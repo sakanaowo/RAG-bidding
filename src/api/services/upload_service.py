@@ -26,9 +26,12 @@ from ..schemas.upload_schemas import (
 from .document_classifier import DocumentClassifier
 from ...preprocessing.upload_pipeline import WorkingUploadPipeline
 from ...preprocessing.loaders import DocxLoader, PdfLoader, TxtLoader
+from ...preprocessing.utils.document_id_generator import DocumentIDGenerator
 from ...embedding.embedders.openai_embedder import OpenAIEmbedder
 from ...embedding.store.pgvector_store import PGVectorStore
 from ...config.models import settings
+from ...config.database import get_db_sync
+from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +52,7 @@ class UploadProcessingService:
         self.classifier = DocumentClassifier()
         self.embedder = OpenAIEmbedder()
         self.vector_store = PGVectorStore()
+        self.doc_id_generator = DocumentIDGenerator()
         self.processing_jobs: Dict[str, Dict] = {}
         self.executor = ThreadPoolExecutor(max_workers=4)
 
@@ -280,40 +284,74 @@ class UploadProcessingService:
                 file_info["temp_path"], doc_type.value, batch_name
             )
 
-            # Step 4: Generate embeddings
+            # Step 4: Prepare documents for embedding (no embedding yet)
             progress.status = ProcessingStatus.EMBEDDING
-            progress.current_step = "Generating embeddings"
+            progress.current_step = "Preparing documents for embedding"
             progress.progress_percent = 70
 
-            embeddings = []
-            for chunk in chunks:
-                embedding = self.embedder.embed_text(chunk.content)
-                embeddings.append({"chunk": chunk, "embedding": embedding})
+            # Convert chunks to LangChain Documents
+            from langchain_core.documents import Document
 
-            # Step 5: Store in vector database
-            progress.status = ProcessingStatus.STORING
-            progress.current_step = "Storing in database"
-            progress.progress_percent = 90
-
-            # Batch all documents for single vector store operation
             documents = []
-            for item in embeddings:
+            for chunk in chunks:
                 # Convert UniversalChunk to metadata dict
-                chunk_metadata = item["chunk"].to_dict()
+                chunk_metadata = chunk.to_dict()
                 # Remove content from metadata to avoid duplication
                 chunk_metadata.pop("content", None)
 
-                # Create LangChain Document
-                from langchain_core.documents import Document
-
-                doc = Document(
-                    page_content=item["chunk"].content, metadata=chunk_metadata
-                )
+                doc = Document(page_content=chunk.content, metadata=chunk_metadata)
                 documents.append(doc)
 
-            # Single batch operation
+            # Step 5: Store in vector database (embeddings generated in batch internally)
+            progress.status = ProcessingStatus.STORING
+            progress.current_step = "Generating embeddings and storing in database"
+            progress.progress_percent = 80
+
+            # add_documents() will batch embed all texts internally via LangChain
+            # This is MUCH faster than individual embed_text() calls
             self.vector_store.add_documents(documents)
             stored_count = len(documents)
+
+            # Step 5.5: Insert into documents table
+            progress.current_step = "Registering in documents table"
+            progress.progress_percent = 95
+
+            # Extract document info from first chunk
+            first_chunk = chunks[0]
+            # UniversalChunk has direct fields, not .metadata wrapper
+            document_id = first_chunk.document_id
+            # Use section_title or original filename as document name
+            document_name = (
+                first_chunk.section_title
+                or first_chunk.extra_metadata.get("title")
+                or file_info["original_name"]
+            )
+            source_file = file_info["temp_path"]
+            file_name = file_info["original_name"]
+
+            # Determine category from doc_type
+            category_mapping = {
+                "law": "Luật chính",
+                "decree": "Nghị định",
+                "circular": "Thông tư",
+                "decision": "Quyết định",
+                "bidding": "Hồ sơ mời thầu",
+                "template": "Mẫu báo cáo",
+                "exam": "Câu hỏi thi",
+                "other": "Khác",
+            }
+            category = category_mapping.get(doc_type, "Khác")
+
+            # Insert into documents table
+            self._insert_into_documents_table(
+                document_id=document_id,
+                document_name=document_name,
+                document_type=doc_type,
+                category=category,
+                file_name=file_name,
+                source_file=source_file,
+                total_chunks=len(chunks),
+            )
 
             # Step 6: Complete
             progress.status = ProcessingStatus.COMPLETED
@@ -322,6 +360,7 @@ class UploadProcessingService:
             progress.chunks_created = len(chunks)
             progress.embeddings_created = stored_count
             progress.processing_time_ms = int((time.time() - start_time) * 1000)
+            progress.document_id = document_id  # Add document_id for easy access
 
         except Exception as e:
             logger.error(f"Single file processing failed: {str(e)}")
@@ -350,7 +389,7 @@ class UploadProcessingService:
 
     async def _basic_chunking(self, content, file_info: Dict):
         """Fallback basic chunking for unsupported document types"""
-        from ...chunking.semantic_chunker import SemanticChunker
+        from ...preprocessing.chunking.semantic_chunker import SemanticChunker
         from ...preprocessing.schema import (
             UnifiedLegalChunk,
             DocumentInfo,
@@ -390,6 +429,85 @@ class UploadProcessingService:
                 shutil.rmtree(temp_dir)
         except Exception as e:
             logger.warning(f"Failed to cleanup temp files for {upload_id}: {str(e)}")
+
+    def _insert_into_documents_table(
+        self,
+        document_id: str,
+        document_name: str,
+        document_type: str,
+        category: str,
+        file_name: str,
+        source_file: str,
+        total_chunks: int,
+    ):
+        """
+        Insert document record into documents table.
+
+        Called after successful vector DB storage to maintain consistency.
+        Uses UPSERT to handle potential duplicates.
+        """
+        conn = None
+        try:
+            conn = get_db_sync()
+            cursor = conn.cursor()
+
+            insert_query = """
+                INSERT INTO documents (
+                    document_id,
+                    document_name,
+                    document_type,
+                    category,
+                    file_name,
+                    source_file,
+                    total_chunks,
+                    status,
+                    created_at,
+                    updated_at
+                ) VALUES (
+                    %(document_id)s,
+                    %(document_name)s,
+                    %(document_type)s,
+                    %(category)s,
+                    %(file_name)s,
+                    %(source_file)s,
+                    %(total_chunks)s,
+                    'active',
+                    NOW(),
+                    NOW()
+                )
+                ON CONFLICT (document_id) DO UPDATE SET
+                    document_name = EXCLUDED.document_name,
+                    total_chunks = EXCLUDED.total_chunks,
+                    updated_at = NOW()
+            """
+
+            cursor.execute(
+                insert_query,
+                {
+                    "document_id": document_id,
+                    "document_name": document_name[:200],  # Truncate if needed
+                    "document_type": document_type,
+                    "category": category,
+                    "file_name": file_name,
+                    "source_file": source_file,
+                    "total_chunks": total_chunks,
+                },
+            )
+            conn.commit()
+
+            logger.info(
+                f"✅ Inserted document into documents table: {document_id} ({total_chunks} chunks)"
+            )
+
+        except Exception as e:
+            logger.error(f"❌ Failed to insert into documents table: {e}")
+            if conn:
+                conn.rollback()
+            # Don't raise - vector DB storage succeeded, this is supplementary
+
+        finally:
+            if conn:
+                conn.close()
 
     def _estimate_processing_time(self, files: List[UploadFile]) -> int:
         """Estimate processing time in minutes"""

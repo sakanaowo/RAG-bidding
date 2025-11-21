@@ -26,8 +26,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.preprocessing.loaders.docx_loader import DocxLoader
 from src.preprocessing.loaders.doc_loader import DocLoader
 from src.preprocessing.base.models import ProcessedDocument
-from src.chunking.chunk_factory import create_chunker
-from src.chunking.base_chunker import UniversalChunk
+from src.preprocessing.chunking.chunk_factory import create_chunker
+from src.preprocessing.chunking.base_chunker import UniversalChunk
 from src.preprocessing.enrichment import ChunkEnricher
 
 # Setup logging

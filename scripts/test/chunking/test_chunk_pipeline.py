@@ -16,7 +16,7 @@ import pytest
 from pathlib import Path
 from typing import List
 
-from src.chunking import (
+from src.preprocessing.chunking import (
     create_chunker,
     ChunkFactory,
     UniversalChunk,
