@@ -98,9 +98,14 @@ class UpdateDocumentStatusRequest(BaseModel):
     """Request to update document status."""
 
     status: str = Field(
-        ..., description="New status: draft, active, superseded, archived"
+        ..., description="New status: draft, active, superseded, archived, expired"
     )
-    reason: str = Field(..., description="Reason for status change")
+    reason: Optional[str] = Field(None, description="Reason for status change")
+    superseded_by: Optional[str] = Field(
+        None,
+        description="ID of document that supersedes this one (if status=superseded)",
+    )
+    notes: Optional[str] = Field(None, description="Additional notes")
 
 
 class DocumentStats(BaseModel):
@@ -340,24 +345,52 @@ async def get_document(
 
 
 @router.patch("/{document_id}/status")
-async def toggle_document_status(
+async def update_document_status(
     document_id: str,
-    new_status: str = Query(..., description="New status (e.g., active, archived)"),
+    new_status: str = Query(
+        ...,
+        description="New status (active, archived, expired, superseded)",
+    ),
+    reason: Optional[str] = Query(None, description="Reason for status change"),
+    superseded_by: Optional[str] = Query(
+        None, description="Document ID that supersedes this one"
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Toggle document status.
+    Update document status with full metadata tracking.
 
-    Updates status in both documents table AND all chunks in vector store
-    to maintain consistency.
+    Updates:
+    - documents table: status field
+    - All chunks: cmetadata.status
+    - All chunks: document_info.document_status
+    - All chunks: processing_metadata.status_change_history
+    - All chunks: document_info.superseded_by (if applicable)
+    - Cache invalidation
 
     Example:
-        PATCH /documents/{document_id}/status?new_status=archived
+        PATCH /documents/{document_id}/status?new_status=superseded&reason=Replaced&superseded_by=50/2024/NĐ-CP
     """
     try:
-        # 1. Check if document exists
-        check_query = "SELECT status FROM documents WHERE document_id = :document_id"
-        result = await db.execute(text(check_query), {"document_id": document_id})
+        # Validate status
+        valid_statuses = ["draft", "active", "superseded", "archived", "expired"]
+        if new_status not in valid_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status. Must be one of: {valid_statuses}",
+            )
+
+        # 1. Check if document exists and get old status
+        check_query = text(
+            """
+            SELECT d.status, e.cmetadata
+            FROM documents d
+            LEFT JOIN langchain_pg_embedding e ON e.cmetadata->>'document_id' = d.document_id
+            WHERE d.document_id = :document_id
+            LIMIT 1
+        """
+        )
+        result = await db.execute(check_query, {"document_id": document_id})
         row = result.fetchone()
 
         if not row:
@@ -366,52 +399,143 @@ async def toggle_document_status(
             )
 
         old_status = row.status
+        first_chunk_metadata = row.cmetadata or {}
 
-        # 2. Update documents table
-        update_documents_query = """
+        # Extract old status from metadata if available
+        old_metadata_status = (
+            first_chunk_metadata.get("document_info", {}).get("document_status")
+            or old_status
+        )
+
+        # 2. Create status change record
+        status_change_entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "from_status": old_metadata_status,
+            "to_status": new_status,
+            "reason": reason or "Status updated via API",
+            "changed_by": "api",
+        }
+
+        # 3. Update documents table
+        update_documents_query = text(
+            """
             UPDATE documents 
             SET status = :new_status, updated_at = NOW()
             WHERE document_id = :document_id
         """
+        )
         await db.execute(
-            text(update_documents_query),
+            update_documents_query,
             {"document_id": document_id, "new_status": new_status},
         )
 
-        # 3. Update all chunks in vector store (sync metadata)
-        # Use string literal cast to avoid SQLAlchemy parameter issues
-        update_chunks_query = f"""
-            UPDATE langchain_pg_embedding
-            SET cmetadata = jsonb_set(cmetadata, '{{status}}', '"{new_status}"'::jsonb)
+        # 4. Get all chunks to update metadata
+        get_chunks_query = text(
+            """
+            SELECT id, cmetadata
+            FROM langchain_pg_embedding
             WHERE cmetadata->>'document_id' = :document_id
         """
-        result = await db.execute(
-            text(update_chunks_query),
-            {"document_id": document_id},
         )
-        chunks_updated = result.rowcount
+        chunks_result = await db.execute(get_chunks_query, {"document_id": document_id})
+        chunks = chunks_result.fetchall()
 
+        # 5. Update each chunk's metadata
+        updated_count = 0
+        for chunk_row in chunks:
+            chunk_id = chunk_row.id
+            metadata = dict(chunk_row.cmetadata or {})
+
+            # Update top-level status field (for simple filters)
+            metadata["status"] = new_status
+
+            # Update document_info.document_status
+            if "document_info" not in metadata:
+                metadata["document_info"] = {}
+            metadata["document_info"]["document_status"] = new_status
+
+            # Update superseded_by if provided
+            if superseded_by:
+                metadata["document_info"]["superseded_by"] = superseded_by
+
+            # Update processing_metadata.status_change_history
+            if "processing_metadata" not in metadata:
+                metadata["processing_metadata"] = {}
+            if "status_change_history" not in metadata["processing_metadata"]:
+                metadata["processing_metadata"]["status_change_history"] = []
+
+            metadata["processing_metadata"]["status_change_history"].append(
+                status_change_entry
+            )
+
+            # Update processing_status
+            metadata["processing_metadata"]["processing_status"] = new_status
+
+            # Write back to database
+            update_chunk_query = text(
+                """
+                UPDATE langchain_pg_embedding
+                SET cmetadata = :metadata
+                WHERE id = :chunk_id
+            """
+            )
+            await db.execute(
+                update_chunk_query,
+                {"metadata": json.dumps(metadata), "chunk_id": chunk_id},
+            )
+            updated_count += 1
+
+        # 6. Commit all changes
         await db.commit()
 
         logger.info(
-            f"✅ Updated document {document_id} status: {old_status} → {new_status} "
-            f"(synced {chunks_updated} chunks)"
+            f"✅ Updated document {document_id} status: {old_metadata_status} → {new_status} "
+            f"(synced {updated_count} chunks)"
         )
+
+        # 7. Invalidate retrieval cache after status update
+        try:
+            from src.embedding.store.pgvector_store import vector_store
+
+            logger.info(
+                f"🔄 Clearing retrieval cache after status update: "
+                f"{document_id} ({old_metadata_status} → {new_status})"
+            )
+
+            cache_stats = vector_store.clear_cache()
+
+            if cache_stats:
+                logger.info(
+                    f"✅ Cache invalidated successfully: "
+                    f"L1={cache_stats['l1_cleared']} queries, "
+                    f"L2={cache_stats['l2_cleared']} Redis keys cleared"
+                )
+            else:
+                logger.info("ℹ️  Cache is disabled - no cache to clear")
+
+        except Exception as cache_error:
+            # Log warning but don't fail the status update
+            logger.warning(
+                f"⚠️  Failed to clear cache after status update: {cache_error}",
+                exc_info=True,
+            )
 
         return {
             "success": True,
             "document_id": document_id,
-            "old_status": old_status,
+            "old_status": old_metadata_status,
             "new_status": new_status,
-            "chunks_updated": chunks_updated,
-            "message": f"Status updated successfully and synced to {chunks_updated} chunks",
+            "chunks_updated": updated_count,
+            "reason": reason,
+            "superseded_by": superseded_by,
+            "message": f"Status updated to '{new_status}' and synced to {updated_count} chunks",
         }
 
     except HTTPException:
         raise
     except Exception as e:
         await db.rollback()
-        logger.error(f"❌ Error updating document status: {e}")
+        logger.error(f"❌ Error updating document status: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

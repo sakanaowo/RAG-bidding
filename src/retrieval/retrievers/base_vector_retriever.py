@@ -46,15 +46,24 @@ class BaseVectorRetriever(BaseRetriever):
         # Build filter
         pgvector_filter = self._build_filter()
 
+        # 🔍 DEBUG: Log filter being used
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"🔍 BaseVectorRetriever - filter_status={self.filter_status}, pgvector_filter={pgvector_filter}, k={self.k}")
+
         # Retrieve with filter
         if pgvector_filter:
             # Retrieve more docs if filtering (to get k after filter)
             retrieve_k = self.k * 2
-            return vector_store.similarity_search(
+            docs = vector_store.similarity_search(
                 query, k=retrieve_k, filter=pgvector_filter
             )[: self.k]
+            logger.info(f"✅ Retrieved {len(docs)} docs after filtering (retrieve_k={retrieve_k})")
+            return docs
         else:
-            return vector_store.similarity_search(query, k=self.k)
+            docs = vector_store.similarity_search(query, k=self.k)
+            logger.info(f"✅ Retrieved {len(docs)} docs without filter")
+            return docs
 
     def _build_filter(self) -> Optional[Dict[str, Any]]:
         """Build PGVector filter from filter_status and filter_dict."""

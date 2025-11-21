@@ -85,6 +85,36 @@ class PGVectorStore:
         """Add documents to vector store (bypasses cache)"""
         return self._raw_store.add_documents(documents)
 
-    def similarity_search(self, query: str, k: int = 5):
-        """Search for similar documents (uses cache if enabled)"""
-        return self.store.similarity_search(query, k=k)
+    def similarity_search(self, query: str, k: int = 5, **kwargs):
+        """Search for similar documents (uses cache if enabled)
+
+        Args:
+            query: Search query
+            k: Number of results
+            **kwargs: Additional parameters (e.g. filter for metadata filtering)
+        """
+        return self.store.similarity_search(query, k=k, **kwargs)
+
+    def clear_cache(self):
+        """
+        Clear all retrieval caches (L1 + L2).
+
+        Call this after admin operations that change document visibility:
+        - Update document status (active/expired)
+        - Delete documents
+        - Bulk updates to metadata
+
+        Returns:
+            dict: Statistics about cleared cache (if cache enabled)
+            None: If cache is disabled
+        """
+        # Only clear if using cached wrapper
+        if hasattr(self.store, "clear_all_caches"):
+            return self.store.clear_all_caches()
+        else:
+            # Cache disabled, nothing to clear
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.info("ℹ️  Cache disabled - no cache to clear")
+            return None

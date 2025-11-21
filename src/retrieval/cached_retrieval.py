@@ -228,6 +228,41 @@ class CachedVectorStore:
         except Exception as e:
             print(f"⚠️  Redis clear error: {e}")
 
+    def clear_all_caches(self):
+        """
+        Clear all caches globally.
+
+        Use this when document status changes or data updates affect
+        multiple queries (e.g., admin sets document to expired/active).
+
+        This ensures users see fresh data after admin operations.
+        """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        try:
+            # Clear L1
+            l1_size = len(self.l1_cache)
+            self.l1_cache.clear()
+            self.l1_cache_order.clear()
+
+            # Clear L2 (Redis)
+            pattern = "rag:retrieval:*"
+            deleted_count = 0
+            for key in self.redis.scan_iter(match=pattern):
+                self.redis.delete(key)
+                deleted_count += 1
+
+            logger.info(
+                f"🗑️  Cache cleared: L1={l1_size} queries, L2={deleted_count} keys"
+            )
+            return {"l1_cleared": l1_size, "l2_cleared": deleted_count}
+
+        except Exception as e:
+            logger.error(f"❌ Failed to clear cache: {e}", exc_info=True)
+            raise
+
     def invalidate_query(
         self, query: str, k: int = 5, filters: Optional[Dict[str, Any]] = None
     ):

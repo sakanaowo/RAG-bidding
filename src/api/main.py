@@ -13,7 +13,6 @@ from src.retrieval.query_processing.query_enhancer import (
     QueryEnhancerConfig,
 )
 from .routers import upload
-from .routers import document_status
 from .routers import documents_chat
 from .routers import documents_management
 
@@ -28,7 +27,6 @@ app = FastAPI(
 # Include routers
 # ⚠️ ORDER MATTERS: Specific paths MUST come before dynamic paths
 app.include_router(upload.router, prefix="/api")
-app.include_router(document_status.router, prefix="/api")
 app.include_router(
     documents_management.router, prefix="/api"
 )  # Document Management - /documents endpoints

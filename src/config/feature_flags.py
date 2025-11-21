@@ -10,6 +10,14 @@ See: documents/technical/POOLING_CACHE_PLAN.md
 import os
 from typing import Literal
 
+# ✅ Load .env before reading environment variables
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not installed
+
 
 # ========================================
 # DATABASE CONFIGURATION

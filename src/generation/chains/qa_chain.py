@@ -130,7 +130,7 @@ def answer(
     question: str,
     mode: str | None = None,
     reranker_type: str = "openai",  # Default: OpenAI (API-based) (BGE is singleton, faster)
-    filter_status: str | None = "active",  # ✅ Default to 'active' (only active docs)
+    filter_status: str | None = "active",
 ) -> Dict:
     selected_mode = mode or settings.rag_mode or "balanced"
     apply_preset(selected_mode)
@@ -140,8 +140,8 @@ def answer(
     retriever = create_retriever(
         mode=selected_mode,
         enable_reranking=enable_reranking,
-        reranker_type=reranker_type,  # 🆕 Pass reranker type
-        filter_status=filter_status,  # ✅ Pass status filter (default: 'active')
+        reranker_type=reranker_type,
+        filter_status=filter_status,
     )
 
     # ✅ Select prompt based on query complexity
