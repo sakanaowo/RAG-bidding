@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "6. Tư vấn",
   "chunk_count": 15,
-  "output_file": "data/processed_enriched/chunks/6._Mẫu_số_6C_E-TVCN_tư_vấn_cá_nhân.jsonl",
+  "output_file": "data/processed/chunks/6._Mẫu_số_6C_E-TVCN_tư_vấn_cá_nhân.jsonl",
   "processed_at": "2025-11-04T12:13:35.519761"
 }

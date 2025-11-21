@@ -3,6 +3,6 @@
   "document_type": "bidding",
   "category": "4. Hàng hóa",
   "chunk_count": 125,
-  "output_file": "data/processed_enriched/chunks/4._Mẫu_số_4A_E-HSMT_hàng_hóa_1_túi.jsonl",
+  "output_file": "data/processed/chunks/4._Mẫu_số_4A_E-HSMT_hàng_hóa_1_túi.jsonl",
   "processed_at": "2025-11-04T12:13:48.729542"
 }

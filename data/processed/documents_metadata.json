@@ -1,0 +1,682 @@
+[
+  {
+    "document_id": "LUA-90-2025-QH15",
+    "document_name": "Luat so 90 2025-qh15",
+    "category": "Luật chính",
+    "document_type": "law",
+    "source_file": "data/raw/Luat chinh/Luat so 90 2025-qh15.docx",
+    "file_name": "Luat so 90 2025-qh15.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "LUA-57-2024-QH15",
+    "document_name": "Luat so 57 2024 QH15",
+    "category": "Luật chính",
+    "document_type": "law",
+    "source_file": "data/raw/Luat chinh/Luat so 57 2024 QH15.docx",
+    "file_name": "Luat so 57 2024 QH15.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "LUA-HỢP-NHẤT-126-2025-về",
+    "document_name": "HỢP NHẤT 126 2025 về Luật đấu thầu",
+    "category": "Luật chính",
+    "document_type": "law",
+    "source_file": "data/raw/Luat chinh/HỢP NHẤT 126 2025 về Luật đấu thầu.docx",
+    "file_name": "HỢP NHẤT 126 2025 về Luật đấu thầu.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "LUA-Luat-dau-thau-2023",
+    "document_name": "Luat dau thau 2023",
+    "category": "Luật chính",
+    "document_type": "law",
+    "source_file": "data/raw/Luat chinh/Luat dau thau 2023.docx",
+    "file_name": "Luat dau thau 2023.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "ND-214-4.8.-CP",
+    "document_name": "ND 214 - 4.8.2025 - Thay thế NĐ24",
+    "category": "Nghị định",
+    "document_type": "decree",
+    "source_file": "data/raw/Nghi dinh/ND 214 - 4.8.2025 - Thay thế NĐ24-original.docx",
+    "file_name": "ND 214 - 4.8.2025 - Thay thế NĐ24-original.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "TT-0-Lời-văn-thông-tư",
+    "document_name": "0. Lời văn thông tư",
+    "category": "Thông tư",
+    "document_type": "circular",
+    "source_file": "data/raw/Thong tu/0. Lời văn thông tư.docx",
+    "file_name": "0. Lời văn thông tư.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "TT-00-Quyết-định-Thông-tư",
+    "document_name": "00. Quyết định Thông tư",
+    "category": "Thông tư",
+    "document_type": "circular",
+    "source_file": "data/raw/Thong tu/00. Quyết định Thông tư.docx",
+    "file_name": "00. Quyết định Thông tư.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "QD-1667-BYT",
+    "document_name": "Quyết định-1667-QĐ-BYT",
+    "category": "Quyết định",
+    "document_type": "decision",
+    "source_file": "data/raw/Quyet dinh/Quyết định-1667-QĐ-BYT.docx",
+    "file_name": "Quyết định-1667-QĐ-BYT.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-15-Phu-luc",
+    "document_name": "15. Phu luc",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/15. Phu luc.docx",
+    "file_name": "15. Phu luc.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-01-Phụ-lục",
+    "document_name": "01. Phụ lục",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/01. Phụ lục.doc",
+    "file_name": "01. Phụ lục.doc",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-TUVAN-6",
+    "document_name": "6. Mẫu số 6B E-HSMQT tư vấn",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/6. Tư vấn/6. Mẫu số 6B_E-HSMQT tư vấn.docx",
+    "file_name": "6. Mẫu số 6B_E-HSMQT tư vấn.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-TUVAN-6",
+    "document_name": "6. Mẫu số 6A E-HSMT tư vấn",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/6. Tư vấn/6. Mẫu số 6A E-HSMT tư vấn.docx",
+    "file_name": "6. Mẫu số 6A E-HSMT tư vấn.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-TUVAN-6",
+    "document_name": "6. Mẫu số 6C E-TVCN tư vấn cá nhân",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/6. Tư vấn/6. Mẫu số 6C_E-TVCN tư vấn cá nhân.docx",
+    "file_name": "6. Mẫu số 6C_E-TVCN tư vấn cá nhân.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-9Mẫu-số-9A_E-HSMT_P",
+    "document_name": "9.Mẫu số 9A E-HSMT PC 1 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/9. PC (hàng hóa_xây lắp)/9.Mẫu số 9A_E-HSMT_PC 1 túi.docx",
+    "file_name": "9.Mẫu số 9A_E-HSMT_PC 1 túi.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-9-Mẫu-số-9C_E-HSMST",
+    "document_name": "9. Mẫu số 9C E-HSMST PC sơ tuyển",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/9. PC (hàng hóa_xây lắp)/9. Mẫu số 9C_E-HSMST_PC sơ tuyển.docx",
+    "file_name": "9. Mẫu số 9C_E-HSMST_PC sơ tuyển.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-9-Mẫu-số-9B_-E-HSMT",
+    "document_name": "9. Mẫu số 9B  E-HSMT PC 2 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/9. PC (hàng hóa_xây lắp)/9. Mẫu số 9B_ E-HSMT_PC 2 túi.docx",
+    "file_name": "9. Mẫu số 9B_ E-HSMT_PC 2 túi.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-7-Mẫu-số-7C-E-HSMS",
+    "document_name": "7. Mẫu số 7C. E-HSMST EP sơ tuyển",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/7. EP (tư vấn_hàng hóa)/7. Mẫu số 7C. E-HSMST_EP sơ tuyển.docx",
+    "file_name": "7. Mẫu số 7C. E-HSMST_EP sơ tuyển.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-7-Mẫu-số-7A-E-HSMT",
+    "document_name": "7. Mẫu số 7A. E-HSMT EP qua mạng 01 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/7. EP (tư vấn_hàng hóa)/7. Mẫu số 7A. E-HSMT_EP qua mạng 01 túi.doc",
+    "file_name": "7. Mẫu số 7A. E-HSMT_EP qua mạng 01 túi.doc",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-7-Mẫu-số-7B-E-HSMT",
+    "document_name": "7. Mẫu số 7B. E-HSMT EP qua mạng 2 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/7. EP (tư vấn_hàng hóa)/7. Mẫu số 7B. E-HSMT_EP qua mạng 2 túi.doc",
+    "file_name": "7. Mẫu số 7B. E-HSMT_EP qua mạng 2 túi.doc",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-044-Mẫu-Kết-luận-k",
+    "document_name": "04.4. Mẫu Kết luận kiểm tra đối với lựa chọn nhà thầu, NĐT",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/4. Mẫu kiểm tra/04.4. Mẫu Kết luận kiểm tra đối với lựa chọn nhà thầu, NĐT.doc",
+    "file_name": "04.4. Mẫu Kết luận kiểm tra đối với lựa chọn nhà thầu, NĐT.doc",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-042-Mẫu-Đề-cương-b",
+    "document_name": "04.2. Mẫu Đề cương báo cáo đấu thầu lựa chọn nhà thầu, NĐT",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/4. Mẫu kiểm tra/04.2. Mẫu Đề cương báo cáo đấu thầu lựa chọn nhà thầu, NĐT.doc",
+    "file_name": "04.2. Mẫu Đề cương báo cáo đấu thầu lựa chọn nhà thầu, NĐT.doc",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-041B-Mẫu-Kế-hoạch-",
+    "document_name": "04.1B. Mẫu Kế hoạch kiểm tra chi tiết",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/4. Mẫu kiểm tra/04.1B. Mẫu Kế hoạch kiểm tra chi tiết.doc",
+    "file_name": "04.1B. Mẫu Kế hoạch kiểm tra chi tiết.doc",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-045-Mẫu-Báo-cáo-ph",
+    "document_name": "04.5. Mẫu Báo cáo phản hồi về Kết luận kiểm tra",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/4. Mẫu kiểm tra/04.5. Mẫu Báo cáo phản hồi về Kết luận kiểm tra.doc",
+    "file_name": "04.5. Mẫu Báo cáo phản hồi về Kết luận kiểm tra.doc",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-043-Mẫu-Báo-cáo-ki",
+    "document_name": "04.3. Mẫu Báo cáo kiểm tra đối với lựa chọn nhà thầu, NĐT",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/4. Mẫu kiểm tra/04.3. Mẫu Báo cáo kiểm tra đối với lựa chọn nhà thầu, NĐT.docx",
+    "file_name": "04.3. Mẫu Báo cáo kiểm tra đối với lựa chọn nhà thầu, NĐT.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-041A-Mẫu-Kế-hoạch-",
+    "document_name": "04.1A. Mẫu Kế hoạch kiểm tra định kỳ",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/4. Mẫu kiểm tra/04.1A. Mẫu Kế hoạch kiểm tra định kỳ.doc",
+    "file_name": "04.1A. Mẫu Kế hoạch kiểm tra định kỳ.doc",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-13-Mẫu-số-13_-Mua-s",
+    "document_name": "13. Mẫu số 13  Mua sắm trực tuyến",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/13. Mua sắm trực tuyến/13. Mẫu số 13_ Mua sắm trực tuyến.docx",
+    "file_name": "13. Mẫu số 13_ Mua sắm trực tuyến.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-12-Mẫu-số-12G-CGTT-",
+    "document_name": "12. Mẫu số 12G CGTT rút gọn xử lý tình huống final",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/12. Chào giá trực tuyến/12. Mẫu số 12G CGTT rút gọn xử lý tình huống final.docx",
+    "file_name": "12. Mẫu số 12G CGTT rút gọn xử lý tình huống final.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-12-Mẫu-số-12C-CGTT-",
+    "document_name": "12. Mẫu số 12C CGTT HH rút gọn",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/12. Chào giá trực tuyến/12. Mẫu số 12C CGTT HH_rút gọn.docx",
+    "file_name": "12. Mẫu số 12C CGTT HH_rút gọn.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-12-Mẫu-số-12D-CGTT-",
+    "document_name": "12. Mẫu số 12D CGTT PTV rút gọn",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/12. Chào giá trực tuyến/12. Mẫu số 12D CGTT PTV rút gọn.docx",
+    "file_name": "12. Mẫu số 12D CGTT PTV rút gọn.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-XAYLAP-12",
+    "document_name": "12. Mẫu số 12E CGTT xây lắp rút gọn final",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/12. Chào giá trực tuyến/12. Mẫu số 12E CGTT xây lắp rút gọn final.docx",
+    "file_name": "12. Mẫu số 12E CGTT xây lắp rút gọn final.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-1-Mẫu-01A-02C_Kế-ho",
+    "document_name": "1. Mẫu 01A-02C Kế hoạch tổng thể LCNT",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/1. Kế hoạch tổng thể LCNT_kế hoạch LCNT/1. Mẫu 01A-02C_Kế hoạch tổng thể LCNT.docx",
+    "file_name": "1. Mẫu 01A-02C_Kế hoạch tổng thể LCNT.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-HANGHOA-4",
+    "document_name": "4. Mẫu số 4B E-HSMT hàng hóa 2 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/4. Hàng hóa/4. Mẫu số 4B E-HSMT hàng hóa 2 túi.docx",
+    "file_name": "4. Mẫu số 4B E-HSMT hàng hóa 2 túi.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-HANGHOA-4",
+    "document_name": "4. Mẫu số 4A E-HSMT hàng hóa 1 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/4. Hàng hóa/4. Mẫu số 4A E-HSMT hàng hóa 1 túi.docx",
+    "file_name": "4. Mẫu số 4A E-HSMT hàng hóa 1 túi.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-HANGHOA-4",
+    "document_name": "4. Mẫu số 4C E-HSMST hàng hóa sơ tuyển",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/4. Hàng hóa/4. Mẫu số 4C_E-HSMST hàng hóa sơ tuyển.docx",
+    "file_name": "4. Mẫu số 4C_E-HSMST hàng hóa sơ tuyển.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-11-Mẫu-số-11B_E-HSM",
+    "document_name": "11. Mẫu số 11B E-HSMT Máy đặt máy mượn 2 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/11. Máy đặt máy mượn/11. Mẫu số 11B_E-HSMT_Máy đặt máy mượn 2 túi.docx",
+    "file_name": "11. Mẫu số 11B_E-HSMT_Máy đặt máy mượn 2 túi.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-11-Mẫu-số-11A_E-HSM",
+    "document_name": "11. Mẫu số 11A E-HSMT Máy đặt máy mượn 1 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/11. Máy đặt máy mượn/11. Mẫu số 11A_E-HSMT_Máy đặt máy mượn 1 túi.docx",
+    "file_name": "11. Mẫu số 11A_E-HSMT_Máy đặt máy mượn 1 túi.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-10-Mẫu-số-10B_E-HSM",
+    "document_name": "10. Mẫu số 10B E-HSMT EPC 2 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/10. EPC (tư vấn_hàng hóa_xây lắp)/10. Mẫu số 10B_E-HSMT_EPC 2 túi.docx",
+    "file_name": "10. Mẫu số 10B_E-HSMT_EPC 2 túi.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-10-Mẫu-số-10A_E-HSM",
+    "document_name": "10. Mẫu số 10A E-HSMT EPC 01 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/10. EPC (tư vấn_hàng hóa_xây lắp)/10. Mẫu số 10A_E-HSMT_EPC 01 túi.docx",
+    "file_name": "10. Mẫu số 10A_E-HSMT_EPC 01 túi.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-10-Mẫu-số-10C_E-HSM",
+    "document_name": "10. Mẫu số 10C E-HSMST EPC sơ tuyển",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/10. EPC (tư vấn_hàng hóa_xây lắp)/10. Mẫu số 10C_E-HSMST_EPC sơ tuyển.docx",
+    "file_name": "10. Mẫu số 10C_E-HSMST_EPC sơ tuyển.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-HANGHOA-01B",
+    "document_name": "01B. Mẫu HSYC hàng hóa",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/1. Mẫu HSYC/01B. Mẫu HSYC hàng hóa.docx",
+    "file_name": "01B. Mẫu HSYC hàng hóa.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-XAYLAP-01A",
+    "document_name": "01A. Mẫu HSYC Xây lắp",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/1. Mẫu HSYC/01A. Mẫu HSYC Xây lắp.docx",
+    "file_name": "01A. Mẫu HSYC Xây lắp.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-TUVAN-01D",
+    "document_name": "01D. Mẫu HSYC Tư vấn",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/1. Mẫu HSYC/01D. Mẫu HSYC Tư vấn.docx",
+    "file_name": "01D. Mẫu HSYC Tư vấn.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-TUVAN-01C",
+    "document_name": "01C. Mẫu HSYC Phi tư vấn",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/1. Mẫu HSYC/01C. Mẫu HSYC Phi tư vấn.docx",
+    "file_name": "01C. Mẫu HSYC Phi tư vấn.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-8-Mẫu-số-8A-E-HSMT",
+    "document_name": "8. Mẫu số 8A. E-HSMT  EC 01 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/8. EC (tư vấn_xây lắp)/8. Mẫu số 8A. E-HSMT_ EC 01 túi.docx",
+    "file_name": "8. Mẫu số 8A. E-HSMT_ EC 01 túi.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-8-Mẫu-số-8C-E-HSMS",
+    "document_name": "8. Mẫu số 8C. E-HSMST EC sơ tuyển",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/8. EC (tư vấn_xây lắp)/8. Mẫu số 8C. E-HSMST_EC sơ tuyển.docx",
+    "file_name": "8. Mẫu số 8C. E-HSMST_EC sơ tuyển.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-8-Mẫu-số-8B-E-HSMT",
+    "document_name": "8. Mẫu số 8B. E-HSMT EC 02 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/8. EC (tư vấn_xây lắp)/8. Mẫu số 8B. E-HSMT_EC 02 túi.docx",
+    "file_name": "8. Mẫu số 8B. E-HSMT_EC 02 túi.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-TUVAN-5",
+    "document_name": "5. Mẫu số 5A E-HSMT Phi tư vấn 1 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/5. Phi TV/5. Mẫu số 5A E-HSMT Phi tư vấn 1 túi.docx",
+    "file_name": "5. Mẫu số 5A E-HSMT Phi tư vấn 1 túi.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-TUVAN-5",
+    "document_name": "5. Mẫu số 5C E-HSMT Phi tư vấn sơ tuyển",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/5. Phi TV/5. Mẫu số 5C E-HSMT Phi tư vấn sơ tuyển.docx",
+    "file_name": "5. Mẫu số 5C E-HSMT Phi tư vấn sơ tuyển.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-TUVAN-5",
+    "document_name": "5. Mẫu số 5B E-HSMT Phi tư vấn 2 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/5. Phi TV/5. Mẫu số 5B E-HSMT Phi tư vấn 2 túi.docx",
+    "file_name": "5. Mẫu số 5B E-HSMT Phi tư vấn 2 túi.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-05-Mẫu-Báo-cáo-đấu-",
+    "document_name": "05. Mẫu Báo cáo đấu thầu",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/5. Mẫu báo cáo tình hình thực hiện hoạt động đấu thầu/05. Mẫu Báo cáo đấu thầu.docx",
+    "file_name": "05. Mẫu Báo cáo đấu thầu.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-XAYLAP-3",
+    "document_name": "3. Mẫu số 3B E-HSMT Xây lắp 2 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/3. Xây lắp/3. Mẫu số 3B E-HSMT Xây lắp 2 túi.docx",
+    "file_name": "3. Mẫu số 3B E-HSMT Xây lắp 2 túi.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-XAYLAP-3",
+    "document_name": "3. Mẫu số 3C E-HSMST Xây lắp sơ tuyển",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/3. Xây lắp/3. Mẫu số 3C_E-HSMST Xây lắp sơ tuyển.docx",
+    "file_name": "3. Mẫu số 3C_E-HSMST Xây lắp sơ tuyển.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "FORM-HSYC-XAYLAP-3",
+    "document_name": "3. Mẫu số 3A E-HSMT Xây lắp 1 túi",
+    "category": "Hồ sơ mời thầu",
+    "document_type": "bidding_form",
+    "source_file": "data/raw/Ho so moi thau/3. Xây lắp/3. Mẫu số 3A_E-HSMT Xây lắp 1 túi.docx",
+    "file_name": "3. Mẫu số 3A_E-HSMT Xây lắp 1 túi.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "TEMPLATE-BC-03B",
+    "document_name": "03B. Mẫu BCTĐ danh sách đáp ứng về kỹ thuật",
+    "category": "Mẫu báo cáo",
+    "document_type": "report_template",
+    "source_file": "data/raw/Mau bao cao/3. Báo cáo thẩm định/03B. Mẫu BCTĐ danh sách đáp ứng về kỹ thuật.docx",
+    "file_name": "03B. Mẫu BCTĐ danh sách đáp ứng về kỹ thuật.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "TEMPLATE-BC-03C",
+    "document_name": "03C. Mẫu BCTĐ KQLCNT",
+    "category": "Mẫu báo cáo",
+    "document_type": "report_template",
+    "source_file": "data/raw/Mau bao cao/3. Báo cáo thẩm định/03C. Mẫu BCTĐ KQLCNT.docx",
+    "file_name": "03C. Mẫu BCTĐ KQLCNT.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "TEMPLATE-BC-03A",
+    "document_name": "03A. Mẫu BCTĐ HSMT",
+    "category": "Mẫu báo cáo",
+    "document_type": "report_template",
+    "source_file": "data/raw/Mau bao cao/3. Báo cáo thẩm định/03A. Mẫu BCTĐ HSMT.docx",
+    "file_name": "03A. Mẫu BCTĐ HSMT.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "TEMPLATE-BC-14A",
+    "document_name": "14A. Mẫu BCĐG PTV HH XL hop hop TBYT CGTT. quy trình 1 1 tui",
+    "category": "Mẫu báo cáo",
+    "document_type": "report_template",
+    "source_file": "data/raw/Mau bao cao/14. Báo cáo đánh giá/14A. Mẫu BCĐG PTV HH XL hop hop TBYT CGTT. quy trình 1_1 tui.docx",
+    "file_name": "14A. Mẫu BCĐG PTV HH XL hop hop TBYT CGTT. quy trình 1_1 tui.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "TEMPLATE-BC-14B",
+    "document_name": "14B. Mẫu BCĐG PTV HH TBYT quy trình 2 1 túi",
+    "category": "Mẫu báo cáo",
+    "document_type": "report_template",
+    "source_file": "data/raw/Mau bao cao/14. Báo cáo đánh giá/14B. Mẫu BCĐG PTV HH TBYT_quy trình 2_1 túi .docx",
+    "file_name": "14B. Mẫu BCĐG PTV HH TBYT_quy trình 2_1 túi .docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "TEMPLATE-BC-14C",
+    "document_name": "14C. Mẫu BCĐG HH XL PTV hon hop TBYT 2 tui",
+    "category": "Mẫu báo cáo",
+    "document_type": "report_template",
+    "source_file": "data/raw/Mau bao cao/14. Báo cáo đánh giá/14C. Mẫu BCĐG HH XL PTV hon hop TBYT 2 tui .docx",
+    "file_name": "14C. Mẫu BCĐG HH XL PTV hon hop TBYT 2 tui .docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "TEMPLATE-BC-14D",
+    "document_name": "14D. Mau BCĐG Tư vấn",
+    "category": "Mẫu báo cáo",
+    "document_type": "report_template",
+    "source_file": "data/raw/Mau bao cao/14. Báo cáo đánh giá/14D. Mau BCĐG Tư vấn .docx",
+    "file_name": "14D. Mau BCĐG Tư vấn .docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "TEMPLATE-BC-02B",
+    "document_name": "02B. Mẫu BCĐG cho 1 giai đoạn 2 túi hồ sơ",
+    "category": "Mẫu báo cáo",
+    "document_type": "report_template",
+    "source_file": "data/raw/Mau bao cao/2. Báo cáo đánh giá/02B. Mẫu BCĐG cho 1 giai đoạn 2 túi hồ sơ.docx",
+    "file_name": "02B. Mẫu BCĐG cho 1 giai đoạn 2 túi hồ sơ.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "TEMPLATE-BC-02C",
+    "document_name": "02C. Mẫu BCĐG cho gói thầu tư vấn",
+    "category": "Mẫu báo cáo",
+    "document_type": "report_template",
+    "source_file": "data/raw/Mau bao cao/2. Báo cáo đánh giá/02C. Mẫu BCĐG cho gói thầu tư vấn.doc",
+    "file_name": "02C. Mẫu BCĐG cho gói thầu tư vấn.doc",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "TEMPLATE-BC-02A",
+    "document_name": "02A. Mẫu BCĐG cho 1 giai đoạn 1 túi",
+    "category": "Mẫu báo cáo",
+    "document_type": "report_template",
+    "source_file": "data/raw/Mau bao cao/2. Báo cáo đánh giá/02A. Mẫu BCĐG cho 1 giai đoạn 1 túi.docx",
+    "file_name": "02A. Mẫu BCĐG cho 1 giai đoạn 1 túi.docx",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "EXAM-NHCH_30925_bo_sung",
+    "document_name": "NHCH 30.9.25 bo sung theo TB1952 qldt (1)",
+    "category": "Câu hỏi thi",
+    "document_type": "exam_question",
+    "source_file": "data/raw/Cau hoi thi/NHCH_30.9.25_bo_sung_theo_TB1952_qldt (1).pdf",
+    "file_name": "NHCH_30.9.25_bo_sung_theo_TB1952_qldt (1).pdf",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "EXAM-Ngân-hàng-câu-hỏi-CC",
+    "document_name": "Ngân hàng câu hỏi CCDT đợt 2",
+    "category": "Câu hỏi thi",
+    "document_type": "exam_question",
+    "source_file": "data/raw/Cau hoi thi/Ngân hàng câu hỏi CCDT đợt 2.pdf",
+    "file_name": "Ngân hàng câu hỏi CCDT đợt 2.pdf",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "EXAM-Ngân-hàng-câu-hỏi-th",
+    "document_name": "Ngân hàng câu hỏi thi CCDT đợt 1",
+    "category": "Câu hỏi thi",
+    "document_type": "exam_question",
+    "source_file": "data/raw/Cau hoi thi/Ngân hàng câu hỏi thi CCDT đợt 1.pdf",
+    "file_name": "Ngân hàng câu hỏi thi CCDT đợt 1.pdf",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "EXAM-NHCH_30925_bo_sung",
+    "document_name": "NHCH 30.9.25 bo sung theo TB1952 qldt",
+    "category": "Câu hỏi thi",
+    "document_type": "exam_question",
+    "source_file": "data/raw/Cau hoi thi/NHCH_30.9.25_bo_sung_theo_TB1952_qldt.pdf",
+    "file_name": "NHCH_30.9.25_bo_sung_theo_TB1952_qldt.pdf",
+    "total_chunks": 0,
+    "status": "active"
+  },
+  {
+    "document_id": "EXAM-NHCH_2692025_dot-2",
+    "document_name": "NHCH 26.9.2025 dot 2- bổ sung",
+    "category": "Câu hỏi thi",
+    "document_type": "exam_question",
+    "source_file": "data/raw/Cau hoi thi/NHCH_26.9.2025_dot 2- bổ sung.pdf",
+    "file_name": "NHCH_26.9.2025_dot 2- bổ sung.pdf",
+    "total_chunks": 0,
+    "status": "active"
+  }
+]

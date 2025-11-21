@@ -4,45 +4,54 @@ This directory contains all project documentation organized by purpose.
 
 ## 📁 Directory Structure
 
-### `/phase-reports/`
-Project phase reports and progress tracking:
-- Phase 4: Batch reprocessing
-- Phase 5: Morning plans, checklists, status reports
+### 🚨 `/chat-session-implementation/` ⭐ IMPORTANT
+**Status:** 🟡 READY TO IMPLEMENT  
+Chat session migration plan (Redis → PostgreSQL):
+- `TODO_CHAT_SESSION_MIGRATION.md` - Quick checklist
+- `CHAT_SESSION_POSTGRESQL_PLAN.md` - Full plan (750+ lines)
+- `CHAT_SESSION_DB_SCHEMA.md` - Database schema
+- **Priority:** HIGH - Triển khai sau khi performance ổn định
+
+### `/phase-reports-deprecated/` ⚠️ DEPRECATED
+Old project phase reports (Phase 4-5 from Nov 2025):
+- Phase 4: Batch reprocessing (COMPLETED)
+- Phase 5: Morning plans, checklists (COMPLETED)
+- **Do not use** - Kept for historical reference only
 
 ### `/technical/`
 Technical documentation and system architecture:
-- `CACHE_AND_HNSW_EXPLAINED.md` - Caching and HNSW optimization
-- `OPTIMIZATION_STRATEGY.md` - Performance optimization strategies
-- `PIPELINE_INTEGRATION_SUMMARY.md` - Enrichment pipeline integration details
+- Performance optimization, caching strategies
+- System architecture, pipeline integration
+- Reranking analysis, performance reports
+- **Active:** Current production documentation
 
 ### `/verification/`
 Verification and validation reports:
-- `CACHE_VERIFICATION.md` - Cache system verification
-- `VERIFICATION_REPORT.md` - General verification reports
+- Cache verification
+- General verification reports
 
 ### `/setup/`
 Setup and installation guides:
-- `setup.md` - Database and environment setup
+- Database setup
+- Quick setup guide
 
 ### `/planning/`
 Project planning and analysis:
-- `preprocess-plan/` - Preprocessing architecture and roadmap
-  - Chunking analysis
-  - Embedding impact studies
-  - Architecture design
-  - Executive summaries
-  - Roadmaps and upgrade plans
+- `preprocess-plan-deprecated/` ⚠️ DEPRECATED - Old preprocessing architecture (Nov 2025)
+  - **Do not use** - Preprocessing already complete
 
 ## 📝 Document Types
 
-**Reports** → `/phase-reports/` or `/verification/`  
+**Implementation Plans** → `/chat-session-implementation/` 🚨  
+**Reports** → `/verification/`  
 **Architecture** → `/technical/`  
-**Plans** → `/planning/`  
-**Setup** → `/setup/`
+**Setup** → `/setup/`  
+**Deprecated** → `*-deprecated/` folders
 
 ## 🔗 Quick Links
 
 - [Main README](../README.md) - Project overview
-- [Setup Guide](setup/setup.md) - Installation instructions
-- [Pipeline Integration](technical/PIPELINE_INTEGRATION_SUMMARY.md) - Current system status
-- [Roadmap](planning/preprocess-plan/ROADMAP.md) - Development roadmap
+- [Setup Guide](setup/QUICK_SETUP.md) - Installation instructions
+- 🚨 [Chat Session Plan](chat-session-implementation/README.md) - **IMPORTANT** Implementation needed
+- [Pipeline Integration](technical/system-architecture/PIPELINE_INTEGRATION_SUMMARY.md) - Current system
+- [Performance Analysis](technical/performance-analysis/) - Current bottlenecks

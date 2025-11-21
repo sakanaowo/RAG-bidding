@@ -13,8 +13,8 @@ from src.retrieval.query_processing.query_enhancer import (
     QueryEnhancerConfig,
 )
 from .routers import upload
-from .routers import document_status
 from .routers import documents_chat
+from .routers import documents_management
 
 
 setup_logging()
@@ -25,11 +25,14 @@ app = FastAPI(
 )
 
 # Include routers
+# ⚠️ ORDER MATTERS: Specific paths MUST come before dynamic paths
 app.include_router(upload.router, prefix="/api")
-app.include_router(document_status.router, prefix="/api")
+app.include_router(
+    documents_management.router, prefix="/api"
+)  # Document Management - /documents endpoints
 app.include_router(
     documents_chat.router, prefix="/api"
-)  # 🆕 Documents & Chat endpoints
+)  # Chat endpoints - /chat/sessions
 
 
 @app.on_event("startup")
@@ -53,7 +56,7 @@ bootstrap()
 class AskIn(BaseModel):
     question: str
     mode: Literal["fast", "balanced", "quality", "adaptive"] = "balanced"
-    reranker: Literal["bge", "openai"] = "bge"  # 🆕 Toggle reranker type
+    reranker: Literal["bge", "openai"] = "bge"  # Default: BGE (singleton, faster)
 
 
 class AskResponse(BaseModel):
@@ -80,12 +83,7 @@ def health():
 
 
 @app.post("/ask", response_model=AskResponse)
-@app.post("/ask", response_model=AskResponse)
 def ask(body: AskIn):
-    # ⚠️ REMOVED: Duplicate retriever creation
-    # retriever = create_retriever(mode=body.mode, enable_reranking=enable_reranking)
-    # → answer() đã tạo retriever bên trong (qa_chain.py line 137)
-    # → Tạo 2 lần = waste memory + không dùng instance từ API endpoint
 
     if not body.question or not body.question.strip():
         raise HTTPException(400, detail="question is required")
@@ -97,8 +95,7 @@ def ask(body: AskIn):
         result = answer(
             body.question,
             mode=body.mode,
-            use_enhancement=True,
-            reranker_type=body.reranker,  # 🆕 Pass reranker type
+            reranker_type=body.reranker,
         )
         processing_time = int((time.time() - start_time) * 1000)
         result["processing_time_ms"] = processing_time

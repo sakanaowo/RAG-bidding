@@ -145,9 +145,36 @@ class DocumentStatusService:
                         f"{old_status} → {request.new_status.value} ({updated_count} chunks)"
                     )
 
+                    # 6. Invalidate retrieval cache
+                    # Document status change affects many queries -> clear all cache
+                    try:
+                        from src.embedding.store.pgvector_store import vector_store
+
+                        logger.info(
+                            f"🔄 Clearing retrieval cache after status update: "
+                            f"{request.document_id} ({old_status} → {request.new_status.value})"
+                        )
+
+                        cache_stats = vector_store.clear_cache()
+
+                        if cache_stats:
+                            logger.info(
+                                f"✅ Cache invalidated successfully: "
+                                f"L1={cache_stats['l1_cleared']} queries, "
+                                f"L2={cache_stats['l2_cleared']} Redis keys cleared"
+                            )
+                        else:
+                            logger.info("ℹ️  Cache is disabled - no cache to clear")
+                    except Exception as cache_error:
+                        # Log warning but don't fail the status update
+                        logger.warning(
+                            f"⚠️  Failed to clear cache after status update: {cache_error}",
+                            exc_info=True,
+                        )
+
                     return UpdateDocumentStatusResponse(
                         success=True,
-                        message=f"Đã cập nhật status cho {updated_count} chunks",
+                        message=f"Đã cập nhật status cho {updated_count} chunks và làm mới cache",
                         document_id=request.document_id,
                         chunks_updated=updated_count,
                         old_status=DocumentStatus(old_status) if old_status else None,

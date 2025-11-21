@@ -10,6 +10,14 @@ See: documents/technical/POOLING_CACHE_PLAN.md
 import os
 from typing import Literal
 
+# ✅ Load .env before reading environment variables
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not installed
+
 
 # ========================================
 # DATABASE CONFIGURATION
@@ -48,16 +56,18 @@ def get_database_url() -> str:
 # CACHE CONFIGURATION
 # ========================================
 
-# Current: No cache (direct database queries)
-# TODO: Enable Redis cache for embeddings & retrieval
+# Redis cache for embeddings & retrieval
+# Read from .env - default to False if not set
 # See: POOLING_CACHE_PLAN.md - Phase 2
-ENABLE_REDIS_CACHE = False
+ENABLE_REDIS_CACHE = os.getenv("ENABLE_REDIS_CACHE", "false").lower() == "true"
 
 # Cache settings (only used if ENABLE_REDIS_CACHE=True)
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
-REDIS_DB_CACHE = 0  # Database 0 for cache
-REDIS_DB_SESSIONS = 1  # Database 1 for chat sessions
+REDIS_DB_CACHE = int(os.getenv("REDIS_DB_CACHE", "0"))  # Database 0 for cache
+REDIS_DB_SESSIONS = int(
+    os.getenv("REDIS_DB_SESSIONS", "1")
+)  # Database 1 for chat sessions
 
 # Cache layers
 ENABLE_L1_CACHE = True  # In-memory LRU cache (always safe)
@@ -77,10 +87,10 @@ L1_CACHE_MAXSIZE = 500  # Max 500 queries in memory (~50MB)
 # CHAT SESSION CONFIGURATION
 # ========================================
 
-# Current: In-memory sessions (lost on restart)
-# TODO: Enable Redis for persistent sessions
+# Redis sessions (persistent, multi-instance support)
+# Read from .env - default to False if not set
 # See: src/api/routers/documents_chat.py
-ENABLE_REDIS_SESSIONS = False
+ENABLE_REDIS_SESSIONS = os.getenv("ENABLE_REDIS_SESSIONS", "false").lower() == "true"
 
 # Session settings
 SESSION_TTL_SECONDS = 3600  # 1 hour

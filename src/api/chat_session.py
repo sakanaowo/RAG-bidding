@@ -168,6 +168,12 @@ class PostgresChatSessionStore:
     """
     PostgreSQL-based chat session storage.
 
+    ⚠️ TODO [CHAT-MIGRATION]: Refactor to async SQLAlchemy
+    Current: Uses sync sessionmaker (conflicts with FastAPI async)
+    Target: Use AsyncSession from src.config.database.get_session()
+    Estimated: 30 minutes
+    See: /documents/technical/implementation-plans/CHAT_SESSION_POSTGRESQL_PLAN.md
+
     Pros:
     - Persistent (survives restarts)
     - Can query/analyze conversations
@@ -183,6 +189,7 @@ class PostgresChatSessionStore:
     """
 
     # Table schema (run once):
+    # TODO [CHAT-MIGRATION]: Run scripts/migrations/001_create_chat_tables.sql
     """
     CREATE TABLE chat_sessions (
         session_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -213,7 +220,12 @@ class PostgresChatSessionStore:
         self.Session = sessionmaker(bind=self.engine)
 
     def create_session(self, user_id: str = None) -> str:
-        """Create new session in PostgreSQL."""
+        """
+        Create new session in PostgreSQL.
+
+        TODO [CHAT-MIGRATION]: Add session_title auto-generation
+        Generate from first user message (max 50 chars)
+        """
         from sqlalchemy import text
 
         with self.Session() as session:
@@ -235,7 +247,12 @@ class PostgresChatSessionStore:
     def add_message(
         self, session_id: str, role: str, content: str, metadata: Dict = None
     ):
-        """Add message to PostgreSQL."""
+        """
+        Add message to PostgreSQL.
+
+        TODO [CHAT-MIGRATION]: Add message_count and total_tokens tracking
+        Update chat_sessions.message_count, total_tokens after each message
+        """
         from sqlalchemy import text
 
         with self.Session() as session:

@@ -20,7 +20,9 @@ def create_retriever(
     enable_reranking: bool = True,
     reranker: Optional[BaseReranker] = None,
     reranker_type: Literal["bge", "openai"] = "bge",  # 🆕 Toggle reranker type
-    filter_status: Optional[str] = None,  # 🆕 Default to None (no filtering)
+    filter_status: Optional[
+        str
+    ] = "active",  # ✅ Default to 'active' (only active docs)
 ):
     """
     Factory function to create retriever based on mode.
@@ -30,8 +32,9 @@ def create_retriever(
         enable_reranking: Whether to enable reranking (default: True)
         reranker: Custom reranker instance (if None, creates based on reranker_type)
         reranker_type: Type of reranker to use ("bge" or "openai")
-        filter_status: Filter documents by status ("active", "expired", None for all)
-                      Default: "active" (only retrieve active/current documents)
+        filter_status: Filter documents by status ("active", "archived", None for all)
+                      Default: "active" (only retrieve active documents)
+                      Set to None to retrieve all documents regardless of status
 
     Modes:
     - fast: BaseVectorRetriever (no enhancement, no reranking)
@@ -51,10 +54,10 @@ def create_retriever(
     - Improves ranking quality by ~10-20% MRR
 
     Filtering:
-    - Default: filter_status="active" (only current/valid documents)
-    - Set filter_status=None to retrieve all documents (including expired)
-    - Legal docs (Luật: 5yr, Nghị định/Thông tư: 2yr validity)
-    - Educational materials: 5yr validity
+    - Default: filter_status="active" (only active documents from documents table)
+    - Set filter_status=None to retrieve all documents (including archived)
+    - Status sync: documents table ↔ chunk metadata in vector DB
+    - Documents can be toggled via PATCH /api/documents/{id}/status
     """
 
     # ✅ Reranking với BGE hoặc OpenAI nếu enable

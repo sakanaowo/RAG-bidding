@@ -1,13 +1,10 @@
 """
-Document & Chat API Router
+Chat API Router - Session-based conversational interface
 
 Endpoints:
-1. GET /documents - List all documents with metadata
-2. GET /documents/{doc_id} - Get specific document
-3. GET /documents/search - Search documents by metadata
-4. POST /chat/sessions - Create new chat session
-5. POST /chat/sessions/{session_id}/messages - Send message
-6. GET /chat/sessions/{session_id}/history - Get conversation history
+1. POST /chat/sessions - Create new chat session
+2. POST /chat/sessions/{session_id}/messages - Send message
+3. GET /chat/sessions/{session_id}/history - Get conversation history
 """
 
 from fastapi import APIRouter, HTTPException, Query, Depends
@@ -24,40 +21,10 @@ from src.api.chat_session import RedisChatSessionStore, ContextWindowManager
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["documents", "chat"])
+router = APIRouter(tags=["chat"])
 
 
 # ===== MODELS =====
-
-
-class DocumentMetadata(BaseModel):
-    """Document metadata schema."""
-
-    id: str = Field(..., description="Document ID (UUID)")
-    document_id: str = Field(..., description="Original document ID from metadata")
-    title: Optional[str] = Field(None, description="Document title")
-    document_type: Optional[str] = Field(
-        None, description="Type: Luật, Nghị định, etc."
-    )
-    chuong: Optional[str] = Field(None, description="Chapter number")
-    dieu: Optional[str] = Field(None, description="Article number")
-    khoan: Optional[str] = Field(None, description="Clause number")
-    diem: Optional[str] = Field(None, description="Point letter")
-    page_content: str = Field(..., description="Document content")
-    published_date: Optional[str] = Field(None, description="Publication date")
-    effective_date: Optional[str] = Field(None, description="Effective date")
-    status: Optional[str] = Field(None, description="Document status: active, expired")
-    url: Optional[str] = Field(None, description="Source URL")
-
-
-class DocumentSearchParams(BaseModel):
-    """Search parameters for documents."""
-
-    document_type: Optional[str] = None
-    status: Optional[str] = None
-    dieu: Optional[str] = None
-    limit: int = Field(default=50, le=500)
-    offset: int = Field(default=0, ge=0)
 
 
 class ChatSessionResponse(BaseModel):
@@ -82,242 +49,25 @@ class ChatHistoryResponse(BaseModel):
     total_messages: int
 
 
-# ===== DOCUMENT ENDPOINTS =====
+# ---------------------------------------------------------------------------
+# 🔹 CHAT SESSION ENDPOINTS
+# ---------------------------------------------------------------------------
 
 
-@router.get("/documents", response_model=List[DocumentMetadata])
-async def list_documents(
-    limit: int = Query(default=50, le=500, description="Max results"),
-    offset: int = Query(default=0, ge=0, description="Offset for pagination"),
-    document_type: Optional[str] = Query(None, description="Filter by document type"),
-    status: Optional[str] = Query(
-        None, description="Filter by status: active, expired"
-    ),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    List all documents with metadata from vector store.
-
-    Returns document metadata including:
-    - Document ID, title, type
-    - Structure: Chương, Điều, Khoản, Điểm
-    - Dates: published, effective
-    - Status: active/expired
-    - Content preview
-
-    Example:
-        GET /documents?limit=10&document_type=Luật&status=active
-    """
-    try:
-        # Build query
-        query = """
-            SELECT 
-                uuid AS id,
-                cmetadata->>'document_id' AS document_id,
-                cmetadata->>'title' AS title,
-                cmetadata->>'document_type' AS document_type,
-                cmetadata->>'chuong' AS chuong,
-                cmetadata->>'dieu' AS dieu,
-                cmetadata->>'khoan' AS khoan,
-                cmetadata->>'diem' AS diem,
-                document AS page_content,
-                cmetadata->>'published_date' AS published_date,
-                cmetadata->>'effective_date' AS effective_date,
-                cmetadata->>'status' AS status,
-                cmetadata->>'url' AS url
-            FROM langchain_pg_embedding
-            WHERE 1=1
-        """
-
-        params = {}
-
-        # Add filters
-        if document_type:
-            query += " AND cmetadata->>'document_type' = :document_type"
-            params["document_type"] = document_type
-
-        if status:
-            query += " AND cmetadata->>'status' = :status"
-            params["status"] = status
-
-        # Add pagination
-        query += """
-            ORDER BY cmetadata->>'document_id', cmetadata->>'dieu', cmetadata->>'khoan'
-            LIMIT :limit OFFSET :offset
-        """
-        params["limit"] = limit
-        params["offset"] = offset
-
-        # Execute query
-        result = await db.execute(text(query), params)
-        rows = result.fetchall()
-
-        # Format response
-        documents = []
-        for row in rows:
-            documents.append(
-                {
-                    "id": str(row.id),
-                    "document_id": row.document_id,
-                    "title": row.title,
-                    "document_type": row.document_type,
-                    "chuong": row.chuong,
-                    "dieu": row.dieu,
-                    "khoan": row.khoan,
-                    "diem": row.diem,
-                    "page_content": (
-                        row.page_content[:500] + "..."
-                        if len(row.page_content) > 500
-                        else row.page_content
-                    ),  # Preview only
-                    "published_date": row.published_date,
-                    "effective_date": row.effective_date,
-                    "status": row.status,
-                    "url": row.url,
-                }
-            )
-
-        logger.info(
-            f"📄 Listed {len(documents)} documents (limit={limit}, offset={offset})"
-        )
-        return documents
-
-    except Exception as e:
-        logger.error(f"❌ Error listing documents: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/documents/{document_id}", response_model=DocumentMetadata)
-async def get_document(
-    document_id: str,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Get specific document by ID.
-
-    Args:
-        document_id: UUID or document_id from metadata
-
-    Returns:
-        Full document with metadata
-    """
-    try:
-        query = """
-            SELECT 
-                uuid AS id,
-                cmetadata->>'document_id' AS document_id,
-                cmetadata->>'title' AS title,
-                cmetadata->>'document_type' AS document_type,
-                cmetadata->>'chuong' AS chuong,
-                cmetadata->>'dieu' AS dieu,
-                cmetadata->>'khoan' AS khoan,
-                cmetadata->>'diem' AS diem,
-                document AS page_content,
-                cmetadata->>'published_date' AS published_date,
-                cmetadata->>'effective_date' AS effective_date,
-                cmetadata->>'status' AS status,
-                cmetadata->>'url' AS url
-            FROM langchain_pg_embedding
-            WHERE uuid::text = :doc_id 
-               OR cmetadata->>'document_id' = :doc_id
-            LIMIT 1
-        """
-
-        result = await db.execute(text(query), {"doc_id": document_id})
-        row = result.fetchone()
-
-        if not row:
-            raise HTTPException(
-                status_code=404, detail=f"Document {document_id} not found"
-            )
-
-        document = {
-            "id": str(row.id),
-            "document_id": row.document_id,
-            "title": row.title,
-            "document_type": row.document_type,
-            "chuong": row.chuong,
-            "dieu": row.dieu,
-            "khoan": row.khoan,
-            "diem": row.diem,
-            "page_content": row.page_content,  # Full content
-            "published_date": row.published_date,
-            "effective_date": row.effective_date,
-            "status": row.status,
-            "url": row.url,
-        }
-
-        logger.info(f"📄 Retrieved document: {document_id}")
-        return document
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ Error getting document {document_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/documents/stats/summary")
-async def get_document_stats(
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Get document statistics.
-
-    Returns:
-        - Total documents
-        - Documents by type
-        - Documents by status
-        - Recent additions
-    """
-    try:
-        # Total count
-        total_query = "SELECT COUNT(*) FROM langchain_pg_embedding"
-        total_result = await db.execute(text(total_query))
-        total = total_result.scalar()
-
-        # By type
-        type_query = """
-            SELECT 
-                cmetadata->>'document_type' AS doc_type,
-                COUNT(*) AS count
-            FROM langchain_pg_embedding
-            GROUP BY cmetadata->>'document_type'
-            ORDER BY count DESC
-        """
-        type_result = await db.execute(text(type_query))
-        by_type = {row.doc_type: row.count for row in type_result}
-
-        # By status
-        status_query = """
-            SELECT 
-                cmetadata->>'status' AS status,
-                COUNT(*) AS count
-            FROM langchain_pg_embedding
-            GROUP BY cmetadata->>'status'
-        """
-        status_result = await db.execute(text(status_query))
-        by_status = {row.status: row.count for row in status_result}
-
-        stats = {
-            "total_documents": total,
-            "by_type": by_type,
-            "by_status": by_status,
-        }
-
-        logger.info(f"📊 Document stats: {total} total documents")
-        return stats
-
-    except Exception as e:
-        logger.error(f"❌ Error getting stats: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ===== CHAT SESSION ENDPOINTS =====
+# TODO [CHAT-MIGRATION]: Replace Redis with PostgreSQL for chat sessions
+# See: /documents/technical/implementation-plans/CHAT_SESSION_POSTGRESQL_PLAN.md
+# Current: RedisChatSessionStore (temporary)
+# Target: PostgresChatSessionStore (persistent, queryable)
+# Changes needed:
+#   1. Disable ENABLE_REDIS_SESSIONS in .env
+#   2. Replace RedisChatSessionStore → PostgresChatSessionStore
+#   3. Add session_title auto-generation
+#   4. Update endpoint responses with session metadata
+# Estimated: 1.5 hours
 
 # Session storage configuration
-# TODO: Enable Redis when installed (see documents/technical/POOLING_CACHE_PLAN.md)
-ENABLE_REDIS_SESSIONS = False  # 🚫 Feature flag - Set True after Redis installation
+# ✅ Redis is installed and running - Enable Redis sessions
+from src.config.feature_flags import ENABLE_REDIS_SESSIONS
 
 # Initialize session store (singleton)
 _session_store = None
@@ -328,9 +78,10 @@ def get_session_store():
     Get or create session store singleton.
 
     Current: In-memory storage (development mode)
-    TODO: Enable Redis for production (persistent, multi-instance support)
+    TODO [CHAT-MIGRATION]: Enable PostgreSQL for production
+    Replace RedisChatSessionStore with PostgresChatSessionStore
 
-    See implementation plan: documents/technical/POOLING_CACHE_PLAN.md - Phase 2
+    See implementation plan: documents/technical/implementation-plans/CHAT_SESSION_POSTGRESQL_PLAN.md
     """
     global _session_store
 
@@ -338,6 +89,7 @@ def get_session_store():
         if ENABLE_REDIS_SESSIONS:
             try:
                 # Redis storage (production-ready)
+                # TODO [CHAT-MIGRATION]: Replace this entire block with PostgresChatSessionStore
                 _session_store = RedisChatSessionStore(
                     redis_host="localhost",
                     redis_port=6379,
@@ -516,7 +268,7 @@ async def send_chat_message(
         result = answer(
             question=message.message,
             mode="balanced",
-            use_enhancement=True,
+            reranker_type="bge",  # Default BGE reranker
         )
 
         # Add AI response to history

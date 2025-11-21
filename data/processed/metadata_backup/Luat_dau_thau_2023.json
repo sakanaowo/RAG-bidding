@@ -1,0 +1,8 @@
+{
+  "source_file": "data/raw/Luat chinh/Luat dau thau 2023.docx",
+  "document_type": "law",
+  "category": "Luat dau thau 2023.docx",
+  "chunk_count": 274,
+  "output_file": "data/processed_enriched/chunks/Luat_dau_thau_2023.jsonl",
+  "processed_at": "2025-11-04T12:13:31.291275"
+}
