@@ -17,7 +17,7 @@
 **Status:** 🟡 Partially implemented, needs refactoring
 
 **TODOs:**
-- [ ] **[CHAT-MIGRATION] Line 173:** Refactor PostgresChatSessionStore to async
+- [ ] **[CHAT-MIGRATION]() Line 173:** Refactor PostgresChatSessionStore to async
   - Current: Uses sync SQLAlchemy sessionmaker
   - Target: Use AsyncSession from src.config.database
   - **Time:** 30 minutes
