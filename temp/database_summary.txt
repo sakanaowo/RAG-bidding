@@ -1,0 +1,157 @@
+================================================================================
+DATABASE SUMMARY - RAG BIDDING SYSTEM
+Generated: $(date '+%Y-%m-%d %H:%M:%S')
+================================================================================
+
+=== DATABASE INFORMATION ===
+Database Name:      rag_bidding_v2
+User:              sakana
+Host:              localhost
+Port:              5432
+PostgreSQL Version: 18+
+Connection URL:    postgresql+psycopg://sakana:sakana123@localhost:5432/rag_bidding_v2
+
+=== EXTENSIONS ===
+- plpgsql (1.0) - PL/pgSQL procedural language
+- vector (0.8.1) - Vector data type and ivfflat/hnsw access methods
+
+=== TABLES ===
+1. documents ⭐ PRIMARY TABLE
+   - Quản lý metadata của documents
+   - Total documents: 64
+   - Columns:
+     * id (UUID, PK) - Primary key
+     * document_id (VARCHAR, UNIQUE) - Document identifier
+     * document_name (TEXT) - Document name
+     * category (VARCHAR) - Category
+     * document_type (VARCHAR) - Type classification
+     * source_file (TEXT) - Source file path
+     * file_name (TEXT) - Original filename
+     * total_chunks (INT) - Number of chunks
+     * status (VARCHAR) - active/expired
+     * created_at, updated_at (TIMESTAMP) - Timestamps
+   - Indexes:
+     * document_id (UNIQUE)
+     * category, document_type, status, source_file (B-tree)
+   - Document Types:
+     * bidding_form (37)
+     * report_template (10)
+     * law (6)
+     * exam_question (4)
+     * circular (2)
+     * decree (2)
+     * bidding (2)
+     * decision (1)
+
+2. langchain_pg_embedding
+   - Lưu trữ vector embeddings và metadata
+   - Total chunks: 7,892
+   - Embedding dimensions: 3,072 (text-embedding-3-large native)
+   - Columns:
+     * id (UUID) - Primary key
+     * collection_id (UUID) - Foreign key to langchain_pg_collection
+     * embedding (vector(3072)) - Vector embedding
+     * document (text) - Chunk content
+     * cmetadata (jsonb) - Rich metadata
+
+3. langchain_pg_collection (INTERNAL - LangChain use only)
+   - Internal table cho LangChain PGVector
+   - Collection name: "docs"
+   - KHÔNG dùng trực tiếp trong application logic
+   - Bảng documents là bảng chính cho document management
+
+=== DATABASE STATISTICS ===
+Total Documents: 64 (in documents table)
+Total Chunks:    7,892 (in langchain_pg_embedding)
+Database Size:   149 MB
+Document Types:  bidding_form (37), report_template (10), law (6), 
+                 exam_question (4), circular (2), decree (2), bidding (2), decision (1)
+LangChain Collections: 1 ("docs" - internal use only)
+
+=== METADATA STRUCTURE ===
+Each chunk contains JSONB metadata with:
+- chunk_id: Unique identifier
+- document_id: Parent document ID
+- document_type: Type classification (Law, Decree, Circular, etc.)
+- hierarchy: Section hierarchy (stored as JSON string)
+- level: Section level
+- section_title: Section title
+- char_count: Character count
+- chunk_index: Position in document
+- total_chunks: Total chunks in document
+- is_complete_unit: Boolean flag
+- has_table: Boolean flag
+- has_list: Boolean flag
+- extra_metadata: Additional metadata (JSON string)
+
+=== CACHE CONFIGURATION ===
+Redis Status:    ACTIVE (PONG received)
+  - Host:        localhost
+  - Port:        6379
+  - DB 0:        Retrieval cache
+  - DB 1:        Chat sessions
+
+Cache Layers:
+  - L1 (Memory): LRU cache (maxsize: 500)
+  - L2 (Redis):  Enabled via ENABLE_REDIS_CACHE
+  - L3 (PostgreSQL): Native storage
+
+=== VECTOR SEARCH ===
+Index Type:      IVFFlat / HNSW (pgvector)
+Distance Metric: Cosine similarity
+Embedding Model: OpenAI text-embedding-3-large (3,072 dims)
+Native Dimensions: No dimension reduction
+
+=== PERFORMANCE NOTES ===
+- Current setup uses NullPool (no connection pooling)
+- For production: Recommend pgBouncer for connection pooling
+- Vector search optimized with native PostgreSQL indexes
+- Reranking: BGE-reranker-v2-m3 (singleton pattern)
+- Query modes: fast (~1s), balanced (~2-3s), quality (~3-5s)
+
+=== BACKUP & RESTORE ===
+Backup command:
+  pg_dump -U sakana -d rag_bidding_v2 -F c -f backup.dump
+
+Restore command:
+  pg_restore -U sakana -d rag_bidding_v2 -c backup.dump
+
+Export to SQL:
+  pg_dump -U sakana -d rag_bidding_v2 > backup.sql
+
+=== DATA PIPELINE ===
+Source: data/raw/ (DOCX/PDF documents)
+  ↓
+Processing: batch_reprocess_all.py
+  - Document classification
+  - Hierarchical chunking
+  - Semantic enrichment (NER, keywords, concepts)
+  ↓
+Output: data/processed/chunks/ (JSONL files)
+  ↓
+Import: import_processed_chunks.py
+  - Convert to LangChain Documents
+  - Generate embeddings (OpenAI API)
+  - Store in PostgreSQL
+  ↓
+Database: langchain_pg_embedding table
+  - 7,892 chunks with 3,072-dim vectors
+
+=== RELATED FILES ===
+Configuration:
+  - .env (environment variables)
+  - src/config/models.py (settings & presets)
+  - src/config/feature_flags.py (feature toggles)
+
+Scripts:
+  - scripts/bootstrap_db.py (initialize tables)
+  - scripts/import_processed_chunks.py (import data)
+  - scripts/batch_reprocess_all.py (process documents)
+
+Database Setup:
+  - setup_db.sh (automated setup script)
+  - postgresql.conf.optimized (performance tuning)
+
+================================================================================
+END OF SUMMARY
+================================================================================

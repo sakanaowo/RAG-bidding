@@ -1,0 +1,9 @@
+Python 3.10.18
+
+# conda environments:
+#
+base                   /home/sakana/anaconda3
+langchain_ai           /home/sakana/anaconda3/envs/langchain_ai
+nutrient               /home/sakana/anaconda3/envs/nutrient
+venv                 * /home/sakana/anaconda3/envs/venv
+

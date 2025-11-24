@@ -1,0 +1,18 @@
+                                          Table "public.langchain_pg_embedding"
+    Column     |       Type        | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
+---------------+-------------------+-----------+----------+---------+----------+-------------+--------------+-------------
+ id            | character varying |           | not null |         | extended |             |              | 
+ collection_id | uuid              |           |          |         | plain    |             |              | 
+ embedding     | vector(3072)      |           |          |         | external |             |              | 
+ document      | character varying |           |          |         | extended |             |              | 
+ cmetadata     | jsonb             |           |          |         | extended |             |              | 
+Indexes:
+    "langchain_pg_embedding_pkey" PRIMARY KEY, btree (id)
+    "idx_embedding_document_id" btree ((cmetadata ->> 'document_id'::text))
+    "ix_cmetadata_gin" gin (cmetadata jsonb_path_ops)
+Foreign-key constraints:
+    "langchain_pg_embedding_collection_id_fkey" FOREIGN KEY (collection_id) REFERENCES langchain_pg_collection(uuid) ON DELETE CASCADE
+Not-null constraints:
+    "langchain_pg_embedding_id_not_null" NOT NULL "id"
+Access method: heap
+

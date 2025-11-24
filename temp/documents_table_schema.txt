@@ -1,0 +1,29 @@
+                                     Table "public.documents"
+    Column     |            Type             | Collation | Nullable |           Default           
+---------------+-----------------------------+-----------+----------+-----------------------------
+ id            | uuid                        |           | not null | gen_random_uuid()
+ document_id   | character varying(255)      |           | not null | 
+ document_name | text                        |           | not null | 
+ category      | character varying(100)      |           | not null | 
+ document_type | character varying(50)       |           | not null | 
+ source_file   | text                        |           | not null | 
+ file_name     | text                        |           | not null | 
+ total_chunks  | integer                     |           |          | 0
+ status        | character varying(50)       |           |          | 'active'::character varying
+ created_at    | timestamp without time zone |           |          | now()
+ updated_at    | timestamp without time zone |           |          | now()
+Indexes:
+    "documents_pkey" PRIMARY KEY, btree (id)
+    "documents_document_id_key" UNIQUE CONSTRAINT, btree (document_id)
+    "idx_documents_category" btree (category)
+    "idx_documents_source" btree (source_file)
+    "idx_documents_status" btree (status)
+    "idx_documents_type" btree (document_type)
+Triggers:
+    trigger_documents_updated_at BEFORE UPDATE ON documents FOR EACH ROW EXECUTE FUNCTION update_documents_updated_at()
+
+ count 
+-------
+    64
+(1 row)
+

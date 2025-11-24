@@ -1,0 +1,16 @@
+                                        Table "public.langchain_pg_collection"
+  Column   |       Type        | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
+-----------+-------------------+-----------+----------+---------+----------+-------------+--------------+-------------
+ uuid      | uuid              |           | not null |         | plain    |             |              | 
+ name      | character varying |           | not null |         | extended |             |              | 
+ cmetadata | json              |           |          |         | extended |             |              | 
+Indexes:
+    "langchain_pg_collection_pkey" PRIMARY KEY, btree (uuid)
+    "langchain_pg_collection_name_key" UNIQUE CONSTRAINT, btree (name)
+Referenced by:
+    TABLE "langchain_pg_embedding" CONSTRAINT "langchain_pg_embedding_collection_id_fkey" FOREIGN KEY (collection_id) REFERENCES langchain_pg_collection(uuid) ON DELETE CASCADE
+Not-null constraints:
+    "langchain_pg_collection_uuid_not_null" NOT NULL "uuid"
+    "langchain_pg_collection_name_not_null" NOT NULL "name"
+Access method: heap
+
