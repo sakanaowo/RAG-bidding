@@ -1,13 +1,14 @@
 # System Design Documentation - RAG Bidding System
 
 **Ngày tạo:** 24/11/2025  
-**Phiên bản:** 2.0
+**Cập nhật:** 25/11/2025  
+**Phiên bản:** 2.1
 
 ---
 
 ## 📑 Mục Lục Tài Liệu
 
-Bộ tài liệu thiết kế hệ thống RAG Bidding bao gồm 5 tài liệu chính:
+Bộ tài liệu thiết kế hệ thống RAG Bidding bao gồm 7 tài liệu chính:
 
 ### 1. [Đặc Tả Hệ Thống](./01_System_Specification.md)
 
@@ -122,11 +123,107 @@ Bộ tài liệu thiết kế hệ thống RAG Bidding bao gồm 5 tài liệu c
 
 ---
 
+### 6. [SQLAlchemy Implementation](./06_SQLAlchemy_Implementation.md) ⭐ NEW
+
+**Mô tả:** Hướng dẫn triển khai ORM với SQLAlchemy  
+**Nội dung chính:**
+
+- Installation guide (SQLAlchemy, psycopg, pgvector, Alembic)
+- Project structure cho models package
+- Usage examples:
+  - Basic CRUD operations
+  - Repository pattern
+  - FastAPI integration with Depends(get_db)
+  - Query embeddings với pgvector
+- Migration workflow với Alembic
+- Integration với existing code
+- Debugging & performance tips
+- Best practices
+
+**Đọc khi:** Cần implement hoặc refactor database layer
+
+---
+
+### 7. [SQLAlchemy Roadmap](./07_SQLAlchemy_Roadmap.md) ⭐ NEW
+
+**Mô tả:** Implementation roadmap từng bước  
+**Nội dung chính:**
+
+- Step-by-step setup guide (8 phases)
+- Testing procedures
+- Integration checklist
+- Troubleshooting guide
+- Progress tracking
+
+**Đọc khi:** ⭐ **Bắt đầu implement ORM - Detailed guide**
+
+---
+
+### 8. [Quick Start ORM](./08_Quick_Start_ORM.md) ⭐ NEW
+
+**Mô tả:** Quick reference để bắt đầu nhanh
+
+**Nội dung chính:**
+
+- TL;DR commands (3 bước)
+- Files đã tạo overview
+- Sử dụng ngay trong code
+- Quick testing commands
+
+**Đọc khi:** Cần bắt đầu nhanh - START HERE
+
+---
+
+### 9. [SQLAlchemy Rules](./09_SQLAlchemy_Rules.md) ⭐ NEW
+
+**Mô tả:** Quy tắc bắt buộc - Reference card
+
+**Nội dung chính:**
+
+- 5 quy tắc CRITICAL phải tuân thủ
+- Common mistakes cần tránh
+- Best practices
+- Quick debug commands
+
+**Đọc khi:** Coding với SQLAlchemy - ALWAYS KEEP OPEN
+
+---
+
+- Best practices
+
+**Đọc khi:** Cần implement hoặc refactor database layer
+
+---
+
+### 7. [SQLAlchemy Roadmap](./07_SQLAlchemy_Roadmap.md) ⭐ NEW
+
+**Mô tả:** Implementation roadmap từng bước  
+**Nội dung chính:**
+
+- Step-by-step setup guide (8 phases):
+  1. Install dependencies (5 min)
+  2. Verify file structure (2 min)
+  3. Test database connection (5 min)
+  4. Setup Alembic migrations (10 min)
+  5. Test ORM operations (10 min)
+  6. Integrate with FastAPI (15 min)
+  7. Verify performance (5 min)
+  8. Production deployment
+- Testing procedures
+- Integration checklist
+- Troubleshooting guide
+- Progress tracking
+
+**Đọc khi:** ⭐ **Bắt đầu implement ORM - START HERE**
+
+---
+
 ## 📊 Thống Kê Hệ Thống
 
-### Current State (v2.0)
+### Current State (v2.1)
 
 - **Database:** PostgreSQL 18 + pgvector 0.8.1
+- **ORM:** SQLAlchemy 2.0 + Alembic ⭐ **NEW**
 - **Total Documents:** 64
 - **Total Chunks:** 7,892
 - **Database Size:** 149 MB
@@ -151,12 +248,16 @@ Bộ tài liệu thiết kế hệ thống RAG Bidding bao gồm 5 tài liệu c
 ```
 documents/
 └── System Design/
-    ├── README.md                      # Tài liệu này
-    ├── 01_System_Specification.md     # Đặc tả hệ thống
-    ├── 02_Use_Cases.md                # Use cases
-    ├── 03_Database_Schema.md          # Database schema
-    ├── 04_System_Architecture.md      # Kiến trúc hệ thống
-    └── 05_API_Specification.md        # API specification
+    ├── README.md                         # Tài liệu này
+    ├── 01_System_Specification.md        # Đặc tả hệ thống
+    ├── 02_Use_Cases.md                   # Use cases
+    ├── 03_Database_Schema.md             # Database schema
+    ├── 04_System_Architecture.md         # Kiến trúc hệ thống
+    ├── 05_API_Specification.md           # API specification
+    ├── 06_SQLAlchemy_Implementation.md ⭐ # ORM usage guide (detailed)
+    ├── 07_SQLAlchemy_Roadmap.md        ⭐ # ORM implementation plan (8 phases)
+    ├── 08_Quick_Start_ORM.md           ⭐ # Quick start (TL;DR)
+    └── 09_SQLAlchemy_Rules.md          ⭐ # Rules reference card
 ```
 
 ---
@@ -168,13 +269,17 @@ documents/
 1. Đọc `01_System_Specification.md` - Hiểu tổng quan
 2. Đọc `02_Use_Cases.md` - Hiểu nghiệp vụ
 3. Đọc `04_System_Architecture.md` - Hiểu kiến trúc
-4. Đọc `05_API_Specification.md` - Implement features
+4. Đọc `07_SQLAlchemy_Roadmap.md` ⭐ - Setup database layer
+5. Đọc `05_API_Specification.md` - Implement features
 
-### Cho Database Developer
+### Cho Database Developer ⭐ UPDATED
 
-1. Đọc `03_Database_Schema.md` - Schema design
-2. Đọc `01_System_Specification.md` - Context
-3. Đọc migration scripts trong `/scripts/migration/`
+1. Đọc `08_Quick_Start_ORM.md` ⭐ - **START HERE - Quick setup (5 min)**
+2. Đọc `07_SQLAlchemy_Roadmap.md` - Complete setup guide (8 phases)
+3. Đọc `06_SQLAlchemy_Implementation.md` - Usage examples & patterns
+4. Đọc `09_SQLAlchemy_Rules.md` - **KEEP OPEN while coding**
+5. Đọc `03_Database_Schema.md` - Schema design
+6. Implement models trong `/src/models/`
 
 ### Cho Product Manager
 
@@ -192,9 +297,11 @@ documents/
 
 ## 🔄 Lịch Sử Cập Nhật
 
-| Ngày       | Phiên bản | Thay đổi                          |
-| ---------- | --------- | --------------------------------- |
-| 2025-11-24 | 2.0       | Tạo mới bộ tài liệu System Design |
+| Ngày       | Phiên bản | Thay đổi                                                           |
+| ---------- | --------- | ------------------------------------------------------------------ |
+| 2025-11-24 | 2.0       | Tạo mới bộ tài liệu System Design                                  |
+| 2025-11-25 | 2.1       | Thêm SQLAlchemy Implementation & Roadmap (docs 6, 7)               |
+| 2025-11-25 | 2.2       | Thêm Quick Start ORM & Rules (docs 8, 9), reorganize file location |
 
 ---
 

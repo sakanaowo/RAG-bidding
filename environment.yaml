@@ -1,8 +1,9 @@
 # ============================================================
 # RAG Bidding System - Conda Environment
-# Last updated: 2025-10-26
+# Last updated: 2025-11-25
 # Python: 3.10.18
 # PyTorch: 2.8.0 (CPU version currently installed)
+# SQLAlchemy: 2.0.* + Alembic for ORM and migrations
 # ============================================================
 name: venv
 channels:
@@ -42,6 +43,8 @@ dependencies:
       - pgvector==0.3.6
       - python-multipart
       - redis
+      - sqlalchemy==2.0.*
+      - alembic==1.13.* # Database migrations for SQLAlchemy
 
       # Configuration & Validation
       - pydantic==2.11.9
@@ -70,6 +73,3 @@ dependencies:
 
       # Testing
       - pytest==8.4.*
-
-      # Database Utilities
-      - sqlalchemy==2.0.*
