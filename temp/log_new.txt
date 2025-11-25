@@ -1,2 +1,55 @@
-INFO:     Will watch for changes in these directories: ['/home/sakana/Code/RAG-bidding']
-ERROR:    [Errno 98] Address already in use
+════════════════════════════════════════════════════════════════
+DATABASE DUMP - RAG BIDDING SYSTEM
+════════════════════════════════════════════════════════════════
+Database: rag_bidding_v2
+User: sakana
+Host: localhost:5432
+Timestamp: 20251125_155647
+
+🔍 Checking PostgreSQL connection...
+✅ Connection successful
+
+📊 Database Statistics:
+─────────────────────────────────────────────────────────────
+Documents: 64
+Chunks: 7892
+Size: 149 MB
+─────────────────────────────────────────────────────────────
+
+🎯 Creating database dumps...
+
+1️⃣ Creating custom format dump (.dump)...
+pg_dump: dumping contents of table "public.documents"
+pg_dump: dumping contents of table "public.langchain_pg_collection"
+pg_dump: dumping contents of table "public.langchain_pg_embedding"
+   ✅ Created: backup/exports/rag_bidding_v2_20251125_155647.dump (119M)
+
+2️⃣ Creating SQL dump (.sql.gz)...
+pg_dump: dumping contents of table "public.documents"
+pg_dump: dumping contents of table "public.langchain_pg_collection"
+pg_dump: dumping contents of table "public.langchain_pg_embedding"
+   ✅ Created: backup/exports/rag_bidding_v2_20251125_155647.sql.gz (118M)
+
+3️⃣ Creating schema-only dump...
+   ✅ Created: backup/exports/rag_bidding_v2_20251125_155647_schema.sql (8.0K)
+
+4️⃣ Creating metadata file...
+   ✅ Created: backup/exports/rag_bidding_v2_20251125_155647_README.txt
+
+════════════════════════════════════════════════════════════════
+✅ DUMP COMPLETED
+════════════════════════════════════════════════════════════════
+
+📁 Files in backup/exports:
+   119M  backup/exports/rag_bidding_v2_20251125_155647.dump
+   3.9K  backup/exports/rag_bidding_v2_20251125_155647_README.txt
+   5.7K  backup/exports/rag_bidding_v2_20251125_155647_schema.sql
+   118M  backup/exports/rag_bidding_v2_20251125_155647.sql.gz
+
+💡 Recommended for migration:
+   backup/exports/rag_bidding_v2_20251125_155647.dump
+
+📖 See restoration instructions:
+   backup/exports/rag_bidding_v2_20251125_155647_README.txt
+
+════════════════════════════════════════════════════════════════
