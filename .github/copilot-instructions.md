@@ -67,19 +67,7 @@ conda activate venv  # NOT rag-bidding!
 
 ## 🔍 Debugging Tips
 
-### Memory Issues
-
-```bash
-# Check model cache
-ls -lh ~/.cache/huggingface/hub/  # BGE model ~1.2GB
-
-# Monitor GPU memory
-nvidia-smi -l 1
-
-# Clear CUDA cache (nếu OOM)
-# Thêm vào BGEReranker.rerank():
-torch.cuda.empty_cache()
-```
+- Tạo log debug trong folder `temp/<debug-name>/...`
 
 ### Performance Profiling
 

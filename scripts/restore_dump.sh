@@ -82,17 +82,18 @@ echo "🔍 Pre-flight checks..."
 
 # Check PostgreSQL connection
 echo "  Checking PostgreSQL connection..."
-if psql -h "$DB_HOST" -p "$DB_PORT" -U postgres -c "SELECT 1" > /dev/null 2>&1; then
+if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres -c "SELECT 1" > /dev/null 2>&1; then
     echo "  ✅ PostgreSQL is accessible"
 else
     echo "  ❌ Cannot connect to PostgreSQL"
     echo "  Please ensure PostgreSQL is running and accessible"
+    echo "  Check your DB_USER and DB_PASSWORD in .env file"
     exit 1
 fi
 
 # Check pgvector extension
 echo "  Checking pgvector extension..."
-PGVECTOR_AVAILABLE=$(psql -h "$DB_HOST" -p "$DB_PORT" -U postgres -t -c "SELECT COUNT(*) FROM pg_available_extensions WHERE name = 'vector';" | xargs)
+PGVECTOR_AVAILABLE=$(psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres -t -c "SELECT COUNT(*) FROM pg_available_extensions WHERE name = 'vector';" | xargs)
 if [ "$PGVECTOR_AVAILABLE" -eq "1" ]; then
     echo "  ✅ pgvector extension is available"
 else
@@ -102,7 +103,7 @@ else
 fi
 
 # Check if database already exists
-DB_EXISTS=$(psql -h "$DB_HOST" -p "$DB_PORT" -U postgres -t -c "SELECT COUNT(*) FROM pg_database WHERE datname = '$DB_NAME';" | xargs)
+DB_EXISTS=$(psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres -t -c "SELECT COUNT(*) FROM pg_database WHERE datname = '$DB_NAME';" | xargs)
 
 if [ "$DB_EXISTS" -eq "1" ]; then
     echo ""
@@ -114,7 +115,7 @@ if [ "$DB_EXISTS" -eq "1" ]; then
     fi
     
     echo "  Dropping existing database..."
-    psql -h "$DB_HOST" -p "$DB_PORT" -U postgres -c "DROP DATABASE IF EXISTS $DB_NAME;"
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres -c "DROP DATABASE IF EXISTS $DB_NAME;"
     echo "  ✅ Database dropped"
 fi
 
@@ -124,7 +125,7 @@ echo ""
 # Create Database
 ################################################################################
 echo "📁 Creating database '$DB_NAME'..."
-psql -h "$DB_HOST" -p "$DB_PORT" -U postgres -c "CREATE DATABASE $DB_NAME;"
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres -c "CREATE DATABASE $DB_NAME;"
 echo "✅ Database created"
 echo ""
 
@@ -132,7 +133,11 @@ echo ""
 # Enable Extensions
 ################################################################################
 echo "🔌 Enabling pgvector extension..."
-psql -h "$DB_HOST" -p "$DB_PORT" -U postgres -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS vector;"
+# Try with current user first, fallback to postgres if permission denied
+if ! psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>/dev/null; then
+    echo "  ⚠️  Need superuser for extension, using postgres..."
+    sudo -u postgres psql -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS vector;"
+fi
 echo "✅ pgvector enabled"
 echo ""
 
@@ -145,17 +150,17 @@ echo ""
 if [ "$DUMP_TYPE" == "custom" ]; then
     # Restore from custom format (.dump)
     echo "Using pg_restore for custom format dump..."
-    pg_restore -h "$DB_HOST" -p "$DB_PORT" -U postgres -d "$DB_NAME" -v "$DUMP_FILE"
+    pg_restore -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v "$DUMP_FILE"
     
 elif [ "$DUMP_TYPE" == "sql_compressed" ]; then
     # Restore from compressed SQL (.sql.gz)
     echo "Decompressing and restoring SQL dump..."
-    gunzip -c "$DUMP_FILE" | psql -h "$DB_HOST" -p "$DB_PORT" -U postgres -d "$DB_NAME"
+    gunzip -c "$DUMP_FILE" | psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME"
     
 elif [ "$DUMP_TYPE" == "sql" ]; then
     # Restore from plain SQL (.sql)
     echo "Restoring from SQL dump..."
-    psql -h "$DB_HOST" -p "$DB_PORT" -U postgres -d "$DB_NAME" -f "$DUMP_FILE"
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f "$DUMP_FILE"
 fi
 
 echo ""
@@ -165,26 +170,17 @@ echo ""
 ################################################################################
 # Grant Permissions
 ################################################################################
-echo "🔐 Granting permissions to user '$DB_USER'..."
+echo "🔐 Ensuring permissions for user '$DB_USER'..."
 
-# Create user if not exists
-USER_EXISTS=$(psql -h "$DB_HOST" -p "$DB_PORT" -U postgres -t -c "SELECT COUNT(*) FROM pg_user WHERE usename = '$DB_USER';" | xargs)
-if [ "$USER_EXISTS" -eq "0" ]; then
-    echo "  Creating user '$DB_USER'..."
-    psql -h "$DB_HOST" -p "$DB_PORT" -U postgres -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
-    echo "  ✅ User created"
-fi
-
-# Grant permissions
-psql -h "$DB_HOST" -p "$DB_PORT" -U postgres -d "$DB_NAME" << EOF
-GRANT ALL ON DATABASE $DB_NAME TO $DB_USER;
+# Grant permissions (user sakana is already the owner, but ensure full access)
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" << EOF
 GRANT ALL ON SCHEMA public TO $DB_USER;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO $DB_USER;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO $DB_USER;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO $DB_USER;
 EOF
 
-echo "✅ Permissions granted"
+echo "✅ Permissions ensured"
 echo ""
 
 ################################################################################
