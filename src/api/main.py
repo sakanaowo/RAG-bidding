@@ -56,7 +56,7 @@ bootstrap()
 class AskIn(BaseModel):
     question: str
     mode: Literal["fast", "balanced", "quality", "adaptive"] = "balanced"
-    reranker: Literal["bge", "openai"] = "bge"  # Default: BGE (singleton, faster)
+    reranker: Literal["bge", "openai"] = "openai"
 
 
 class AskResponse(BaseModel):
