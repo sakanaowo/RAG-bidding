@@ -32,29 +32,38 @@
    - ✅ ORM operations: Repository pattern working
    - ✅ Schema verification: All 3 tables present (documents, langchain_pg_embedding, langchain_pg_collection)
 
-### ⏳ NEXT ACTION (IMMEDIATE)
+### ✅ JUST COMPLETED (Bước 4)
 
-**Bước 4: Setup Alembic Migrations** ← **START HERE**
+**Bước 4: Setup Alembic Migrations** ✅ **DONE**
 
 ```bash
-# Step 4.1: Initialize Alembic (verify configuration)
-python scripts/setup_alembic.py init
-
-# Step 4.2: Create initial migration
+# Step 4.1: Created missing script.py.mako template ✅
+# Step 4.2: Created initial migration ✅
 alembic revision --autogenerate -m "Initial schema with documents and embeddings"
+# → Generated: alembic/versions/20251127_1644_0dd6951d6844_initial_schema_with_documents_and_.py
 
-# Step 4.3: Stamp current schema as baseline
+# Step 4.3: Stamped current schema as baseline ✅
 alembic stamp head
+# → INFO: Running stamp_revision  -> 0dd6951d6844
 
-# Step 4.4: Check migration status
+# Step 4.4: Verified migration status ✅
 alembic current
+# → 0dd6951d6844 (head)
 ```
 
-**Expected outcome:**
+**Achievements:**
 
-- Generate migration file: `alembic/versions/20251127_xxxxx_initial_schema.py`
-- Mark current database schema as migration baseline
-- Verify alembic can track future schema changes
+- ✅ Migration file created: `20251127_1644_0dd6951d6844_initial_schema_with_documents_and_.py`
+- ✅ Detected all schema changes: comments, indexes, constraints
+- ✅ Current schema stamped as baseline revision `0dd6951d6844`
+- ✅ Alembic can now track future schema changes
+- ✅ ORM operations tested successfully (all 6 examples passed)
+
+### ⏳ NEXT ACTION (IMMEDIATE)
+
+**Phase 2: Integration** ← **START HERE**
+
+Next step: Integrate ORM into FastAPI routes
 
 ---
 
@@ -195,13 +204,13 @@ DATABASE_URL=postgresql+psycopg://sakana:sakana123@localhost:5432/rag_bidding_v2
 - [x] Create models (documents, embeddings)
 - [x] Create repository pattern
 - [x] Setup Alembic configuration
-- [x] Test database connection ✅ **JUST COMPLETED**
-- [ ] Create initial migration ← **NEXT: Bước 4.2**
-- [ ] Run example scripts
+- [x] Test database connection ✅ **Bước 3 DONE**
+- [x] Create initial migration ✅ **Bước 4 DONE**
+- [x] Run example scripts ✅ **All 6 examples PASSED**
 
-### Phase 2: Integration (UPCOMING)
+### Phase 2: Integration (NEXT)
 
-- [ ] Add `get_db()` dependency to FastAPI routes
+- [ ] Add `get_db()` dependency to FastAPI routes ← **START HERE**
 - [ ] Replace raw SQL with Repository methods
 - [ ] Test API endpoints with ORM
 - [ ] Monitor performance
