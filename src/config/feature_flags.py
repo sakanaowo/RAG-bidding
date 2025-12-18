@@ -41,7 +41,7 @@ else:
 def get_database_url() -> str:
     """Get database URL based on configuration."""
     base_url = os.getenv(
-        "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/rag_bidding_v2"
+        "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/rag_bidding_v3"
     )
 
     if USE_PGBOUNCER:

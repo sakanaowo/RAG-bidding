@@ -57,7 +57,7 @@ class Document(Base):
         Text, nullable=False, index=True, comment="Path to source file"
     )
 
-    file_name = Column(Text, nullable=False, comment="Original filename")
+    filename = Column(Text, nullable=False, comment="Original filename")
 
     total_chunks = Column(Integer, default=0, comment="Number of chunks/embeddings")
 
@@ -103,7 +103,7 @@ class Document(Base):
             "category": self.category,
             "document_type": self.document_type,
             "source_file": self.source_file,
-            "file_name": self.file_name,
+            "file_name": self.filename,
             "total_chunks": self.total_chunks,
             "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None,

@@ -223,7 +223,7 @@ async def list_documents(
                 document_name,
                 document_type,
                 category,
-                file_name,
+                filename,
                 total_chunks,
                 status,
                 created_at,
@@ -266,7 +266,7 @@ async def list_documents(
                 document_name=row.document_name,
                 document_type=row.document_type,
                 category=row.category,
-                file_name=row.file_name,
+                file_name=row.filename,
                 total_chunks=row.total_chunks,
                 status=row.status,
                 created_at=row.created_at.isoformat() if row.created_at else None,
@@ -283,6 +283,205 @@ async def list_documents(
     except Exception as e:
         logger.error(f"❌ Error listing documents: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===== CATALOG ENDPOINTS (must be before /{document_id}) =====
+
+
+@router.get("/catalog", response_model=List[DocumentSummary])
+async def list_document_catalog(
+    document_type: Optional[str] = Query(None, description="Filter by type"),
+    status: Optional[str] = Query(None, description="Filter by status"),
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get catalog of unique documents (grouped by document_id).
+
+    Returns one entry per document, NOT per chunk.
+    Includes total chunk count, title, status, etc.
+    """
+    logger.info(
+        f"📚 Catalog request: type={document_type}, status={status}, limit={limit}"
+    )
+    try:
+        # Build WHERE clause
+        where_clauses = []
+        if document_type:
+            where_clauses.append(f"cmetadata->>'document_type' = '{document_type}'")
+
+        where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+        # Query to get unique documents with aggregated data
+        # JOIN with documents table to get status
+        query = text(
+            f"""
+            WITH document_groups AS (
+                SELECT 
+                    cmetadata->>'document_id' as document_id,
+                    cmetadata->>'document_type' as document_type,
+                    COUNT(*) as chunk_count,
+                    MIN((cmetadata->>'chunk_index')::int) as first_chunk_idx,
+                    MAX(CAST(cmetadata->>'created_at' AS TIMESTAMP)) as created_at,
+                    array_agg(id ORDER BY (cmetadata->>'chunk_index')::int) as chunk_ids,
+                    (array_agg(cmetadata ORDER BY (cmetadata->>'chunk_index')::int))[1] as first_chunk_metadata
+                FROM langchain_pg_embedding
+                {where_sql}
+                GROUP BY cmetadata->>'document_id', cmetadata->>'document_type'
+            )
+            SELECT 
+                dg.*,
+                COALESCE(d.status, 'active') as doc_status
+            FROM document_groups dg
+            LEFT JOIN documents d ON d.document_id = dg.document_id
+            ORDER BY dg.created_at DESC NULLS LAST, dg.document_id
+            LIMIT :limit OFFSET :offset
+            """
+        )
+
+        result = await db.execute(query, {"limit": limit, "offset": offset})
+        rows = result.fetchall()
+
+        logger.info(f"📊 Query returned {len(rows)} document groups")
+
+        documents = []
+        for row in rows:
+            metadata = row.first_chunk_metadata
+
+            # Extract title
+            title = extract_title_from_metadata(metadata)
+
+            # Get status from documents table (via JOIN)
+            current_status = row.doc_status
+
+            # Filter by status if requested
+            if status and current_status != status:
+                continue
+
+            # Extract hierarchy
+            hierarchy = None
+            if "hierarchy" in metadata:
+                try:
+                    hierarchy = json.loads(metadata["hierarchy"])
+                except:
+                    pass
+
+            # Extract dates
+            published_date = metadata.get("published_date")
+            effective_date = metadata.get("effective_date")
+
+            # Last modified from processing_metadata
+            last_modified = None
+            if "processing_metadata" in metadata:
+                proc = metadata["processing_metadata"]
+                if isinstance(proc, dict):
+                    last_modified = proc.get("last_processed_at")
+
+            documents.append(
+                DocumentSummary(
+                    document_id=row.document_id,
+                    title=title,
+                    document_type=row.document_type,
+                    total_chunks=row.chunk_count,
+                    status=current_status,
+                    published_date=published_date,
+                    effective_date=effective_date,
+                    last_modified=last_modified,
+                    hierarchy_path=hierarchy,
+                    chunk_ids=row.chunk_ids,
+                )
+            )
+
+        logger.info(
+            f"📚 Document catalog: Retrieved {len(documents)} documents (filtered)"
+        )
+        return documents
+
+    except Exception as e:
+        logger.error(f"❌ Failed to get document catalog: {e}")
+        logger.exception("Full traceback:")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/catalog/{document_id}", response_model=DocumentDetail)
+async def get_document_detail(
+    document_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get complete document with all chunks.
+
+    Returns:
+    - Full metadata from first chunk
+    - All chunks in order
+    - Status history
+    - Aggregated statistics
+    """
+    try:
+        # Query all chunks for this document + status from documents table
+        query = text(
+            """
+            SELECT 
+                e.id, 
+                e.document, 
+                e.cmetadata,
+                COALESCE(d.status, 'active') as doc_status
+            FROM langchain_pg_embedding e
+            LEFT JOIN documents d ON d.document_id = e.cmetadata->>'document_id'
+            WHERE e.cmetadata->>'document_id' = :document_id
+            ORDER BY (e.cmetadata->>'chunk_index')::int
+            """
+        )
+
+        result = await db.execute(query, {"document_id": document_id})
+        rows = result.fetchall()
+
+        if not rows:
+            raise HTTPException(
+                status_code=404, detail=f"Document {document_id} not found"
+            )
+
+        # Extract metadata from first chunk
+        first_metadata = rows[0].cmetadata
+        title = extract_title_from_metadata(first_metadata)
+        doc_type = first_metadata.get("document_type", "unknown")
+        current_status = rows[0].doc_status  # From documents table
+        status_history = extract_status_history(first_metadata)
+
+        # Build chunks list
+        chunks = []
+        for row in rows:
+            chunks.append(
+                {
+                    "chunk_id": row.id,
+                    "chunk_index": row.cmetadata.get("chunk_index", 0),
+                    "content": row.document,
+                    "metadata": row.cmetadata,
+                }
+            )
+
+        logger.info(f"📄 Retrieved document {document_id}: {len(chunks)} chunks")
+
+        return DocumentDetail(
+            document_id=document_id,
+            title=title,
+            document_type=doc_type,
+            total_chunks=len(chunks),
+            status=current_status,
+            metadata=first_metadata,
+            chunks=chunks,
+            status_history=status_history,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to get document {document_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===== DOCUMENT TABLE ENDPOINTS =====
 
 
 @router.get("/{document_id}", response_model=DocumentMetadata)
@@ -305,7 +504,7 @@ async def get_document(
                 document_name,
                 document_type,
                 category,
-                file_name,
+                filename,
                 total_chunks,
                 status,
                 created_at,
@@ -327,7 +526,7 @@ async def get_document(
             document_name=row.document_name,
             document_type=row.document_type,
             category=row.category,
-            file_name=row.file_name,
+            file_name=row.filename,
             total_chunks=row.total_chunks,
             status=row.status,
             created_at=row.created_at.isoformat() if row.created_at else None,
@@ -536,317 +735,6 @@ async def update_document_status(
     except Exception as e:
         await db.rollback()
         logger.error(f"❌ Error updating document status: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/catalog/list", response_model=List[DocumentSummary])
-async def list_document_catalog(
-    document_type: Optional[str] = Query(None, description="Filter by type"),
-    status: Optional[str] = Query(None, description="Filter by status"),
-    limit: int = Query(default=50, le=200),
-    offset: int = Query(default=0, ge=0),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Get catalog of unique documents (grouped by document_id).
-
-    Returns one entry per document, NOT per chunk.
-    Includes total chunk count, title, status, etc.
-    """
-    logger.info(
-        f"📚 Catalog request: type={document_type}, status={status}, limit={limit}"
-    )
-    try:
-        # Build WHERE clause
-        where_clauses = []
-        if document_type:
-            where_clauses.append(f"cmetadata->>'document_type' = '{document_type}'")
-
-        where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
-
-        # Query to get unique documents with aggregated data
-        # JOIN with documents table to get status
-        query = text(
-            f"""
-            WITH document_groups AS (
-                SELECT 
-                    cmetadata->>'document_id' as document_id,
-                    cmetadata->>'document_type' as document_type,
-                    COUNT(*) as chunk_count,
-                    MIN((cmetadata->>'chunk_index')::int) as first_chunk_idx,
-                    MAX(CAST(cmetadata->>'created_at' AS TIMESTAMP)) as created_at,
-                    array_agg(id ORDER BY (cmetadata->>'chunk_index')::int) as chunk_ids,
-                    (array_agg(cmetadata ORDER BY (cmetadata->>'chunk_index')::int))[1] as first_chunk_metadata
-                FROM langchain_pg_embedding
-                {where_sql}
-                GROUP BY cmetadata->>'document_id', cmetadata->>'document_type'
-            )
-            SELECT 
-                dg.*,
-                COALESCE(d.status, 'active') as doc_status
-            FROM document_groups dg
-            LEFT JOIN documents d ON d.document_id = dg.document_id
-            ORDER BY dg.created_at DESC NULLS LAST, dg.document_id
-            LIMIT :limit OFFSET :offset
-            """
-        )
-
-        result = await db.execute(query, {"limit": limit, "offset": offset})
-        rows = result.fetchall()
-
-        logger.info(f"📊 Query returned {len(rows)} document groups")
-
-        documents = []
-        for row in rows:
-            metadata = row.first_chunk_metadata
-
-            # Extract title
-            title = extract_title_from_metadata(metadata)
-
-            # Get status from documents table (via JOIN)
-            current_status = row.doc_status
-
-            # Filter by status if requested
-            if status and current_status != status:
-                continue
-
-            # Extract hierarchy
-            hierarchy = None
-            if "hierarchy" in metadata:
-                try:
-                    hierarchy = json.loads(metadata["hierarchy"])
-                except:
-                    pass
-
-            # Extract dates
-            published_date = metadata.get("published_date")
-            effective_date = metadata.get("effective_date")
-
-            # Last modified from processing_metadata
-            last_modified = None
-            if "processing_metadata" in metadata:
-                proc = metadata["processing_metadata"]
-                if isinstance(proc, dict):
-                    last_modified = proc.get("last_processed_at")
-
-            documents.append(
-                DocumentSummary(
-                    document_id=row.document_id,
-                    title=title,
-                    document_type=row.document_type,
-                    total_chunks=row.chunk_count,
-                    status=current_status,
-                    published_date=published_date,
-                    effective_date=effective_date,
-                    last_modified=last_modified,
-                    hierarchy_path=hierarchy,
-                    chunk_ids=row.chunk_ids,
-                )
-            )
-
-        logger.info(
-            f"📚 Document catalog: Retrieved {len(documents)} documents (filtered)"
-        )
-        return documents
-
-    except Exception as e:
-        logger.error(f"❌ Failed to get document catalog: {e}")
-        logger.exception("Full traceback:")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/{document_id}", response_model=DocumentDetail)
-async def get_document_detail(
-    document_id: str,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Get complete document with all chunks.
-
-    Returns:
-    - Full metadata from first chunk
-    - All chunks in order
-    - Status history
-    - Aggregated statistics
-    """
-    try:
-        # Query all chunks for this document + status from documents table
-        query = text(
-            """
-            SELECT 
-                e.id, 
-                e.document, 
-                e.cmetadata,
-                COALESCE(d.status, 'active') as doc_status
-            FROM langchain_pg_embedding e
-            LEFT JOIN documents d ON d.document_id = e.cmetadata->>'document_id'
-            WHERE e.cmetadata->>'document_id' = :document_id
-            ORDER BY (e.cmetadata->>'chunk_index')::int
-            """
-        )
-
-        result = await db.execute(query, {"document_id": document_id})
-        rows = result.fetchall()
-
-        if not rows:
-            raise HTTPException(
-                status_code=404, detail=f"Document {document_id} not found"
-            )
-
-        # Extract metadata from first chunk
-        first_metadata = rows[0].cmetadata
-        title = extract_title_from_metadata(first_metadata)
-        doc_type = first_metadata.get("document_type", "unknown")
-        current_status = rows[0].doc_status  # From documents table
-        status_history = extract_status_history(first_metadata)
-
-        # Build chunks list
-        chunks = []
-        for row in rows:
-            chunks.append(
-                {
-                    "chunk_id": row.id,
-                    "chunk_index": row.cmetadata.get("chunk_index", 0),
-                    "content": row.document,
-                    "metadata": row.cmetadata,
-                }
-            )
-
-        logger.info(f"📄 Retrieved document {document_id}: {len(chunks)} chunks")
-
-        return DocumentDetail(
-            document_id=document_id,
-            title=title,
-            document_type=doc_type,
-            total_chunks=len(chunks),
-            status=current_status,
-            metadata=first_metadata,
-            chunks=chunks,
-            status_history=status_history,
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ Failed to get document {document_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.patch("/{document_id}/status")
-async def update_document_status(
-    document_id: str,
-    request: UpdateDocumentStatusRequest,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Update status for ALL chunks of a document.
-
-    Updates processing_metadata.status_change_history for all chunks.
-    """
-    try:
-        # Validate status
-        valid_statuses = ["draft", "active", "superseded", "archived"]
-        if request.status not in valid_statuses:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid status. Must be one of: {valid_statuses}",
-            )
-
-        # Get all chunks for this document
-        check_query = text(
-            """
-            SELECT id, cmetadata 
-            FROM langchain_pg_embedding 
-            WHERE cmetadata->>'document_id' = :document_id
-            """
-        )
-        result = await db.execute(check_query, {"document_id": document_id})
-        rows = result.fetchall()
-
-        if not rows:
-            raise HTTPException(
-                status_code=404, detail=f"Document {document_id} not found"
-            )
-
-        old_status = extract_current_status(rows[0].cmetadata)
-
-        # Create status change record
-        status_change = {
-            "from_status": old_status,
-            "to_status": request.status,
-            "reason": request.reason,
-            "timestamp": datetime.utcnow().isoformat(),
-            "changed_by": "api",
-        }
-
-        # Update all chunks
-        updated_count = 0
-        for row in rows:
-            metadata = dict(row.cmetadata)
-
-            # Ensure processing_metadata exists
-            if "processing_metadata" not in metadata:
-                metadata["processing_metadata"] = {}
-
-            # Ensure status_change_history exists
-            if "status_change_history" not in metadata["processing_metadata"]:
-                metadata["processing_metadata"]["status_change_history"] = []
-
-            # Append new status change
-            metadata["processing_metadata"]["status_change_history"].append(
-                status_change
-            )
-
-            # Update processing_status
-            metadata["processing_metadata"]["processing_status"] = request.status
-
-            # Update in database
-            update_query = text(
-                """
-                UPDATE langchain_pg_embedding
-                SET cmetadata = :metadata
-                WHERE id = :chunk_id
-                """
-            )
-            await db.execute(
-                update_query, {"metadata": json.dumps(metadata), "chunk_id": row.id}
-            )
-            updated_count += 1
-
-        # Also update documents table
-        update_doc_table = text(
-            """
-            UPDATE documents
-            SET status = :new_status, updated_at = NOW()
-            WHERE document_id = :document_id
-            """
-        )
-        await db.execute(
-            update_doc_table,
-            {"new_status": request.status, "document_id": document_id},
-        )
-
-        await db.commit()
-
-        logger.info(
-            f"✅ Updated status for document {document_id}: {old_status} → {request.status} ({updated_count} chunks + documents table)"
-        )
-
-        return {
-            "success": True,
-            "document_id": document_id,
-            "old_status": old_status,
-            "new_status": request.status,
-            "reason": request.reason,
-            "updated_at": status_change["timestamp"],
-            "chunks_updated": updated_count,
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ Failed to update document status: {e}")
-        await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 
