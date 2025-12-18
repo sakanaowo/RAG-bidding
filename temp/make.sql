@@ -100,22 +100,24 @@ CREATE INDEX IF NOT EXISTS idx_document_chunks_fts ON document_chunks USING GIN(
 
 -- 4. VECTOR STORAGE (ENHANCED)
 -- Enhance existing langchain table or create if not exists
+-- NOTE: LangChain PGVector requires column name "id" (not "uuid")
 CREATE TABLE IF NOT EXISTS langchain_pg_embedding (
-    uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    embedding VECTOR(3072), -- OpenAI text-embedding-3-large dimension
+    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text, -- LangChain uses "id" not "uuid"
+    collection_id UUID, -- FK to langchain_pg_collection
+    embedding VECTOR(1536), -- OpenAI text-embedding-3-small (1536-dim for HNSW support)
     document TEXT, -- Chunk content
     cmetadata JSONB, -- Rich metadata from current system
-    custom_id VARCHAR,
     chunk_id UUID REFERENCES document_chunks(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create vector index using IVFFlat (supports >2000 dimensions unlike HNSW)
--- HNSW limitation: max 2000 dimensions, but text-embedding-3-large = 3072 dims
+-- Create HNSW vector index for fast similarity search (supports up to 2000 dimensions)
+-- Using 1536-dim embeddings (text-embedding-3-small) for HNSW compatibility
+-- HNSW is faster than IVFFlat for this dimension range
 CREATE INDEX IF NOT EXISTS idx_langchain_pg_embedding_vector 
 ON langchain_pg_embedding 
-USING ivfflat (embedding vector_cosine_ops)
-WITH (lists = 100); -- Optimize for ~10K-100K vectors
+USING hnsw (embedding vector_cosine_ops)
+WITH (m = 16, ef_construction = 64); -- Optimized for 8K-10K vectors
 
 -- 5. CONVERSATION & LOGGING
 CREATE TABLE IF NOT EXISTS conversations (
