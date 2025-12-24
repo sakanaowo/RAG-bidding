@@ -84,6 +84,7 @@ conda activate venv
 - Performance tests phải được monitor memory usage
 - API changes cần update cả test suite
 - Nếu tạo file test thì đặt trong `scripts/tests/` folder với tên rõ ràng
+- Khi tạo file test, KHÔNG ĐƯỢC PHÉP ĐƯA TRỰC TIẾP KEY TỪ `.env` VÀO MÃ NGUỒN
 - Nếu thêm một dependency mới thì update `environment.yml`
 
 ## 🔒 Quy Định Bắt Buộc - SQLAlchemy & Database
