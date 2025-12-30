@@ -13,26 +13,46 @@ from src.retrieval.query_processing.query_enhancer import (
     QueryEnhancerConfig,
 )
 from .routers import upload
-from .routers import documents_chat
 from .routers import documents_management
+from .routers import auth
+from .routers import conversations
+from .middleware import (
+    AuthMiddleware,
+    RequestLoggingMiddleware,
+    RateLimitMiddleware,
+)
 
 
 setup_logging()
 app = FastAPI(
     title="RAG Bidding API",
     description="Vietnamese Legal & Bidding Document RAG System",
-    version="2.0.0",
+    version="3.0.0",  # Updated for schema v3
 )
 
+# ============================================================================
+# MIDDLEWARE (order matters - first added = outermost = runs first)
+# ============================================================================
+# Request logging (outermost - logs all requests including errors)
+app.add_middleware(RequestLoggingMiddleware)
+
+# Rate limiting (before auth to prevent brute force)
+app.add_middleware(RateLimitMiddleware, requests_per_minute=120, burst_size=20)
+
+# Auth middleware (extracts user from JWT, adds to request.state)
+app.add_middleware(AuthMiddleware)
+
+# ============================================================================
+# ROUTERS
+# ============================================================================
 # Include routers
 # ⚠️ ORDER MATTERS: Specific paths MUST come before dynamic paths
+app.include_router(auth.router, prefix="/api")  # Auth endpoints - /auth/*
+app.include_router(conversations.router, prefix="/api")  # Conversations - /conversations/*
 app.include_router(upload.router, prefix="/api")
 app.include_router(
     documents_management.router, prefix="/api"
 )  # Document Management - /documents endpoints
-app.include_router(
-    documents_chat.router, prefix="/api"
-)  # Chat endpoints - /chat/sessions
 
 
 @app.on_event("startup")
