@@ -1,8 +1,0 @@
-{
-  "source_file": "data/raw/Ho so moi thau/1. Mẫu HSYC/01C. Mẫu HSYC Phi tư vấn.docx",
-  "document_type": "bidding",
-  "category": "1. Mẫu HSYC",
-  "chunk_count": 35,
-  "output_file": "data/processed/chunks/01C._Mẫu_HSYC_Phi_tư_vấn.jsonl",
-  "processed_at": "2025-11-02T01:01:56.408199"
-}

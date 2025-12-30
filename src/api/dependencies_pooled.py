@@ -1,13 +1,24 @@
 """
 FastAPI Dependencies với Optimized Database Access và Connection Pooling
 
-TODO: File này chưa hoàn thiện - cần implement các phần còn thiếu
+⚠️ STATUS: NOT YET IMPLEMENTED - DO NOT IMPORT IN PRODUCTION
+
+TODO [HIGH PRIORITY]: Hoàn thiện file này để thay thế dependencies hiện tại
+    - [ ] Test connection pooling với concurrent requests
+    - [ ] Implement health monitoring endpoints  
+    - [ ] Add proper error handling và retry logic
+    - [ ] Integration tests với main.py
+
 TODO: Tích hợp connection pooling để giải quyết performance issues:
-- Eliminate connection overhead per request
-- Support concurrent users efficiently
-- Provide health monitoring endpoints
+    - Eliminate connection overhead per request
+    - Support concurrent users efficiently
+    - Provide health monitoring endpoints
 
 TODO: Hoàn thiện các function còn thiếu trước khi đưa vào production
+    - get_database_session()
+    - get_vector_store()
+    - get_search_service()
+    - get_query_service()
 """
 
 import asyncio
