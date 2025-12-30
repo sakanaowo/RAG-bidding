@@ -1,5 +1,5 @@
 """
-Alembic Migration Configuration
+Alembic Migration Configuration - Schema v3
 Auto-generated with `alembic init alembic`
 """
 
@@ -12,10 +12,26 @@ import sys
 # Add src to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import models
+# Import ALL models for autogenerate to detect changes
 from src.models.base import Base
+
+# Core models
 from src.models.documents import Document
 from src.models.embeddings import LangchainPGEmbedding, LangchainPGCollection
+from src.models.document_chunks import DocumentChunk
+
+# User & Auth models
+from src.models.users import User
+
+# Chat models
+from src.models.conversations import Conversation
+from src.models.messages import Message
+from src.models.citations import Citation
+
+# Analytics models
+from src.models.feedback import Feedback
+from src.models.queries import Query
+from src.models.user_metrics import UserUsageMetric
 
 # Alembic Config object
 config = context.config
@@ -32,7 +48,7 @@ config.set_main_option(
     "sqlalchemy.url",
     os.getenv(
         "DATABASE_URL",
-        "postgresql+psycopg://sakana:sakana123@localhost:5432/rag_bidding_v2",
+        "postgresql+psycopg://sakana:sakana123@localhost:5432/rag_bidding_v3",
     ),
 )
 
