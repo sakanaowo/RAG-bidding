@@ -1,0 +1,442 @@
+"""
+Conversation Service - Schema v3
+Business logic for conversations, messages, and RAG integration
+"""
+
+import time
+import logging
+from datetime import datetime
+from typing import Optional, List, Dict, Any, Tuple
+from uuid import UUID
+
+from sqlalchemy.orm import Session
+
+from src.models.conversations import Conversation
+from src.models.messages import Message
+from src.models.documents import Document
+from src.models.document_chunks import DocumentChunk
+from src.models.citations import Citation
+from src.models.repositories import (
+    ConversationRepository,
+    MessageRepository,
+    CitationRepository,
+    DocumentChunkRepository,
+    QueryRepository,
+)
+from src.generation.chains.qa_chain import answer as rag_answer
+from src.api.schemas.conversation_schemas import SourceInfo
+
+logger = logging.getLogger(__name__)
+
+
+class ConversationService:
+    """
+    Conversation service with PostgreSQL persistence and RAG integration.
+    
+    Replaces the old Redis/in-memory session management with proper
+    database-backed conversations following schema v3.
+    """
+    
+    # ==========================================================================
+    # CONVERSATION CRUD
+    # ==========================================================================
+    
+    @staticmethod
+    def create_conversation(
+        db: Session,
+        user_id: UUID,
+        title: Optional[str] = None,
+        rag_mode: str = "balanced",
+        category_filter: Optional[List[str]] = None
+    ) -> Conversation:
+        """
+        Create a new conversation
+        
+        Args:
+            db: Database session
+            user_id: Owner user ID
+            title: Optional title (auto-generated from first message if not provided)
+            rag_mode: RAG processing mode
+            category_filter: Optional document category filter
+            
+        Returns:
+            Created conversation
+        """
+        conversation = ConversationRepository.create(
+            db=db,
+            user_id=user_id,
+            title=title,
+            rag_mode=rag_mode,
+            category_filter=category_filter
+        )
+        
+        logger.info(f"Created conversation {conversation.id} for user {user_id}")
+        return conversation
+    
+    @staticmethod
+    def get_conversation(
+        db: Session,
+        conversation_id: UUID,
+        user_id: UUID
+    ) -> Optional[Conversation]:
+        """
+        Get conversation by ID (with ownership check)
+        
+        Args:
+            db: Database session
+            conversation_id: Conversation UUID
+            user_id: Current user ID for ownership verification
+            
+        Returns:
+            Conversation if found and owned by user, None otherwise
+        """
+        conversation = ConversationRepository.get_by_id(db, conversation_id)
+        
+        if not conversation:
+            return None
+        
+        # Verify ownership
+        if conversation.user_id != user_id:
+            logger.warning(f"User {user_id} tried to access conversation {conversation_id} owned by {conversation.user_id}")
+            return None
+        
+        # Check if deleted
+        if conversation.deleted_at is not None:
+            return None
+        
+        return conversation
+    
+    @staticmethod
+    def list_conversations(
+        db: Session,
+        user_id: UUID,
+        skip: int = 0,
+        limit: int = 50
+    ) -> Tuple[List[Conversation], int]:
+        """
+        List user's conversations with pagination
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            skip: Offset
+            limit: Max results
+            
+        Returns:
+            Tuple of (conversations, total_count)
+        """
+        conversations = ConversationRepository.get_user_conversations(
+            db=db,
+            user_id=user_id,
+            skip=skip,
+            limit=limit,
+            include_deleted=False
+        )
+        
+        # Get total count
+        from sqlalchemy import func
+        total = db.query(func.count(Conversation.id)).filter(
+            Conversation.user_id == user_id,
+            Conversation.deleted_at.is_(None)
+        ).scalar()
+        
+        return conversations, total
+    
+    @staticmethod
+    def update_conversation(
+        db: Session,
+        conversation_id: UUID,
+        user_id: UUID,
+        title: Optional[str] = None,
+        rag_mode: Optional[str] = None,
+        category_filter: Optional[List[str]] = None
+    ) -> Optional[Conversation]:
+        """
+        Update conversation settings
+        
+        Args:
+            db: Database session
+            conversation_id: Conversation UUID
+            user_id: Current user ID
+            title: New title
+            rag_mode: New RAG mode
+            category_filter: New category filter
+            
+        Returns:
+            Updated conversation or None if not found/unauthorized
+        """
+        conversation = ConversationService.get_conversation(db, conversation_id, user_id)
+        if not conversation:
+            return None
+        
+        if title is not None:
+            conversation.title = title
+        if rag_mode is not None:
+            conversation.rag_mode = rag_mode
+        if category_filter is not None:
+            conversation.category_filter = category_filter
+        
+        db.commit()
+        db.refresh(conversation)
+        
+        return conversation
+    
+    @staticmethod
+    def delete_conversation(
+        db: Session,
+        conversation_id: UUID,
+        user_id: UUID
+    ) -> bool:
+        """
+        Soft delete a conversation
+        
+        Args:
+            db: Database session
+            conversation_id: Conversation UUID
+            user_id: Current user ID
+            
+        Returns:
+            True if deleted, False if not found/unauthorized
+        """
+        conversation = ConversationService.get_conversation(db, conversation_id, user_id)
+        if not conversation:
+            return False
+        
+        conversation.deleted_at = datetime.utcnow()
+        db.commit()
+        
+        logger.info(f"Soft deleted conversation {conversation_id}")
+        return True
+    
+    # ==========================================================================
+    # MESSAGE OPERATIONS WITH RAG
+    # ==========================================================================
+    
+    @staticmethod
+    def get_messages(
+        db: Session,
+        conversation_id: UUID,
+        user_id: UUID,
+        skip: int = 0,
+        limit: int = 100
+    ) -> Tuple[List[Message], int, bool]:
+        """
+        Get messages in a conversation
+        
+        Args:
+            db: Database session
+            conversation_id: Conversation UUID
+            user_id: Current user ID
+            skip: Offset
+            limit: Max results
+            
+        Returns:
+            Tuple of (messages, total_count, has_more)
+        """
+        # Verify conversation ownership
+        conversation = ConversationService.get_conversation(db, conversation_id, user_id)
+        if not conversation:
+            return [], 0, False
+        
+        messages = MessageRepository.get_conversation_messages(
+            db=db,
+            conversation_id=conversation_id,
+            skip=skip,
+            limit=limit
+        )
+        
+        total = conversation.message_count or 0
+        has_more = (skip + len(messages)) < total
+        
+        return messages, total, has_more
+    
+    @staticmethod
+    def send_message(
+        db: Session,
+        conversation_id: UUID,
+        user_id: UUID,
+        content: str,
+        rag_mode: Optional[str] = None,
+        include_sources: bool = True
+    ) -> Tuple[Optional[Message], Optional[Message], List[SourceInfo], int]:
+        """
+        Send a user message and get AI response via RAG
+        
+        Args:
+            db: Database session
+            conversation_id: Conversation UUID
+            user_id: Current user ID
+            content: Message content
+            rag_mode: Override RAG mode (uses conversation default if None)
+            include_sources: Whether to include source citations
+            
+        Returns:
+            Tuple of (user_message, assistant_message, sources, processing_time_ms)
+        """
+        start_time = time.time()
+        
+        # Verify conversation ownership
+        conversation = ConversationService.get_conversation(db, conversation_id, user_id)
+        if not conversation:
+            return None, None, [], 0
+        
+        # Use conversation's rag_mode if not overridden
+        effective_rag_mode = rag_mode or conversation.rag_mode or "balanced"
+        
+        # Create user message
+        user_message = MessageRepository.add_message(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=user_id,
+            role="user",
+            content=content
+        )
+        
+        # Auto-generate title from first message if not set
+        if not conversation.title and conversation.message_count <= 1:
+            auto_title = content[:100] + "..." if len(content) > 100 else content
+            conversation.title = auto_title
+            db.commit()
+        
+        # Call RAG pipeline
+        try:
+            rag_result = rag_answer(
+                question=content,
+                mode=effective_rag_mode,
+                reranker_type="bge",
+                filter_status=None  # Status not in embedding metadata
+            )
+            
+            assistant_content = rag_result.get("answer", "Xin lỗi, tôi không thể trả lời câu hỏi này.")
+            rag_sources = rag_result.get("sources", [])
+            rag_time = rag_result.get("processing_time_ms", 0)
+            
+        except Exception as e:
+            logger.error(f"RAG pipeline error: {e}")
+            assistant_content = "Xin lỗi, đã xảy ra lỗi khi xử lý câu hỏi của bạn."
+            rag_sources = []
+            rag_time = 0
+        
+        processing_time = int((time.time() - start_time) * 1000)
+        
+        # Build sources info
+        sources_info = ConversationService._build_sources_info(db, rag_sources)
+        
+        # Create assistant message
+        assistant_message = MessageRepository.add_message(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=user_id,
+            role="assistant",
+            content=assistant_content,
+            sources={"sources": [s.model_dump() for s in sources_info]} if include_sources else None,
+            processing_time_ms=processing_time
+        )
+        
+        # Update conversation usage stats
+        ConversationRepository.update_last_message(db, conversation_id)
+        
+        # Log query for analytics
+        try:
+            QueryRepository.log_query(
+                db=db,
+                query_text=content,
+                user_id=user_id,
+                conversation_id=conversation_id,
+                message_id=assistant_message.id,
+                rag_mode=effective_rag_mode,
+                categories_searched=conversation.category_filter,
+                retrieval_count=len(rag_sources),
+                total_latency_ms=processing_time
+            )
+        except Exception as e:
+            logger.warning(f"Failed to log query: {e}")
+        
+        logger.info(f"Processed message in conversation {conversation_id}: {processing_time}ms")
+        
+        return user_message, assistant_message, sources_info, processing_time
+    
+    @staticmethod
+    def _build_sources_info(db: Session, rag_sources: List[str]) -> List[SourceInfo]:
+        """
+        Build source info from RAG source strings
+        
+        Args:
+            db: Database session
+            rag_sources: List of source strings from RAG pipeline
+            
+        Returns:
+            List of SourceInfo objects
+        """
+        sources_info = []
+        
+        for source in rag_sources:
+            # Parse source string - format varies by RAG implementation
+            # Try to extract document info
+            try:
+                # Simple parsing - adapt based on actual source format
+                source_info = SourceInfo(
+                    document_id=str(hash(source)),  # Placeholder
+                    document_name=source,
+                    citation_text=source[:200] if len(source) > 200 else source
+                )
+                sources_info.append(source_info)
+            except Exception as e:
+                logger.warning(f"Failed to parse source: {e}")
+        
+        return sources_info
+    
+    @staticmethod
+    def add_message_feedback(
+        db: Session,
+        message_id: UUID,
+        user_id: UUID,
+        rating: int,
+        feedback_type: Optional[str] = None,
+        comment: Optional[str] = None
+    ) -> bool:
+        """
+        Add feedback to a message
+        
+        Args:
+            db: Database session
+            message_id: Message UUID
+            user_id: User ID
+            rating: Rating (1-5)
+            feedback_type: Type of feedback
+            comment: Optional comment
+            
+        Returns:
+            True if feedback added successfully
+        """
+        from src.models.repositories import FeedbackRepository
+        
+        # Verify message exists and user has access
+        message = MessageRepository.get_by_id(db, message_id)
+        if not message:
+            return False
+        
+        # Verify user owns the conversation
+        conversation = ConversationRepository.get_by_id(db, message.conversation_id)
+        if not conversation or conversation.user_id != user_id:
+            return False
+        
+        # Update quick rating on message
+        MessageRepository.update_feedback_rating(db, message_id, rating)
+        
+        # Create detailed feedback record
+        FeedbackRepository.create(
+            db=db,
+            user_id=user_id,
+            message_id=message_id,
+            rating=rating,
+            feedback_type=feedback_type,
+            comment=comment
+        )
+        
+        logger.info(f"Added feedback (rating={rating}) to message {message_id}")
+        return True
+
+
+# Global service instance
+conversation_service = ConversationService()
