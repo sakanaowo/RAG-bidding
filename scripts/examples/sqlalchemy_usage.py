@@ -30,7 +30,7 @@ def example_1_basic_crud():
             category="legal",
             document_type="decree",
             source_file="/data/processed/example.json",
-            file_name="example.pdf",
+            filename="example.pdf",
             total_chunks=0,
             status="processing",
         )
@@ -88,7 +88,7 @@ def example_2_using_repository():
             category="legal",
             document_type="law",
             source_file="/data/processed/repo_example.json",
-            file_name="repo_example.pdf",
+            filename="repo_example.pdf",
             total_chunks=50,
         )
         print(f"✅ Created: {doc.document_id}")
@@ -228,7 +228,7 @@ def example_5_transactions():
                 category="test",
                 document_type="example",
                 source_file=f"/test/doc_{i}.json",
-                file_name=f"doc_{i}.pdf",
+                filename=f"doc_{i}.pdf",
             )
             for i in range(1, 4)
         ]

@@ -164,10 +164,10 @@ async def populate_documents(engine, documents: list):
                         """
                         INSERT INTO documents (
                             document_id, document_name, category, document_type,
-                            source_file, file_name, total_chunks, status
+                            source_file, filename, total_chunks, status
                         ) VALUES (
                             :document_id, :document_name, :category, :document_type,
-                            :source_file, :file_name, :total_chunks, :status
+                            :source_file, :filename, :total_chunks, :status
                         )
                     """
                     ),
@@ -177,7 +177,7 @@ async def populate_documents(engine, documents: list):
                         "category": doc["category"],
                         "document_type": doc["document_type"],
                         "source_file": doc["source_file"],
-                        "file_name": doc["file_name"],
+                        "filename": doc.get("filename", doc.get("file_name", "")),
                         "total_chunks": doc.get("total_chunks", 0),
                         "status": doc.get("status", "active"),
                     },

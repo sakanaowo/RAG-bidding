@@ -55,7 +55,7 @@ class DocumentMetadata(BaseModel):
     document_name: str = Field(..., description="Document name/title")
     document_type: str = Field(..., description="Type: law, decree, bidding, etc.")
     category: str = Field(..., description="Category classification")
-    file_name: str = Field(..., description="Original file name")
+    filename: str = Field(..., description="Original file name")
     total_chunks: int = Field(..., description="Number of chunks")
     status: str = Field(..., description="Document status: active, archived, etc.")
     created_at: str = Field(..., description="Creation timestamp")
