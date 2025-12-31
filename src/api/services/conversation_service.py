@@ -323,7 +323,7 @@ class ConversationService:
         # Build sources info from raw source documents
         sources_info = ConversationService._build_sources_info_from_raw(raw_sources)
         
-        # Create assistant message
+        # Create assistant message with rag_mode
         assistant_message = MessageRepository.add_message(
             db=db,
             conversation_id=conversation_id,
@@ -331,7 +331,8 @@ class ConversationService:
             role="assistant",
             content=assistant_content,
             sources={"sources": [s.model_dump() for s in sources_info]} if include_sources else None,
-            processing_time_ms=processing_time
+            processing_time_ms=processing_time,
+            rag_mode=effective_rag_mode
         )
         
         # Update conversation usage stats

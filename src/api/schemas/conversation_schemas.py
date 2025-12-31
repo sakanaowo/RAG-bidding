@@ -82,6 +82,7 @@ class MessageResponse(BaseModel):
     id: UUID
     role: str
     content: str
+    rag_mode: Optional[str] = None
     sources: Optional[List[SourceInfo]] = None
     processing_time_ms: Optional[int] = None
     tokens_total: Optional[int] = None

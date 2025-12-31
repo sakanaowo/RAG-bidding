@@ -75,6 +75,13 @@ class Message(Base):
         comment="Retrieved sources for AI response"
     )
 
+    # RAG configuration used for this message
+    rag_mode = Column(
+        String(50),
+        nullable=True,
+        comment="RAG mode used: fast, balanced, quality, adaptive"
+    )
+
     # Performance metrics
     processing_time_ms = Column(
         Integer,
@@ -145,6 +152,7 @@ class Message(Base):
             "user_id": str(self.user_id),
             "role": self.role,
             "content": self.content,
+            "rag_mode": self.rag_mode,
             "processing_time_ms": self.processing_time_ms,
             "tokens_total": self.tokens_total,
             "feedback_rating": self.feedback_rating,

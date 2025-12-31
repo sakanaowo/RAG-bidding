@@ -350,7 +350,8 @@ class MessageRepository:
         content: str,
         sources: Optional[Dict] = None,
         processing_time_ms: Optional[int] = None,
-        tokens_total: Optional[int] = None
+        tokens_total: Optional[int] = None,
+        rag_mode: Optional[str] = None
     ) -> Message:
         """Add a message to conversation"""
         message = Message(
@@ -360,7 +361,8 @@ class MessageRepository:
             content=content,
             sources=sources,
             processing_time_ms=processing_time_ms,
-            tokens_total=tokens_total
+            tokens_total=tokens_total,
+            rag_mode=rag_mode
         )
         db.add(message)
         db.commit()
