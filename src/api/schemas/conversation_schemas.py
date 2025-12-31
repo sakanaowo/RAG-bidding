@@ -39,6 +39,23 @@ class CreateConversationRequest(BaseModel):
     title: Optional[str] = Field(None, max_length=255, description="Conversation title (auto-generated if not provided)")
     rag_mode: RAGMode = Field(RAGMode.BALANCED, description="RAG processing mode")
     category_filter: Optional[List[str]] = Field(None, description="Filter documents by categories")
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "title": "Hỏi về quy trình đấu thầu",
+                    "rag_mode": "balanced",
+                    "category_filter": None
+                },
+                {
+                    "title": "Câu hỏi về Luật Đấu thầu 2023",
+                    "rag_mode": "quality",
+                    "category_filter": ["Luat chinh", "Nghi dinh"]
+                }
+            ]
+        }
+    }
 
 
 class SendMessageRequest(BaseModel):
@@ -46,6 +63,23 @@ class SendMessageRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=10000, description="Message content")
     rag_mode: Optional[RAGMode] = Field(None, description="Override conversation RAG mode for this message")
     include_sources: bool = Field(True, description="Include source citations in response")
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "content": "Điều kiện để nhà thầu được tham gia đấu thầu là gì?",
+                    "rag_mode": None,
+                    "include_sources": True
+                },
+                {
+                    "content": "Quy trình lựa chọn nhà thầu qua mạng như thế nào?",
+                    "rag_mode": "quality",
+                    "include_sources": True
+                }
+            ]
+        }
+    }
 
 
 class UpdateConversationRequest(BaseModel):

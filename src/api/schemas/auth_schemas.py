@@ -39,6 +39,18 @@ class UserRegisterRequest(BaseModel):
     password: str = Field(..., min_length=8, description="Password (min 8 characters)")
     full_name: Optional[str] = Field(None, max_length=255, description="User's full name")
     
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "email": "test@example.com",
+                    "password": "Test1234!",
+                    "full_name": "Test User"
+                }
+            ]
+        }
+    }
+    
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: str) -> str:
@@ -58,6 +70,18 @@ class UserLoginRequest(BaseModel):
     email: EmailStr = Field(..., description="User email address")
     password: str = Field(..., description="User password")
     remember_me: bool = Field(False, description="Extend token expiration")
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "email": "test@example.com",
+                    "password": "Test1234!",
+                    "remember_me": False
+                }
+            ]
+        }
+    }
 
 
 class ChangePasswordRequest(BaseModel):

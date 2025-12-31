@@ -42,7 +42,7 @@ except FileNotFoundError:
 except Exception as e:
     logger.error(f"❌ Error loading document name mapping: {e}")
 
-router = APIRouter(prefix="/documents", tags=["documents"])
+router = APIRouter(prefix="/documents", tags=["Documents"])
 
 
 # ===== MODELS =====

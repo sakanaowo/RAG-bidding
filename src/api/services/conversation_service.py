@@ -27,6 +27,7 @@ from src.models.repositories import (
 from src.generation.chains.qa_chain import answer as rag_answer
 from src.api.schemas.conversation_schemas import SourceInfo
 from src.utils.token_counter import count_message_tokens, estimate_cost_usd
+from src.api.services.summary_service import SummaryService
 
 logger = logging.getLogger(__name__)
 
@@ -300,10 +301,24 @@ class ConversationService:
             conversation.title = auto_title
             db.commit()
         
-        # Call RAG pipeline
+        # Build conversation context for RAG (summary + recent messages)
+        conversation_context, _ = SummaryService.build_context_for_rag(
+            db, conversation_id, content
+        )
+        
+        # Enhance question with conversation context if available
+        enhanced_question = content
+        if conversation_context:
+            enhanced_question = f"""[CONTEXT HỘI THOẠI]
+{conversation_context}
+
+[CÂU HỎI HIỆN TẠI]
+{content}"""
+        
+        # Call RAG pipeline with enhanced question
         try:
             rag_result = rag_answer(
-                question=content,
+                question=enhanced_question,
                 mode=effective_rag_mode,
                 reranker_type="bge",
                 filter_status=None  # Status not in embedding metadata
@@ -396,6 +411,15 @@ class ConversationService:
             )
         except Exception as e:
             logger.warning(f"Failed to update usage metrics: {e}")
+        
+        # Generate/update conversation summary if needed (async-like, non-blocking)
+        try:
+            # Refresh conversation to get updated message_count
+            db.refresh(conversation)
+            if SummaryService.should_update_summary(conversation):
+                SummaryService.generate_summary(db, conversation_id)
+        except Exception as e:
+            logger.warning(f"Failed to update summary: {e}")
         
         logger.info(f"Processed message in conversation {conversation_id}: {processing_time}ms")
         

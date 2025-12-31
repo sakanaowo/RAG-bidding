@@ -234,6 +234,46 @@ async def delete_conversation(
 
 
 # =============================================================================
+# SUMMARY ENDPOINT
+# =============================================================================
+
+@router.get("/{conversation_id}/summary")
+async def get_conversation_summary(
+    conversation_id: UUID,
+    regenerate: bool = Query(False, description="Force regenerate summary"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get or generate conversation summary
+    
+    Summary helps preserve context in long conversations.
+    Use `regenerate=true` to force a new summary.
+    """
+    from src.api.services.summary_service import SummaryService
+    
+    conversation = conversation_service.get_conversation(db, conversation_id, current_user.id)
+    if not conversation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found"
+        )
+    
+    summary = None
+    if regenerate or not conversation.summary:
+        summary = SummaryService.generate_summary(db, conversation_id, force=regenerate)
+    else:
+        summary = conversation.summary
+    
+    return {
+        "conversation_id": str(conversation_id),
+        "summary": summary,
+        "message_count": conversation.message_count,
+        "has_summary": bool(summary)
+    }
+
+
+# =============================================================================
 # MESSAGE ENDPOINTS
 # =============================================================================
 
