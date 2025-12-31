@@ -22,6 +22,7 @@ from src.models.repositories import (
     CitationRepository,
     DocumentChunkRepository,
     QueryRepository,
+    UserUsageMetricRepository,
 )
 from src.generation.chains.qa_chain import answer as rag_answer
 from src.api.schemas.conversation_schemas import SourceInfo
@@ -382,6 +383,19 @@ class ConversationService:
             )
         except Exception as e:
             logger.warning(f"Failed to save citations: {e}")
+        
+        # Update user usage metrics
+        try:
+            UserUsageMetricRepository.increment_usage(
+                db=db,
+                user_id=user_id,
+                queries=1,
+                messages=2,  # user message + assistant message
+                tokens=total_tokens,
+                cost_usd=estimated_cost
+            )
+        except Exception as e:
+            logger.warning(f"Failed to update usage metrics: {e}")
         
         logger.info(f"Processed message in conversation {conversation_id}: {processing_time}ms")
         
