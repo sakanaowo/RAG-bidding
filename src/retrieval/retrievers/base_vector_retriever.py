@@ -18,9 +18,17 @@ class BaseVectorRetriever(BaseRetriever):
 
     Tuân thủ LangChain BaseRetriever interface để có thể sử dụng trong chains.
 
+    NOTE on status filtering:
+    - Embedding metadata does NOT contain 'status' field (by design)
+    - Status is stored in 'documents' table for post-retrieval enrichment
+    - Agent should mention expired/superseded status in response, not filter them out
+    - Use filter_dict for other metadata filters (e.g. {"document_type": "law", "dieu": "14"})
+    
     Supports metadata filtering:
-    - filter_status: Filter by document status ("active", "expired", None)
-    - filter_dict: Custom PGVector filter (e.g. {"status": "active", "dieu": "14"})
+    - filter_dict: Custom PGVector filter (e.g. {"document_type": "law", "dieu": "14"})
+    
+    Deprecated (no-op):
+    - filter_status: Ignored - status not in embedding metadata
     """
 
     k: int = 5
@@ -66,13 +74,25 @@ class BaseVectorRetriever(BaseRetriever):
             return docs
 
     def _build_filter(self) -> Optional[Dict[str, Any]]:
-        """Build PGVector filter from filter_status and filter_dict."""
+        """
+        Build PGVector filter from filter_dict.
+        
+        NOTE: filter_status is ignored because:
+        - Embedding metadata does NOT contain 'status' field
+        - Status is in 'documents' table for post-retrieval enrichment
+        - Documents should be retrieved regardless of status, then agent mentions validity
+        """
+        if self.filter_status:
+            import logging
+            logging.getLogger(__name__).debug(
+                f"filter_status='{self.filter_status}' ignored - status not in embedding metadata. "
+                "Use documents table for status-based decisions."
+            )
+        
         if self.filter_dict:
             return self.filter_dict
 
-        if self.filter_status:
-            return {"status": self.filter_status}
-
+        # No filtering - retrieve all documents
         return None
 
     async def _aget_relevant_documents(
