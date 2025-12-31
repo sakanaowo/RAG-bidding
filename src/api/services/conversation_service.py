@@ -25,6 +25,7 @@ from src.models.repositories import (
 )
 from src.generation.chains.qa_chain import answer as rag_answer
 from src.api.schemas.conversation_schemas import SourceInfo
+from src.utils.token_counter import count_message_tokens, estimate_cost_usd
 
 logger = logging.getLogger(__name__)
 
@@ -323,7 +324,22 @@ class ConversationService:
         # Build sources info from raw source documents
         sources_info = ConversationService._build_sources_info_from_raw(raw_sources)
         
-        # Create assistant message with rag_mode
+        # Count tokens for the interaction
+        context_contents = [doc.get("content", "") for doc in raw_sources] if raw_sources else None
+        token_counts = count_message_tokens(
+            user_message=content,
+            assistant_response=assistant_content,
+            context_docs=context_contents
+        )
+        total_tokens = token_counts["total_tokens"]
+        
+        # Estimate cost
+        estimated_cost = estimate_cost_usd(
+            input_tokens=token_counts["input_tokens"],
+            output_tokens=token_counts["output_tokens"]
+        )
+        
+        # Create assistant message with rag_mode and tokens
         assistant_message = MessageRepository.add_message(
             db=db,
             conversation_id=conversation_id,
@@ -332,13 +348,14 @@ class ConversationService:
             content=assistant_content,
             sources={"sources": [s.model_dump() for s in sources_info]} if include_sources else None,
             processing_time_ms=processing_time,
-            rag_mode=effective_rag_mode
+            rag_mode=effective_rag_mode,
+            tokens_total=total_tokens
         )
         
         # Update conversation usage stats
         ConversationRepository.update_last_message(db, conversation_id)
         
-        # Log query for analytics
+        # Log query for analytics with token info
         try:
             QueryRepository.log_query(
                 db=db,
@@ -349,7 +366,9 @@ class ConversationService:
                 rag_mode=effective_rag_mode,
                 categories_searched=conversation.category_filter,
                 retrieval_count=len(raw_sources),
-                total_latency_ms=processing_time
+                total_latency_ms=processing_time,
+                tokens_total=total_tokens,
+                estimated_cost_usd=estimated_cost
             )
         except Exception as e:
             logger.warning(f"Failed to log query: {e}")
