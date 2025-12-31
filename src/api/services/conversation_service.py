@@ -308,19 +308,20 @@ class ConversationService:
             )
             
             assistant_content = rag_result.get("answer", "Xin lỗi, tôi không thể trả lời câu hỏi này.")
-            rag_sources = rag_result.get("sources", [])
+            # Use source_documents_raw for proper metadata extraction
+            raw_sources = rag_result.get("source_documents_raw", [])
             rag_time = rag_result.get("processing_time_ms", 0)
             
         except Exception as e:
             logger.error(f"RAG pipeline error: {e}")
             assistant_content = "Xin lỗi, đã xảy ra lỗi khi xử lý câu hỏi của bạn."
-            rag_sources = []
+            raw_sources = []
             rag_time = 0
         
         processing_time = int((time.time() - start_time) * 1000)
         
-        # Build sources info
-        sources_info = ConversationService._build_sources_info(db, rag_sources)
+        # Build sources info from raw source documents
+        sources_info = ConversationService._build_sources_info_from_raw(raw_sources)
         
         # Create assistant message
         assistant_message = MessageRepository.add_message(
@@ -346,7 +347,7 @@ class ConversationService:
                 message_id=assistant_message.id,
                 rag_mode=effective_rag_mode,
                 categories_searched=conversation.category_filter,
-                retrieval_count=len(rag_sources),
+                retrieval_count=len(raw_sources),
                 total_latency_ms=processing_time
             )
         except Exception as e:
@@ -357,9 +358,55 @@ class ConversationService:
         return user_message, assistant_message, sources_info, processing_time
     
     @staticmethod
+    def _build_sources_info_from_raw(raw_sources: List[Dict]) -> List[SourceInfo]:
+        """
+        Build source info from raw source documents with full metadata
+        
+        Args:
+            raw_sources: List of dicts with document metadata from qa_chain
+            
+        Returns:
+            List of SourceInfo objects with proper document_id, chunk_id, etc.
+        """
+        sources_info = []
+        
+        for src in raw_sources:
+            try:
+                # Build section string from hierarchy
+                hierarchy = src.get("hierarchy", [])
+                section_parts = []
+                
+                if src.get("dieu"):
+                    section_parts.append(f"Điều {src['dieu']}")
+                if src.get("khoan"):
+                    section_parts.append(f"Khoản {src['khoan']}")
+                if src.get("diem"):
+                    section_parts.append(f"Điểm {src['diem']}")
+                
+                section = " → ".join(section_parts) if section_parts else (
+                    " → ".join(hierarchy) if hierarchy else src.get("section_title", "")
+                )
+                
+                source_info = SourceInfo(
+                    document_id=src.get("document_id", ""),
+                    document_name=src.get("document_name", "Tài liệu"),
+                    chunk_id=src.get("chunk_id"),
+                    citation_text=src.get("content", "")[:300],  # First 300 chars
+                    relevance_score=None,  # TODO: Add relevance score from reranker
+                    page_number=None,  # Not available in current metadata
+                    section=section
+                )
+                sources_info.append(source_info)
+            except Exception as e:
+                logger.warning(f"Failed to parse source: {e}")
+        
+        return sources_info
+    
+    @staticmethod
     def _build_sources_info(db: Session, rag_sources: List[str]) -> List[SourceInfo]:
         """
-        Build source info from RAG source strings
+        DEPRECATED: Build source info from RAG source strings
+        Use _build_sources_info_from_raw instead.
         
         Args:
             db: Database session

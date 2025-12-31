@@ -334,6 +334,23 @@ def answer(
         + "\n".join(detailed_sources),
         "sources": src_lines,
         "detailed_sources": detailed_sources,
+        "source_documents_raw": [
+            {
+                "document_id": d.metadata.get("document_id", ""),
+                "document_name": d.metadata.get("document_name", d.metadata.get("title", "Tài liệu")),
+                "chunk_id": d.metadata.get("chunk_id", ""),
+                "content": d.page_content[:500],  # First 500 chars as citation
+                "hierarchy": d.metadata.get("hierarchy", []),
+                "section_title": d.metadata.get("section_title", ""),
+                "document_type": d.metadata.get("document_type", ""),
+                "category": d.metadata.get("category", ""),
+                "dieu": d.metadata.get("dieu"),
+                "khoan": d.metadata.get("khoan"),
+                "diem": d.metadata.get("diem"),
+                "status": doc_statuses.get(d.metadata.get("document_id", ""), "active"),
+            }
+            for d in result["source_documents"]
+        ],
         "adaptive_retrieval": {
             "mode": selected_mode,
             "docs_retrieved": len(result["source_documents"]),
