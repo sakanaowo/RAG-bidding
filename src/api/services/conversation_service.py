@@ -373,10 +373,76 @@ class ConversationService:
         except Exception as e:
             logger.warning(f"Failed to log query: {e}")
         
+        # Extract and save citations
+        try:
+            ConversationService._save_citations(
+                db=db,
+                message_id=assistant_message.id,
+                raw_sources=raw_sources
+            )
+        except Exception as e:
+            logger.warning(f"Failed to save citations: {e}")
+        
         logger.info(f"Processed message in conversation {conversation_id}: {processing_time}ms")
         
         return user_message, assistant_message, sources_info, processing_time
     
+    @staticmethod
+    def _save_citations(
+        db: Session,
+        message_id: UUID,
+        raw_sources: List[Dict]
+    ) -> List[Citation]:
+        """
+        Save citations for a message based on raw source documents.
+        
+        Maps string document_id/chunk_id to UUID references.
+        
+        Args:
+            db: Database session
+            message_id: UUID of the assistant message
+            raw_sources: List of source document dicts from qa_chain
+            
+        Returns:
+            List of created Citation objects
+        """
+        from src.models.repositories import DocumentRepository, DocumentChunkRepository
+        
+        if not raw_sources:
+            return []
+        
+        citations_data = []
+        for i, src in enumerate(raw_sources):
+            doc_id_str = src.get("document_id")
+            chunk_id_str = src.get("chunk_id")
+            
+            if not doc_id_str or not chunk_id_str:
+                logger.debug(f"Skipping citation {i+1}: missing document_id or chunk_id")
+                continue
+            
+            # Lookup UUIDs from string IDs
+            document = DocumentRepository.get_by_id(db, doc_id_str)
+            chunk = DocumentChunkRepository.get_by_chunk_id(db, chunk_id_str)
+            
+            if not document or not chunk:
+                logger.debug(
+                    f"Skipping citation {i+1}: document/chunk not found "
+                    f"(doc={doc_id_str}, chunk={chunk_id_str})"
+                )
+                continue
+            
+            citations_data.append({
+                "document_id": document.id,
+                "chunk_id": chunk.id,
+                "citation_number": i + 1,
+                "citation_text": src.get("content", "")[:500],  # Limit citation text
+                "relevance_score": src.get("score")
+            })
+        
+        if citations_data:
+            return CitationRepository.create_batch(db, message_id, citations_data)
+        return []
+
     @staticmethod
     def _build_sources_info_from_raw(raw_sources: List[Dict]) -> List[SourceInfo]:
         """
