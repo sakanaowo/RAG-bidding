@@ -50,7 +50,7 @@ class TokenChecker:
         "embed-english-v3.0": 1024,
     }
 
-    def __init__(self, model: str = "text-embedding-3-large"):
+    def __init__(self, model: str = "text-embedding-3-small"):
         """
         Args:
             model: Tên model embedding

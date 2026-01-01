@@ -25,7 +25,7 @@ def _env_bool(name: str, default: bool) -> bool:
 class Settings:
     database_url: str = os.getenv("DATABASE_URL", "")
     collection: str = os.getenv("LC_COLLECTION", "docs")
-    embed_model: str = os.getenv("EMBED_MODEL", "text-embedding-3-large")
+    embed_model: str = os.getenv("EMBED_MODEL", "text-embedding-3-small")
     llm_model: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
     chunk_size: int = int(os.getenv("CHUNK_SIZE", "1000"))
     chunk_overlap: int = int(os.getenv("CHUNK_OVERLAP", "200"))

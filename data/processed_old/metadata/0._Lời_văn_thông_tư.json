@@ -1,8 +1,0 @@
-{
-  "source_file": "data/raw/Thong tu/0. Lời văn thông tư.docx",
-  "document_type": "circular",
-  "category": "0. Lời văn thông tư.docx",
-  "chunk_count": 104,
-  "output_file": "data/processed/chunks/0._Lời_văn_thông_tư.jsonl",
-  "processed_at": "2025-11-02T01:01:47.410827"
-}

@@ -1,8 +1,0 @@
-                  List of tables
- Schema |          Name           | Type  | Owner  
---------+-------------------------+-------+--------
- public | documents               | table | sakana
- public | langchain_pg_collection | table | sakana
- public | langchain_pg_embedding  | table | sakana
-(3 rows)
-

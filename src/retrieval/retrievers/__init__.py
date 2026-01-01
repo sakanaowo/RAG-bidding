@@ -20,9 +20,7 @@ def create_retriever(
     enable_reranking: bool = True,
     reranker: Optional[BaseReranker] = None,
     reranker_type: Literal["bge", "openai"] = "bge",  # 🆕 Toggle reranker type
-    filter_status: Optional[
-        str
-    ] = "active",  # ✅ Default to 'active' (only active docs)
+    filter_status: Optional[str] = None,  # ⚠️ Deprecated - status not in embedding metadata
 ):
     """
     Factory function to create retriever based on mode.
@@ -32,9 +30,10 @@ def create_retriever(
         enable_reranking: Whether to enable reranking (default: True)
         reranker: Custom reranker instance (if None, creates based on reranker_type)
         reranker_type: Type of reranker to use ("bge" or "openai")
-        filter_status: Filter documents by status ("active", "archived", None for all)
-                      Default: "active" (only retrieve active documents)
-                      Set to None to retrieve all documents regardless of status
+        filter_status: ⚠️ DEPRECATED - Ignored (status not in embedding metadata)
+                      Status is enriched post-retrieval from documents table.
+                      Expired/superseded documents are still retrieved, 
+                      but marked in response for agent to mention.
 
     Modes:
     - fast: BaseVectorRetriever (no enhancement, no reranking)
@@ -53,11 +52,12 @@ def create_retriever(
     - OpenAI: GPT-4o-mini API-based reranking, API key required
     - Improves ranking quality by ~10-20% MRR
 
-    Filtering:
-    - Default: filter_status="active" (only active documents from documents table)
-    - Set filter_status=None to retrieve all documents (including archived)
-    - Status sync: documents table ↔ chunk metadata in vector DB
-    - Documents can be toggled via PATCH /api/documents/{id}/status
+    Document Status:
+    - Status is stored in `documents` table, NOT in embedding metadata
+    - All documents are retrieved regardless of status
+    - Status is enriched post-retrieval in qa_chain.py
+    - Expired documents are marked with ⚠️ warning in response
+    - Agent should mention validity status to users
     """
 
     # ✅ Reranking với BGE hoặc OpenAI nếu enable
@@ -72,8 +72,9 @@ def create_retriever(
         else:
             raise ValueError(f"Unknown reranker_type: {reranker_type}")
 
-    # Base retriever with status filtering
-    base = BaseVectorRetriever(k=5, filter_status=filter_status)
+    # Base retriever - no status filtering (status not in embedding metadata)
+    # Status enrichment happens post-retrieval in qa_chain.py
+    base = BaseVectorRetriever(k=5, filter_status=None)
 
     if mode == "fast":
         # Fast mode: no enhancement, no reranking

@@ -1,6 +1,26 @@
 """
 Upload Router
 API endpoints for file upload and document processing
+
+⚠️ STATUS: PARTIALLY IMPLEMENTED
+
+Implemented:
+    - /files POST: Upload and process files (working with LAW documents)
+    - /status/{upload_id}: Get processing status
+    - /classify: Document type classification
+    - /supported-types: List supported document types
+
+TODO [MEDIUM PRIORITY]: Complete remaining pipelines
+    - [ ] DECREE pipeline (Nghị định)  
+    - [ ] CIRCULAR pipeline (Thông tư)
+    - [ ] DECISION pipeline (Quyết định)
+    - [ ] BIDDING_FORM pipeline (Mẫu hồ sơ mời thầu)
+    - [ ] REPORT_FORM pipeline (Mẫu báo cáo)
+    - [ ] EXAM_QUESTION pipeline (Câu hỏi thi)
+
+TODO [LOW PRIORITY]: Additional features
+    - [ ] /cancel/{upload_id}: Job cancellation logic
+    - [ ] /stats: Statistics collection
 """
 
 from typing import List, Optional
@@ -263,8 +283,8 @@ async def get_supported_document_types():
             "max_files_per_batch": 10,
             "max_file_size_mb": 50,
             "supported_languages": ["Vietnamese", "English"],
-            "embedding_model": "text-embedding-3-large",
-            "embedding_dimensions": 3072,
+            "embedding_model": "text-embedding-3-small",
+            "embedding_dimensions": 1536,
             "chunk_size_range": [100, 5000],
             "chunk_overlap_range": [0, 1000],
         },

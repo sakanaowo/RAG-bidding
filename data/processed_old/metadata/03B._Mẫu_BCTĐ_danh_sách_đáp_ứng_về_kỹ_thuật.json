@@ -1,8 +1,0 @@
-{
-  "source_file": "data/raw/Mau bao cao/3. Báo cáo thẩm định/03B. Mẫu BCTĐ danh sách đáp ứng về kỹ thuật.docx",
-  "document_type": "bidding",
-  "category": "3. Báo cáo thẩm định",
-  "chunk_count": 11,
-  "output_file": "data/processed/chunks/03B._Mẫu_BCTĐ_danh_sách_đáp_ứng_về_kỹ_thuật.jsonl",
-  "processed_at": "2025-11-02T01:02:03.921374"
-}

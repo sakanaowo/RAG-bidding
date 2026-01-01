@@ -352,26 +352,28 @@ def get_db_sync():
     in background tasks or non-async code paths. Prefer async get_db() for API endpoints.
 
     Returns:
-        Database session (psycopg2 style)
+        Database session (psycopg style)
     """
-    import psycopg2
+    import psycopg
     from urllib.parse import urlparse
 
-    # Parse async database URL and convert to sync
+    # Parse database URL
     db_url = settings.database_url
 
-    # Convert postgresql+asyncpg:// to postgresql://
+    # Convert postgresql+asyncpg:// or postgresql+psycopg:// to postgresql://
     if db_url.startswith("postgresql+asyncpg://"):
         db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+    elif db_url.startswith("postgresql+psycopg://"):
+        db_url = db_url.replace("postgresql+psycopg://", "postgresql://")
 
     # Parse URL
     parsed = urlparse(db_url)
 
-    # Create psycopg2 connection
-    conn = psycopg2.connect(
+    # Create psycopg connection
+    conn = psycopg.connect(
         host=parsed.hostname,
         port=parsed.port or 5432,
-        database=parsed.path.lstrip("/"),
+        dbname=parsed.path.lstrip("/"),
         user=parsed.username,
         password=parsed.password,
     )

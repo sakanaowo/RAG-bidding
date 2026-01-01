@@ -1,8 +1,0 @@
-{
-  "source_file": "data/raw/Mau bao cao/2. Báo cáo đánh giá/02A. Mẫu BCĐG cho 1 giai đoạn 1 túi.docx",
-  "document_type": "bidding",
-  "category": "2. Báo cáo đánh giá",
-  "chunk_count": 27,
-  "output_file": "data/processed/chunks/02A._Mẫu_BCĐG_cho_1_giai_đoạn_1_túi.jsonl",
-  "processed_at": "2025-11-02T01:02:04.785245"
-}

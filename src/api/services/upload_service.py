@@ -327,7 +327,7 @@ class UploadProcessingService:
                 or file_info["original_name"]
             )
             source_file = file_info["temp_path"]
-            file_name = file_info["original_name"]
+            filename = file_info["original_name"]
 
             # Determine category from doc_type
             category_mapping = {
@@ -348,7 +348,7 @@ class UploadProcessingService:
                 document_name=document_name,
                 document_type=doc_type,
                 category=category,
-                file_name=file_name,
+                filename=filename,
                 source_file=source_file,
                 total_chunks=len(chunks),
             )
@@ -436,7 +436,7 @@ class UploadProcessingService:
         document_name: str,
         document_type: str,
         category: str,
-        file_name: str,
+        filename: str,
         source_file: str,
         total_chunks: int,
     ):
@@ -457,7 +457,7 @@ class UploadProcessingService:
                     document_name,
                     document_type,
                     category,
-                    file_name,
+                    filename,
                     source_file,
                     total_chunks,
                     status,
@@ -468,7 +468,7 @@ class UploadProcessingService:
                     %(document_name)s,
                     %(document_type)s,
                     %(category)s,
-                    %(file_name)s,
+                    %(filename)s,
                     %(source_file)s,
                     %(total_chunks)s,
                     'active',
@@ -488,7 +488,7 @@ class UploadProcessingService:
                     "document_name": document_name[:200],  # Truncate if needed
                     "document_type": document_type,
                     "category": category,
-                    "file_name": file_name,
+                    "filename": filename,
                     "source_file": source_file,
                     "total_chunks": total_chunks,
                 },

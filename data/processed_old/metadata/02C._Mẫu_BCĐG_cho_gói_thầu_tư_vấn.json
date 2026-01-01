@@ -1,8 +1,0 @@
-{
-  "source_file": "data/raw/Mau bao cao/2. Báo cáo đánh giá/02C. Mẫu BCĐG cho gói thầu tư vấn.doc",
-  "document_type": "bidding",
-  "category": "2. Báo cáo đánh giá",
-  "chunk_count": 38,
-  "output_file": "data/processed/chunks/02C._Mẫu_BCĐG_cho_gói_thầu_tư_vấn.jsonl",
-  "processed_at": "2025-11-02T01:02:04.801135"
-}
