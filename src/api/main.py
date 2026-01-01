@@ -21,6 +21,7 @@ from .middleware import (
     AuthMiddleware,
     RequestLoggingMiddleware,
     RateLimitMiddleware,
+    CORSAuthMiddleware,
 )
 
 
@@ -93,7 +94,17 @@ app = FastAPI(
 # ============================================================================
 # MIDDLEWARE (order matters - first added = outermost = runs first)
 # ============================================================================
-# Request logging (outermost - logs all requests including errors)
+# CORS middleware (must be outermost to handle preflight requests)
+# Get allowed origins from environment variable
+cors_origins_str = os.environ.get("CORS_ORIGINS", "http://localhost:3000")
+cors_origins = [
+    origin.strip() for origin in cors_origins_str.split(",") if origin.strip()
+]
+app.add_middleware(
+    CORSAuthMiddleware, allow_origins=cors_origins, allow_credentials=True, max_age=600
+)
+
+# Request logging (logs all requests including errors)
 app.add_middleware(RequestLoggingMiddleware)
 
 # Rate limiting (before auth to prevent brute force)
@@ -146,7 +157,7 @@ class AskIn(BaseModel):
         },
     )
     mode: Literal["fast", "balanced", "quality", "adaptive"] = Field(
-        default="balanced",
+        default="fast",
         description="RAG mode: fast (1s), balanced (2-3s), quality (3-5s), adaptive",
     )
     reranker: Literal["bge", "openai"] = Field(
