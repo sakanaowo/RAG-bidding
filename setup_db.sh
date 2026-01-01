@@ -5,9 +5,9 @@
 
 # --- Configuration ---
 # Replace with your desired database name, user, and password.
-DB_NAME="ragdb"
-DB_USER="superuser"
-DB_PASSWORD="rag-bidding"
+DB_NAME="rag_bidding_v2"
+DB_USER="rag_user"
+DB_PASSWORD="your_secure_password"
 PG_VERSION="18" # Make sure this version is available for your system
 
 # --- Installation ---
@@ -38,29 +38,56 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
 # --- Enable pgvector extension ---
 
 # Connect to the new database and enable the vector extension
-sudo -u postgres psql -d $DB_NAME -c "CREATE EXTENSION vector;"
+sudo -u postgres psql -d $DB_NAME -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+# --- Grant Schema Permissions ---
+
+# Grant permissions on public schema
+sudo -u postgres psql -d $DB_NAME -c "GRANT ALL ON SCHEMA public TO $DB_USER;"
+sudo -u postgres psql -d $DB_NAME -c "GRANT ALL ON ALL TABLES IN SCHEMA public TO $DB_USER;"
+sudo -u postgres psql -d $DB_NAME -c "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO $DB_USER;"
+sudo -u postgres psql -d $DB_NAME -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO $DB_USER;"
 
 # --- Verification ---
 
-# You can verify the setup by connecting to the database:
-# psql -U your_db_user -d your_db_name
-# And then running the following command inside psql:
-# \dx
-# You should see "vector" in the list of installed extensions.
-
-echo "Database setup complete."
+echo ""
+echo "✅ Database setup complete!"
+echo "================================"
 echo "Database: $DB_NAME"
 echo "User: $DB_USER"
 echo "Password: $DB_PASSWORD"
+echo ""
+echo "📝 Next steps:"
+echo "1. Update .env file with:"
+echo "   DATABASE_URL=postgresql+psycopg://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME"
+echo "   LC_COLLECTION=docs"
+echo ""
+echo "2. Activate conda environment:"
+echo "   conda activate rag-bidding"
+echo ""
+echo "3. Bootstrap database tables:"
+echo "   python scripts/bootstrap_db.py"
+echo ""
+echo "4. Import data:"
+echo "   python scripts/import_processed_chunks.py"
+echo ""
+echo "Verify setup:"
+echo "   psql -U $DB_USER -d $DB_NAME -h localhost -c '\dx'"
+echo ""
 
-# dump DB
-# pg_dump -h localhost -U rag -d ragdb -Fc -f ragdb_dump.pg
-
-# restore DB
-# Chuyển file ragdb_dump.pg sang server công ty (scp ragdb_dump.pg user@server:/tmp/)
-# pg_restore -h localhost -U rag -d ragdb --clean --create /tmp/ragdb_dump.pg
-
-# setup for backend
-# export DATABASE_URL="postgresql+psycopg2://superuser:rag-bidding@localhost:5432/ragdb"
-# export PGVECTOR_EXTENSION=True
-# export VECTOR_DIMENSION=1536 # embedding dimension of model:text-embedding-3-large
+# --- Backup & Restore Commands (for reference) ---
+# 
+# Create backup:
+# pg_dump -U $DB_USER -d $DB_NAME -F c -f rag_bidding_backup.dump
+#
+# Restore from backup:
+# pg_restore -U $DB_USER -d $DB_NAME -c rag_bidding_backup.dump
+#
+# Export to SQL:
+# pg_dump -U $DB_USER -d $DB_NAME > rag_bidding_backup.sql
+#
+# Current configuration for .env:
+# DATABASE_URL=postgresql+psycopg://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME
+# LC_COLLECTION=docs
+# EMBED_MODEL=text-embedding-3-large  # 3072 dimensions (native)
+# LLM_MODEL=gpt-4o-mini

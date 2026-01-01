@@ -18,9 +18,17 @@ class BaseVectorRetriever(BaseRetriever):
 
     Tuân thủ LangChain BaseRetriever interface để có thể sử dụng trong chains.
 
+    NOTE on status filtering:
+    - Embedding metadata does NOT contain 'status' field (by design)
+    - Status is stored in 'documents' table for post-retrieval enrichment
+    - Agent should mention expired/superseded status in response, not filter them out
+    - Use filter_dict for other metadata filters (e.g. {"document_type": "law", "dieu": "14"})
+    
     Supports metadata filtering:
-    - filter_status: Filter by document status ("active", "expired", None)
-    - filter_dict: Custom PGVector filter (e.g. {"status": "active", "dieu": "14"})
+    - filter_dict: Custom PGVector filter (e.g. {"document_type": "law", "dieu": "14"})
+    
+    Deprecated (no-op):
+    - filter_status: Ignored - status not in embedding metadata
     """
 
     k: int = 5
@@ -46,24 +54,45 @@ class BaseVectorRetriever(BaseRetriever):
         # Build filter
         pgvector_filter = self._build_filter()
 
+        # 🔍 DEBUG: Log filter being used
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"🔍 BaseVectorRetriever - filter_status={self.filter_status}, pgvector_filter={pgvector_filter}, k={self.k}")
+
         # Retrieve with filter
         if pgvector_filter:
             # Retrieve more docs if filtering (to get k after filter)
             retrieve_k = self.k * 2
-            return vector_store.similarity_search(
+            docs = vector_store.similarity_search(
                 query, k=retrieve_k, filter=pgvector_filter
             )[: self.k]
+            logger.info(f"✅ Retrieved {len(docs)} docs after filtering (retrieve_k={retrieve_k})")
+            return docs
         else:
-            return vector_store.similarity_search(query, k=self.k)
+            docs = vector_store.similarity_search(query, k=self.k)
+            logger.info(f"✅ Retrieved {len(docs)} docs without filter")
+            return docs
 
     def _build_filter(self) -> Optional[Dict[str, Any]]:
-        """Build PGVector filter from filter_status and filter_dict."""
+        """
+        Build PGVector filter from filter_dict.
+        
+        NOTE: filter_status is ignored because:
+        - Embedding metadata does NOT contain 'status' field
+        - Status is in 'documents' table for post-retrieval enrichment
+        - Documents should be retrieved regardless of status, then agent mentions validity
+        """
+        if self.filter_status:
+            import logging
+            logging.getLogger(__name__).debug(
+                f"filter_status='{self.filter_status}' ignored - status not in embedding metadata. "
+                "Use documents table for status-based decisions."
+            )
+        
         if self.filter_dict:
             return self.filter_dict
 
-        if self.filter_status:
-            return {"status": self.filter_status}
-
+        # No filtering - retrieve all documents
         return None
 
     async def _aget_relevant_documents(

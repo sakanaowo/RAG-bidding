@@ -1,0 +1,8 @@
+{
+  "source_file": "data/raw/Ho so moi thau/7. EP (tư vấn_hàng hóa)/7. Mẫu số 7C. E-HSMST_EP sơ tuyển.docx",
+  "document_type": "bidding",
+  "category": "7. EP (tư vấn_hàng hóa)",
+  "chunk_count": 15,
+  "output_file": "data/processed/chunks/7._Mẫu_số_7C._E-HSMST_EP_sơ_tuyển.jsonl",
+  "processed_at": "2025-11-04T12:13:33.564103"
+}

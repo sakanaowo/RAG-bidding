@@ -1,0 +1,8 @@
+{
+  "source_file": "data/raw/Ho so moi thau/12. Chào giá trực tuyến/12. Mẫu số 12G CGTT rút gọn xử lý tình huống final.docx",
+  "document_type": "bidding",
+  "category": "12. Chào giá trực tuyến",
+  "chunk_count": 4,
+  "output_file": "data/processed_enriched/chunks/12._Mẫu_số_12G_CGTT_rút_gọn_xử_lý_tình_huống_final.jsonl",
+  "processed_at": "2025-11-04T12:13:36.001085"
+}

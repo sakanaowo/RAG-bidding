@@ -1,6 +1,6 @@
 # src/retrieval/retrievers/__init__.py
 
-from typing import Optional
+from typing import Optional, Literal
 from .base_vector_retriever import BaseVectorRetriever
 from .enhanced_retriever import EnhancedRetriever
 from .fusion_retriever import FusionRetriever
@@ -8,14 +8,19 @@ from .adaptive_k_retriever import AdaptiveKRetriever
 
 from src.embedding.store.pgvector_store import vector_store
 from src.retrieval.query_processing import EnhancementStrategy
-from src.retrieval.ranking import BGEReranker, BaseReranker
+from src.retrieval.ranking import (
+    BaseReranker,
+    get_singleton_reranker,
+    OpenAIReranker,  # 🆕 Import OpenAI reranker
+)  # ⭐ Import singleton factory
 
 
 def create_retriever(
     mode: str = "balanced",
     enable_reranking: bool = True,
     reranker: Optional[BaseReranker] = None,
-    filter_status: Optional[str] = "active",  # 🆕 Default to active documents only
+    reranker_type: Literal["bge", "openai"] = "bge",  # 🆕 Toggle reranker type
+    filter_status: Optional[str] = None,  # ⚠️ Deprecated - status not in embedding metadata
 ):
     """
     Factory function to create retriever based on mode.
@@ -23,9 +28,12 @@ def create_retriever(
     Args:
         mode: Retrieval mode
         enable_reranking: Whether to enable reranking (default: True)
-        reranker: Custom reranker instance (if None, uses BGEReranker)
-        filter_status: Filter documents by status ("active", "expired", None for all)
-                      Default: "active" (only retrieve active/current documents)
+        reranker: Custom reranker instance (if None, creates based on reranker_type)
+        reranker_type: Type of reranker to use ("bge" or "openai")
+        filter_status: ⚠️ DEPRECATED - Ignored (status not in embedding metadata)
+                      Status is enriched post-retrieval from documents table.
+                      Expired/superseded documents are still retrieved, 
+                      but marked in response for agent to mention.
 
     Modes:
     - fast: BaseVectorRetriever (no enhancement, no reranking)
@@ -40,23 +48,33 @@ def create_retriever(
     - Decomposition: Break complex queries into sub-questions
 
     Reranking:
-    - Uses BGE (BAAI/bge-reranker-v2-m3) by default
-    - Auto-detects GPU for acceleration
+    - BGE (default): BAAI/bge-reranker-v2-m3, singleton pattern, GPU accelerated
+    - OpenAI: GPT-4o-mini API-based reranking, API key required
     - Improves ranking quality by ~10-20% MRR
 
-    Filtering:
-    - Default: filter_status="active" (only current/valid documents)
-    - Set filter_status=None to retrieve all documents (including expired)
-    - Legal docs (Luật: 5yr, Nghị định/Thông tư: 2yr validity)
-    - Educational materials: 5yr validity
+    Document Status:
+    - Status is stored in `documents` table, NOT in embedding metadata
+    - All documents are retrieved regardless of status
+    - Status is enriched post-retrieval in qa_chain.py
+    - Expired documents are marked with ⚠️ warning in response
+    - Agent should mention validity status to users
     """
 
-    # Initialize reranker if enabled
+    # ✅ Reranking với BGE hoặc OpenAI nếu enable
     if enable_reranking and reranker is None:
-        reranker = BGEReranker()  # Auto-detects GPU
+        if reranker_type == "bge":
+            # ⭐ FIXED: Dùng singleton thay vì tạo instance mới
+            # Giảm memory: 60 instances (20GB) → 1 instance (1.2GB)
+            reranker = get_singleton_reranker()
+        elif reranker_type == "openai":
+            # 🆕 OpenAI-based reranker (API key required)
+            reranker = OpenAIReranker()
+        else:
+            raise ValueError(f"Unknown reranker_type: {reranker_type}")
 
-    # Base retriever with status filtering
-    base = BaseVectorRetriever(k=5, filter_status=filter_status)
+    # Base retriever - no status filtering (status not in embedding metadata)
+    # Status enrichment happens post-retrieval in qa_chain.py
+    base = BaseVectorRetriever(k=5, filter_status=None)
 
     if mode == "fast":
         # Fast mode: no enhancement, no reranking

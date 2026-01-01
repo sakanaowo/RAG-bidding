@@ -1,0 +1,8 @@
+{
+  "source_file": "data/raw/Ho so moi thau/9. PC (hàng hóa_xây lắp)/9. Mẫu số 9C_E-HSMST_PC sơ tuyển.docx",
+  "document_type": "bidding",
+  "category": "9. PC (hàng hóa_xây lắp)",
+  "chunk_count": 18,
+  "output_file": "data/processed_enriched/chunks/9._Mẫu_số_9C_E-HSMST_PC_sơ_tuyển.jsonl",
+  "processed_at": "2025-11-04T12:13:43.824855"
+}

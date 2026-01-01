@@ -48,7 +48,7 @@ class OptimalLegalChunker:
         self.overlap_size = overlap_size
 
         # Token checker for validation
-        self.token_checker = TokenChecker(model="text-embedding-3-large")
+        self.token_checker = TokenChecker(model="text-embedding-3-small")
 
         # Legal structure patterns
         self.patterns = {

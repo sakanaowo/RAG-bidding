@@ -1,0 +1,8 @@
+{
+  "source_file": "data/raw/Ho so moi thau/01. Phụ lục.doc",
+  "document_type": "bidding",
+  "category": "01. Phụ lục.doc",
+  "chunk_count": 48,
+  "output_file": "data/processed/chunks/01._Phụ_lục.jsonl",
+  "processed_at": "2025-11-04T12:13:32.515258"
+}

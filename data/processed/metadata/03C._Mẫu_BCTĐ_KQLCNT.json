@@ -1,0 +1,8 @@
+{
+  "source_file": "data/raw/Mau bao cao/3. Báo cáo thẩm định/03C. Mẫu BCTĐ KQLCNT.docx",
+  "document_type": "bidding",
+  "category": "3. Báo cáo thẩm định",
+  "chunk_count": 11,
+  "output_file": "data/processed/chunks/03C._Mẫu_BCTĐ_KQLCNT.jsonl",
+  "processed_at": "2025-11-04T12:13:49.438376"
+}
