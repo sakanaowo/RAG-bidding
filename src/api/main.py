@@ -70,24 +70,15 @@ Sử dụng JWT Bearer token. Các bước:
 SWAGGER_TAGS = [
     {
         "name": "Authentication",
-        "description": "User registration, login, and account management"
+        "description": "User registration, login, and account management",
     },
     {
-        "name": "Conversations", 
-        "description": "Chat conversations with RAG-powered responses"
+        "name": "Conversations",
+        "description": "Chat conversations with RAG-powered responses",
     },
-    {
-        "name": "Documents",
-        "description": "Document management and statistics"
-    },
-    {
-        "name": "Upload",
-        "description": "Document upload and processing"
-    },
-    {
-        "name": "System",
-        "description": "Health checks and system information"
-    }
+    {"name": "Documents", "description": "Document management and statistics"},
+    {"name": "Upload", "description": "Document upload and processing"},
+    {"name": "System", "description": "Health checks and system information"},
 ]
 
 app = FastAPI(
@@ -117,7 +108,9 @@ app.add_middleware(AuthMiddleware)
 # Include routers
 # ⚠️ ORDER MATTERS: Specific paths MUST come before dynamic paths
 app.include_router(auth.router, prefix="/api")  # Auth endpoints - /auth/*
-app.include_router(conversations.router, prefix="/api")  # Conversations - /conversations/*
+app.include_router(
+    conversations.router, prefix="/api"
+)  # Conversations - /conversations/*
 app.include_router(upload.router, prefix="/api")
 app.include_router(
     documents_management.router, prefix="/api"
@@ -144,33 +137,35 @@ bootstrap()
 
 class AskIn(BaseModel):
     """Request body for quick Q&A endpoint"""
+
     question: str = Field(
         ...,
         description="Câu hỏi về pháp luật đấu thầu Việt Nam",
-        json_schema_extra={"example": "Điều kiện để nhà thầu được tham gia đấu thầu là gì?"}
+        json_schema_extra={
+            "example": "Điều kiện để nhà thầu được tham gia đấu thầu là gì?"
+        },
     )
     mode: Literal["fast", "balanced", "quality", "adaptive"] = Field(
         default="balanced",
-        description="RAG mode: fast (1s), balanced (2-3s), quality (3-5s), adaptive"
+        description="RAG mode: fast (1s), balanced (2-3s), quality (3-5s), adaptive",
     )
     reranker: Literal["bge", "openai"] = Field(
-        default="bge",
-        description="Reranker: bge (local, free) hoặc openai (API, paid)"
+        default="bge", description="Reranker: bge (local, free) hoặc openai (API, paid)"
     )
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
                     "question": "Điều kiện để nhà thầu được tham gia đấu thầu là gì?",
                     "mode": "balanced",
-                    "reranker": "bge"
+                    "reranker": "bge",
                 },
                 {
                     "question": "Quy trình lựa chọn nhà thầu qua mạng như thế nào?",
                     "mode": "quality",
-                    "reranker": "bge"
-                }
+                    "reranker": "bge",
+                },
             ]
         }
     }
@@ -178,6 +173,7 @@ class AskIn(BaseModel):
 
 class SourceDocument(BaseModel):
     """Detailed source document info"""
+
     document_id: str = Field("", description="Document identifier")
     document_name: str = Field("", description="Document title/name")
     chunk_id: str = Field("", description="Chunk identifier")
@@ -191,11 +187,20 @@ class SourceDocument(BaseModel):
 
 class AskResponse(BaseModel):
     """Response from Q&A endpoint"""
+
     answer: str = Field(..., description="Câu trả lời từ LLM")
-    sources: list[str] = Field(default=[], description="Danh sách nguồn (format đơn giản)")
-    source_documents_raw: list[SourceDocument] = Field(default=[], description="Chi tiết nguồn tài liệu")
-    adaptive_retrieval: dict = Field(default={}, description="Thông tin adaptive retrieval")
-    enhanced_features: list[str] = Field(default=[], description="Các features đã sử dụng")
+    sources: list[str] = Field(
+        default=[], description="Danh sách nguồn (format đơn giản)"
+    )
+    source_documents_raw: list[SourceDocument] = Field(
+        default=[], description="Chi tiết nguồn tài liệu"
+    )
+    adaptive_retrieval: dict = Field(
+        default={}, description="Thông tin adaptive retrieval"
+    )
+    enhanced_features: list[str] = Field(
+        default=[], description="Các features đã sử dụng"
+    )
     processing_time_ms: int = Field(None, description="Thời gian xử lý (ms)")
 
 
@@ -203,7 +208,7 @@ class AskResponse(BaseModel):
 def health():
     """
     Health check endpoint
-    
+
     Kiểm tra kết nối database PostgreSQL.
     Returns: `{"db": true}` nếu OK
     """
@@ -224,10 +229,10 @@ def health():
 def ask(body: AskIn):
     """
     Quick Q&A endpoint (No authentication required)
-    
+
     Gửi câu hỏi và nhận câu trả lời từ hệ thống RAG.
     Không cần đăng nhập - phù hợp cho testing nhanh.
-    
+
     **RAG Modes:**
     - `fast`: Không enhancement, không reranking (~1s)
     - `balanced`: Multi-Query + BGE reranking (~2-3s) ⭐ Recommended
@@ -257,7 +262,7 @@ def ask(body: AskIn):
 def get_system_stats():
     """
     Get system statistics and configuration
-    
+
     Hiển thị cấu hình vector store, LLM, và các feature flags.
     """
     return {
@@ -300,7 +305,7 @@ def get_feature_flags():
 def root():
     """
     API root with helpful links
-    
+
     Trang chủ API với danh sách các endpoints chính.
     """
     return {
@@ -314,17 +319,14 @@ def root():
             "auth": {
                 "register": "POST /api/auth/register",
                 "login": "POST /api/auth/login",
-                "me": "GET /api/auth/me"
+                "me": "GET /api/auth/me",
             },
             "conversations": {
                 "create": "POST /api/conversations",
                 "list": "GET /api/conversations",
-                "send_message": "POST /api/conversations/{id}/messages"
+                "send_message": "POST /api/conversations/{id}/messages",
             },
-            "documents": "GET /api/documents"
+            "documents": "GET /api/documents",
         },
-        "docs": {
-            "swagger": "/docs",
-            "redoc": "/redoc"
-        }
+        "docs": {"swagger": "/docs", "redoc": "/redoc"},
     }

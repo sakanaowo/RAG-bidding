@@ -52,14 +52,14 @@ class DocumentMetadata(BaseModel):
     """Document metadata from documents table."""
 
     document_id: str = Field(..., description="Unique document identifier")
-    document_name: str = Field(..., description="Document name/title")
+    document_name: Optional[str] = Field(None, description="Document name/title")
     document_type: str = Field(..., description="Type: law, decree, bidding, etc.")
-    category: str = Field(..., description="Category classification")
-    filename: str = Field(..., description="Original file name")
-    total_chunks: int = Field(..., description="Number of chunks")
-    status: str = Field(..., description="Document status: active, archived, etc.")
-    created_at: str = Field(..., description="Creation timestamp")
-    updated_at: str = Field(..., description="Last update timestamp")
+    category: Optional[str] = Field(None, description="Category classification")
+    filename: Optional[str] = Field(None, description="Original file name")
+    total_chunks: int = Field(0, description="Number of chunks")
+    status: str = Field("active", description="Document status: active, archived, etc.")
+    created_at: Optional[str] = Field(None, description="Creation timestamp")
+    updated_at: Optional[str] = Field(None, description="Last update timestamp")
 
 
 class DocumentSummary(BaseModel):
@@ -266,7 +266,7 @@ async def list_documents(
                 document_name=row.document_name,
                 document_type=row.document_type,
                 category=row.category,
-                file_name=row.filename,
+                filename=row.filename,
                 total_chunks=row.total_chunks,
                 status=row.status,
                 created_at=row.created_at.isoformat() if row.created_at else None,
@@ -526,7 +526,7 @@ async def get_document(
             document_name=row.document_name,
             document_type=row.document_type,
             category=row.category,
-            file_name=row.filename,
+            filename=row.filename,
             total_chunks=row.total_chunks,
             status=row.status,
             created_at=row.created_at.isoformat() if row.created_at else None,
