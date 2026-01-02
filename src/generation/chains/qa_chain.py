@@ -64,7 +64,7 @@ def is_complex_query(question: str) -> bool:
 def is_casual_query(question: str) -> tuple[bool, str | None]:
     """
     Detect if query is casual/conversational (not requiring RAG).
-    
+
     Returns:
         Tuple of (is_casual, direct_response)
         - is_casual: True if query doesn't need RAG
@@ -72,39 +72,71 @@ def is_casual_query(question: str) -> tuple[bool, str | None]:
     """
     question_lower = question.lower().strip()
     question_stripped = question.strip()
-    
+
     # Very short queries (likely greetings)
     if len(question_stripped) < 5:
-        return True, "Xin chào! 👋 Tôi là trợ lý pháp luật đấu thầu. Bạn có câu hỏi gì về đấu thầu không?"
-    
+        return (
+            True,
+            "Xin chào! 👋 Tôi là trợ lý pháp luật đấu thầu. Bạn có câu hỏi gì về đấu thầu không?",
+        )
+
     # Greeting patterns
     greetings = [
-        "xin chào", "chào bạn", "chào", "hello", "hi", "hey",
-        "alo", "ê", "ơi", "bạn ơi", "chào buổi sáng", "chào buổi tối",
-        "good morning", "good afternoon", "good evening",
+        "xin chào",
+        "chào bạn",
+        "chào",
+        "hello",
+        "hi",
+        "hey",
+        "alo",
+        "ê",
+        "ơi",
+        "bạn ơi",
+        "chào buổi sáng",
+        "chào buổi tối",
+        "good morning",
+        "good afternoon",
+        "good evening",
     ]
-    
+
     for greeting in greetings:
-        if question_lower == greeting or question_lower.startswith(greeting + " ") or question_lower.startswith(greeting + ","):
-            return True, "Xin chào! 👋 Tôi là trợ lý chuyên về pháp luật đấu thầu Việt Nam. Bạn cần hỏi gì về đấu thầu, tôi sẵn sàng hỗ trợ!"
-    
+        if (
+            question_lower == greeting
+            or question_lower.startswith(greeting + " ")
+            or question_lower.startswith(greeting + ",")
+        ):
+            return (
+                True,
+                "Xin chào! 👋 Tôi là trợ lý chuyên về pháp luật đấu thầu Việt Nam. Bạn cần hỏi gì về đấu thầu, tôi sẵn sàng hỗ trợ!",
+            )
+
     # Thank you patterns
     thanks = ["cảm ơn", "cám ơn", "thank", "thanks", "tks", "ok cảm ơn", "ok thanks"]
     for thank in thanks:
         if thank in question_lower:
-            return True, "Không có gì! 😊 Nếu bạn có thêm câu hỏi về đấu thầu, cứ hỏi nhé!"
-    
+            return (
+                True,
+                "Không có gì! 😊 Nếu bạn có thêm câu hỏi về đấu thầu, cứ hỏi nhé!",
+            )
+
     # Goodbye patterns
     goodbyes = ["tạm biệt", "bye", "goodbye", "hẹn gặp lại", "chào nhé"]
     for goodbye in goodbyes:
         if goodbye in question_lower:
             return True, "Tạm biệt! 👋 Hẹn gặp lại bạn. Chúc bạn một ngày tốt lành!"
-    
+
     # Identity questions
     identity_patterns = [
-        "bạn là ai", "bạn là gì", "tên bạn là gì", "ai tạo ra bạn",
-        "bạn có thể làm gì", "bạn làm được gì", "giới thiệu bản thân",
-        "what are you", "who are you", "what can you do",
+        "bạn là ai",
+        "bạn là gì",
+        "tên bạn là gì",
+        "ai tạo ra bạn",
+        "bạn có thể làm gì",
+        "bạn làm được gì",
+        "giới thiệu bản thân",
+        "what are you",
+        "who are you",
+        "what can you do",
     ]
     for pattern in identity_patterns:
         if pattern in question_lower:
@@ -117,12 +149,23 @@ def is_casual_query(question: str) -> tuple[bool, str | None]:
                 "- Hướng dẫn về hồ sơ mời thầu, đánh giá thầu\n\n"
                 "Hãy đặt câu hỏi cụ thể về đấu thầu để tôi hỗ trợ bạn!"
             )
-    
+
     # Simple yes/no or confirmation
-    simple_responses = ["ok", "ừ", "uh", "được", "rồi", "vâng", "dạ", "yes", "no", "không"]
+    simple_responses = [
+        "ok",
+        "ừ",
+        "uh",
+        "được",
+        "rồi",
+        "vâng",
+        "dạ",
+        "yes",
+        "no",
+        "không",
+    ]
     if question_lower in simple_responses:
         return True, "Bạn có câu hỏi gì khác về đấu thầu không? Tôi sẵn sàng hỗ trợ!"
-    
+
     return False, None
 
 
@@ -287,12 +330,15 @@ def answer(
         Dict with answer, sources, and metadata
     """
     import logging
+
     logger = logging.getLogger(__name__)
-    
+
     # ✅ EARLY EXIT: Check if query is casual/conversational (no RAG needed)
     is_casual, direct_response = is_casual_query(question)
     if is_casual:
-        logger.info(f"💬 Casual query detected, skipping RAG pipeline: '{question[:50]}...'")
+        logger.info(
+            f"💬 Casual query detected, skipping RAG pipeline: '{question[:50]}...'"
+        )
         return {
             "answer": direct_response,
             "sources": [],
@@ -308,7 +354,7 @@ def answer(
             "enhanced_features": [],
             "document_statuses": {},
         }
-    
+
     selected_mode = mode or settings.rag_mode or "balanced"
     apply_preset(selected_mode)
 
