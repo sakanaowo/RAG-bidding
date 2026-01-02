@@ -14,8 +14,7 @@ load_dotenv()
 
 # Database URL from environment
 DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+psycopg://sakana:sakana123@localhost:5432/rag_bidding_v2",
+    "DATABASE_URL"
 )
 
 # Create engine with connection pooling

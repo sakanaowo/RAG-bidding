@@ -70,55 +70,59 @@ def is_complex_query(question: str) -> bool:
 def _get_document_statuses(docs) -> Dict[str, str]:
     """
     Get document statuses from documents table.
-    
+
     This enriches retrieved documents with their validity status
     (active/expired/superseded) from the documents table.
-    
+
     Args:
         docs: List of LangChain Documents with document_id in metadata
-        
+
     Returns:
         Dict mapping document_id to status string
     """
     from src.models.base import SessionLocal
     from src.models.documents import Document
     import logging
-    
+
     logger = logging.getLogger(__name__)
     statuses = {}
-    
+
     # Extract unique document_ids from retrieved docs
     doc_ids = set()
     for d in docs:
         doc_id = d.metadata.get("document_id")
         if doc_id:
             doc_ids.add(doc_id)
-    
+
     if not doc_ids:
         return statuses
-    
+
     # Query documents table for statuses
     try:
         db = SessionLocal()
         try:
             # Query by document_id field (not UUID id)
-            documents = db.query(Document.document_id, Document.status).filter(
-                Document.document_id.in_(list(doc_ids))
-            ).all()
-            
+            documents = (
+                db.query(Document.document_id, Document.status)
+                .filter(Document.document_id.in_(list(doc_ids)))
+                .all()
+            )
+
             for doc in documents:
                 statuses[doc.document_id] = doc.status or "active"
-                
+
             # Log if any expired documents found
             expired_docs = [d for d, s in statuses.items() if s != "active"]
             if expired_docs:
-                logger.info(f"📋 Found {len(expired_docs)} non-active documents in results: {expired_docs}")
-                
+                logger.info(
+                    f"📋 Found {len(expired_docs)} non-active documents in results: {expired_docs}"
+                )
+
         finally:
             db.close()
     except Exception as e:
         logger.warning(f"Failed to fetch document statuses: {e}")
-    
+
     return statuses
 
 
@@ -132,7 +136,7 @@ def fmt_docs(docs):
 def format_document_reference(doc, index: int, doc_status: str | None = None) -> str:
     """
     Format document reference với thông tin chi tiết.
-    
+
     Args:
         doc: LangChain Document
         index: Reference number
@@ -180,7 +184,7 @@ def format_document_reference(doc, index: int, doc_status: str | None = None) ->
         doc_type_str = f" - {doc_type}"
     else:
         doc_type_str = ""
-    
+
     # Add status warning if document is not active
     status_warning = ""
     if doc_status and doc_status != "active":
@@ -207,13 +211,13 @@ def answer(
 ) -> Dict:
     """
     Answer a question using RAG pipeline.
-    
+
     Args:
         question: User's question
         mode: RAG mode (fast/balanced/quality/adaptive)
         reranker_type: Reranker to use ("bge" or "openai")
         filter_status: ⚠️ DEPRECATED - Ignored. Status enrichment happens post-retrieval.
-    
+
     Returns:
         Dict with answer, sources, and metadata
     """
@@ -259,7 +263,7 @@ def answer(
 
     # Enrich source documents with status from documents table
     doc_statuses = _get_document_statuses(result["source_documents"])
-    
+
     # Tạo detailed source references
     src_lines = []
     detailed_sources = []
@@ -269,10 +273,10 @@ def answer(
         # Get status from documents table (default to "active" if not found)
         doc_id = d.metadata.get("document_id", "")
         doc_status = doc_statuses.get(doc_id, "active")
-        
+
         if doc_status != "active":
             has_expired_docs = True
-        
+
         # Tạo reference chi tiết với status
         detailed_ref = format_document_reference(d, i, doc_status)
         detailed_sources.append(detailed_ref)
@@ -290,7 +294,7 @@ def answer(
 
         hierarchy = " ".join(hierarchy_parts) if hierarchy_parts else "Văn bản"
         doc_title = meta.get("title", "Tài liệu pháp luật")
-        
+
         # Add status to simple source line if not active
         status_suffix = f" [{doc_status.upper()}]" if doc_status != "active" else ""
         src_lines.append(f"[#{i}] {hierarchy} - {doc_title}{status_suffix}")
@@ -322,22 +326,22 @@ def answer(
     # Document Reranking (all modes except fast)
     if selected_mode != "fast" and settings.enable_reranking:
         enhanced_features.append("Document Reranking (BGE)")
-    
+
     # Add warning about expired documents in answer if needed
     answer_text = result["answer"].strip()
     if has_expired_docs:
         answer_text += "\n\n⚠️ **Lưu ý**: Một số tài liệu tham khảo đã hết hiệu lực hoặc được thay thế. Vui lòng kiểm tra văn bản hiện hành."
 
     return {
-        "answer": answer_text
-        + "\n\nNguồn:\n"
-        + "\n".join(detailed_sources),
+        "answer": answer_text,
         "sources": src_lines,
         "detailed_sources": detailed_sources,
         "source_documents_raw": [
             {
                 "document_id": d.metadata.get("document_id", ""),
-                "document_name": d.metadata.get("document_name", d.metadata.get("title", "Tài liệu")),
+                "document_name": d.metadata.get(
+                    "document_name", d.metadata.get("title", "Tài liệu")
+                ),
                 "chunk_id": d.metadata.get("chunk_id", ""),
                 "content": d.page_content[:500],  # First 500 chars as citation
                 "hierarchy": d.metadata.get("hierarchy", []),

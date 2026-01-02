@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI, HTTPException
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field
-from typing import List, Literal
+from typing import List, Literal, Optional
 from src.config.logging_config import setup_logging
 from src.config.models import settings
 from src.config.database import init_database, startup_database, shutdown_database
@@ -24,6 +24,13 @@ from .middleware import (
     CORSAuthMiddleware,
 )
 
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv()
 
 setup_logging()
 
@@ -212,7 +219,7 @@ class AskResponse(BaseModel):
     enhanced_features: list[str] = Field(
         default=[], description="Các features đã sử dụng"
     )
-    processing_time_ms: int = Field(None, description="Thời gian xử lý (ms)")
+    processing_time_ms: Optional[int] = Field(None, description="Thời gian xử lý (ms)")
 
 
 @app.get("/health", tags=["System"])
