@@ -13,15 +13,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Database URL from environment
-DATABASE_URL = os.getenv(
-    "DATABASE_URL"
-)
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL is None:
+    raise ValueError("DATABASE_URL environment variable is not set")
 
 # Create engine with connection pooling
 engine = create_engine(
     DATABASE_URL,
     poolclass=QueuePool,
-    pool_size=10,  # Number of permanent connections
+    pool_size=50,  # Number of permanent connections
     max_overflow=20,  # Max additional connections
     pool_timeout=30,  # Timeout for getting connection
     pool_recycle=3600,  # Recycle connections after 1 hour
