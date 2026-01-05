@@ -20,7 +20,9 @@ def create_retriever(
     enable_reranking: bool = True,
     reranker: Optional[BaseReranker] = None,
     reranker_type: Literal["bge", "openai"] = "bge",  # 🆕 Toggle reranker type
-    filter_status: Optional[str] = None,  # ⚠️ Deprecated - status not in embedding metadata
+    filter_status: Optional[
+        str
+    ] = None,  # ⚠️ Deprecated - status not in embedding metadata
 ):
     """
     Factory function to create retriever based on mode.
@@ -32,7 +34,7 @@ def create_retriever(
         reranker_type: Type of reranker to use ("bge" or "openai")
         filter_status: ⚠️ DEPRECATED - Ignored (status not in embedding metadata)
                       Status is enriched post-retrieval from documents table.
-                      Expired/superseded documents are still retrieved, 
+                      Expired/superseded documents are still retrieved,
                       but marked in response for agent to mention.
 
     Modes:
@@ -89,7 +91,7 @@ def create_retriever(
             ],
             reranker=reranker,  # 🆕
             k=5,
-            retrieval_k=10 if reranker else 5,  # Retrieve more if reranking
+            retrieval_k=5,  # 🔧 Reduced from 10 to 5 to avoid reranker overload
         )
 
     elif mode == "quality":
@@ -103,7 +105,7 @@ def create_retriever(
             ],
             reranker=reranker,  # 🆕
             k=5,
-            retrieval_k=10 if reranker else 5,  # Retrieve more if reranking
+            retrieval_k=5,  # 🔧 Reduced from 10 to 5 to avoid reranker overload
             rrf_k=60,
         )
 
@@ -116,7 +118,7 @@ def create_retriever(
             ],
             reranker=reranker,  # 🆕
             k=5,
-            retrieval_k=10 if reranker else 5,  # Retrieve more if reranking
+            retrieval_k=5,  # 🔧 Reduced from 10 to 5 to avoid reranker overload
         )
         return AdaptiveKRetriever(enhanced_retriever=enhanced, k_min=3, k_max=10)
 
