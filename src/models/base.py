@@ -17,16 +17,34 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL is None:
     raise ValueError("DATABASE_URL environment variable is not set")
 
+# =============================================================================
+# Connection Pool Configuration
+# =============================================================================
+# With 4 workers, each worker has its own pool:
+# - Per worker: 50 connections + 10 overflow = 60 max
+# - Total max: 4 workers × 60 = 240 connections
+# - PostgreSQL max_connections should be >= 250 (240 + reserved)
+#
+# Adjust these values based on your PostgreSQL max_connections setting.
+# Default PostgreSQL max_connections = 100, adjust in postgresql.conf if needed.
+# =============================================================================
+
+POOL_SIZE = int(os.getenv("DATABASE_POOL_SIZE", "50"))
+MAX_OVERFLOW = int(os.getenv("DATABASE_MAX_OVERFLOW", "10"))
+POOL_TIMEOUT = int(os.getenv("DATABASE_POOL_TIMEOUT", "30"))
+POOL_RECYCLE = int(os.getenv("DATABASE_POOL_RECYCLE", "3600"))
+SQL_DEBUG = os.getenv("SQL_DEBUG", "false").lower() == "true"
+
 # Create engine with connection pooling
 engine = create_engine(
     DATABASE_URL,
     poolclass=QueuePool,
-    pool_size=50,  # Number of permanent connections
-    max_overflow=20,  # Max additional connections
-    pool_timeout=30,  # Timeout for getting connection
-    pool_recycle=3600,  # Recycle connections after 1 hour
+    pool_size=POOL_SIZE,  # Connections per worker
+    max_overflow=MAX_OVERFLOW,  # Extra connections per worker
+    pool_timeout=POOL_TIMEOUT,  # Timeout for getting connection
+    pool_recycle=POOL_RECYCLE,  # Recycle connections after N seconds
     pool_pre_ping=True,  # Verify connections before using
-    echo=False,  # Set True for SQL debugging
+    echo=SQL_DEBUG,  # Set True for SQL debugging
 )
 
 # Session factory
