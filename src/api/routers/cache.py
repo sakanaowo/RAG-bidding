@@ -84,11 +84,11 @@ async def get_cache_stats():
     except Exception as e:
         stats["answer_cache"] = {"error": str(e)}
 
-    # Get semantic cache stats (Phase 2)
+    # Get semantic cache stats (Phase 2 - V2 Hybrid)
     try:
-        from src.retrieval.semantic_cache import get_semantic_cache
+        from src.retrieval.semantic_cache_v2 import get_semantic_cache_v2
 
-        semantic_cache = get_semantic_cache()
+        semantic_cache = get_semantic_cache_v2()
         stats["semantic_cache"] = semantic_cache.get_stats()
     except Exception as e:
         stats["semantic_cache"] = {"error": str(e)}
@@ -187,11 +187,11 @@ async def clear_semantic_cache():
         Number of embeddings cleared
     """
     try:
-        from src.retrieval.semantic_cache import get_semantic_cache
+        from src.retrieval.semantic_cache_v2 import get_semantic_cache_v2
 
-        semantic_cache = get_semantic_cache()
+        semantic_cache = get_semantic_cache_v2()
         result = semantic_cache.clear_all()
-        logger.info(f"✅ Semantic cache cleared: {result}")
+        logger.info(f"✅ Semantic cache V2 cleared: {result}")
         return {"success": True, "cleared": result}
 
     except Exception as e:
@@ -227,9 +227,9 @@ async def invalidate_query_cache(query: str):
         results["answer_cache_error"] = str(e)
 
     try:
-        from src.retrieval.semantic_cache import get_semantic_cache
+        from src.retrieval.semantic_cache_v2 import get_semantic_cache_v2
 
-        semantic_cache = get_semantic_cache()
+        semantic_cache = get_semantic_cache_v2()
         # Remove embedding for this query
         if semantic_cache._redis:
             key = semantic_cache._generate_key(query)
@@ -322,11 +322,11 @@ async def clear_all_caches():
     except Exception as e:
         results["answer_cache"] = {"error": str(e)}
 
-    # Clear semantic cache (Phase 2)
+    # Clear semantic cache (Phase 2 - V2 Hybrid)
     try:
-        from src.retrieval.semantic_cache import get_semantic_cache
+        from src.retrieval.semantic_cache_v2 import get_semantic_cache_v2
 
-        semantic_cache = get_semantic_cache()
+        semantic_cache = get_semantic_cache_v2()
         results["semantic_cache"] = semantic_cache.clear_all()
     except Exception as e:
         results["semantic_cache"] = {"error": str(e)}
@@ -408,14 +408,14 @@ async def cache_health():
     except Exception as e:
         health["answer_cache"] = f"error: {e}"
 
-    # Check semantic cache (Phase 2)
+    # Check semantic cache (Phase 2 - V2 Hybrid)
     try:
-        from src.retrieval.semantic_cache import get_semantic_cache
+        from src.retrieval.semantic_cache_v2 import get_semantic_cache_v2
 
-        semantic_cache = get_semantic_cache()
+        semantic_cache = get_semantic_cache_v2()
         if semantic_cache.enabled and semantic_cache._redis:
             semantic_cache._redis.ping()
-            health["semantic_cache"] = "healthy"
+            health["semantic_cache"] = "healthy (v2 hybrid)"
         else:
             health["semantic_cache"] = "disabled"
     except Exception as e:

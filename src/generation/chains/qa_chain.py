@@ -16,7 +16,7 @@ from src.generation.prompts.qa_prompts import (
 )
 from src.retrieval.retrievers import create_retriever
 from src.retrieval.answer_cache import get_answer_cache
-from src.retrieval.semantic_cache import get_semantic_cache
+from src.retrieval.semantic_cache_v2 import get_semantic_cache_v2
 from src.config.models import settings, apply_preset
 
 
@@ -416,8 +416,8 @@ def answer(
                 "document_statuses": {},
             }
         else:
-            # 🆕 SEMANTIC CACHE: Try finding similar query if exact match failed
-            semantic_cache = get_semantic_cache()
+            # 🆕 SEMANTIC CACHE V2: Hybrid Cosine + BGE reranker
+            semantic_cache = get_semantic_cache_v2()
             similar_match = semantic_cache.find_similar(cache_key_query)
 
             if similar_match:
@@ -427,7 +427,8 @@ def answer(
                 if similar_cached:
                     processing_time_ms = int((time.time() - start_time) * 1000)
                     logger.info(
-                        f"🔍 Semantic cache HIT - similarity={similar_match.similarity:.4f}, "
+                        f"🔍 Semantic cache V2 HIT - bge_score={similar_match.bge_score:.4f}, "
+                        f"cosine={similar_match.cosine_similarity:.4f}, "
                         f"original='{similar_match.original_query[:50]}...'"
                     )
 
@@ -456,8 +457,9 @@ def answer(
                             "enhancement_enabled": True,
                             "has_expired_docs": False,
                             "from_cache": True,
-                            "cache_type": "semantic",
-                            "similarity": round(similar_match.similarity, 4),
+                            "cache_type": "semantic_v2",
+                            "bge_score": round(similar_match.bge_score, 4),
+                            "cosine_similarity": round(similar_match.cosine_similarity, 4),
                             "similar_query": similar_match.original_query[:100],
                             "cache_hit_time_ms": processing_time_ms,
                             "original_processing_time_ms": similar_cached.get(
@@ -465,7 +467,7 @@ def answer(
                             ),
                         },
                         "enhanced_features": [
-                            f"Semantic Cache HIT (similarity={similar_match.similarity:.2%})"
+                            f"Semantic Cache V2 HIT (bge={similar_match.bge_score:.2%})"
                         ],
                         "document_statuses": {},
                     }
@@ -642,9 +644,9 @@ def answer(
                 processing_time_ms=processing_time_ms,
             )
 
-            # 🆕 Store embedding for semantic cache
+            # 🆕 Store embedding for semantic cache V2 (Hybrid Cosine + BGE)
             try:
-                semantic_cache = get_semantic_cache()
+                semantic_cache = get_semantic_cache_v2()
                 semantic_cache.store_embedding(
                     query=cache_key_query,  # 🆕 Use original query for semantic cache
                     answer_cache_key=f"rag:answer:{cache_key_query}",  # Reference to answer cache

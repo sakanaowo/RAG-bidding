@@ -137,23 +137,23 @@ def test_answer_cache_flow():
 
 
 def test_semantic_cache_flow():
-    """Test 3: Semantic Cache Flow"""
-    print_header("TEST 3: SEMANTIC CACHE FLOW (Similarity Matching)")
+    """Test 3: Semantic Cache V2 (Hybrid) Flow"""
+    print_header("TEST 3: SEMANTIC CACHE V2 FLOW (BGE + Cosine Hybrid)")
 
     try:
-        from src.retrieval.semantic_cache import (
-            get_semantic_cache,
-            reset_semantic_cache,
+        from src.retrieval.semantic_cache_v2 import (
+            get_semantic_cache_v2,
+            reset_semantic_cache_v2,
         )
 
-        reset_semantic_cache()
-        cache = get_semantic_cache()
+        reset_semantic_cache_v2()
+        cache = get_semantic_cache_v2()
 
         if not cache.enabled:
-            print_test("Semantic Cache Enabled", False, "Cache is disabled")
+            print_test("Semantic Cache V2 Enabled", False, "Cache is disabled")
             return False
 
-        print_test("Semantic Cache Enabled", True, f"threshold={cache.threshold}")
+        print_test("Semantic Cache V2 Enabled", True, f"bge_threshold={cache.bge_threshold}")
 
         # Test query
         query = f"Điều kiện tham gia đấu thầu công trình {uuid4().hex[:8]}"
@@ -168,13 +168,13 @@ def test_semantic_cache_flow():
             f"embeddings_stored={cache.stats['embeddings_stored']}",
         )
 
-        # Step 2: Find exact match
+        # Step 2: Find exact match (V2 returns SemanticMatchV2 with bge_score)
         time.sleep(0.3)  # Wait for Redis
         match = cache.find_similar(query)
         print_test(
             "Step 2: Find Exact Match",
-            match is not None and match.similarity >= 0.99,
-            f"similarity={match.similarity:.4f}" if match else "No match",
+            match is not None and match.bge_score >= 0.85,
+            f"bge_score={match.bge_score:.4f}, cosine={match.cosine_similarity:.4f}" if match else "No match",
         )
 
         # Step 3: Stats tracking

@@ -87,17 +87,17 @@ def answer_cache():
 
 @pytest.fixture(scope="module")
 def semantic_cache():
-    """Get real SemanticCache instance."""
-    from src.retrieval.semantic_cache import get_semantic_cache, reset_semantic_cache
+    """Get real SemanticCache V2 (Hybrid) instance."""
+    from src.retrieval.semantic_cache_v2 import get_semantic_cache_v2, reset_semantic_cache_v2
 
-    reset_semantic_cache()
-    cache = get_semantic_cache()
+    reset_semantic_cache_v2()
+    cache = get_semantic_cache_v2()
 
     if not cache.enabled:
         pytest.skip("Semantic cache not enabled")
 
     logger.info(
-        f"✅ SemanticCache initialized: enabled={cache.enabled}, threshold={cache.threshold}"
+        f"✅ SemanticCache V2 initialized: enabled={cache.enabled}, bge_threshold={cache.bge_threshold}"
     )
     yield cache
 

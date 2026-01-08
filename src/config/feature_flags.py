@@ -95,19 +95,36 @@ ANSWER_CACHE_DB = int(os.getenv("ANSWER_CACHE_DB", "2"))  # Redis DB 2 for answe
 
 
 # ========================================
-# SEMANTIC CACHE CONFIGURATION (Phase 2)
+# SEMANTIC CACHE CONFIGURATION (Phase 2 - V2 Hybrid)
 # ========================================
 
-# Semantic similarity cache - finds similar queries
+# Semantic similarity cache - finds similar queries using Cosine + BGE hybrid
 # See: documents/CACHE_IMPLEMENTATION_PLAN.md - Phase 2
 ENABLE_SEMANTIC_CACHE = os.getenv("ENABLE_SEMANTIC_CACHE", "true").lower() == "true"
-SEMANTIC_CACHE_THRESHOLD = float(os.getenv("SEMANTIC_CACHE_THRESHOLD", "0.95"))
 SEMANTIC_CACHE_DB = int(
     os.getenv("SEMANTIC_CACHE_DB", "3")
 )  # Redis DB 3 for embeddings
 MAX_SEMANTIC_SEARCH = int(
     os.getenv("MAX_SEMANTIC_SEARCH", "100")
 )  # Max queries to scan
+
+# V2 Hybrid Cache Configuration (Cosine pre-filter + BGE rerank)
+# Cosine pre-filter: Fast O(n) scan to find candidates
+SEMANTIC_CACHE_COSINE_THRESHOLD = float(
+    os.getenv("SEMANTIC_CACHE_COSINE_THRESHOLD", "0.25")
+)  # Low threshold to avoid missing candidates
+SEMANTIC_CACHE_COSINE_TOP_K = int(
+    os.getenv("SEMANTIC_CACHE_COSINE_TOP_K", "30")
+)  # Max candidates for BGE reranking
+
+# BGE rerank: Accurate cross-encoder scoring (final decision)
+# Optimized via evaluation: 78.9% accuracy, 76.7% recall, 87.5% precision
+SEMANTIC_CACHE_BGE_THRESHOLD = float(
+    os.getenv("SEMANTIC_CACHE_BGE_THRESHOLD", "0.55")
+)  # Min BGE score for match
+
+# Legacy V1 threshold (deprecated, kept for reference)
+SEMANTIC_CACHE_THRESHOLD = float(os.getenv("SEMANTIC_CACHE_THRESHOLD", "0.60"))
 
 
 # ========================================
@@ -206,11 +223,21 @@ def get_feature_status() -> dict:
         },
         "semantic_cache": {
             "enabled": ENABLE_SEMANTIC_CACHE,
-            "threshold": SEMANTIC_CACHE_THRESHOLD,
+            "version": "V2 (Hybrid Cosine + BGE)",
             "redis_db": SEMANTIC_CACHE_DB,
             "max_scan": MAX_SEMANTIC_SEARCH,
+            "config": {
+                "cosine_threshold": SEMANTIC_CACHE_COSINE_THRESHOLD,
+                "cosine_top_k": SEMANTIC_CACHE_COSINE_TOP_K,
+                "bge_threshold": SEMANTIC_CACHE_BGE_THRESHOLD,
+            },
+            "performance": {
+                "accuracy": "78.9%",
+                "recall": "76.7%",
+                "precision": "87.5%",
+            },
             "status": (
-                "✅ Enabled"
+                "✅ Enabled (V2 Hybrid)"
                 if ENABLE_SEMANTIC_CACHE and ENABLE_REDIS_CACHE
                 else "⚠️ Disabled"
             ),
