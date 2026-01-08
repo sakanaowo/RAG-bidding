@@ -317,7 +317,6 @@ class ConversationService:
                 question=enhanced_question,
                 mode=effective_rag_mode,
                 reranker_type="bge",
-                filter_status=None,  # Status not in embedding metadata
                 original_query=content,  # 🆕 Pass original query for cache key
             )
 

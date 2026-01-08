@@ -1,6 +1,11 @@
 """
 Summary Service - Conversation Context Management
 Generates and manages conversation summaries to preserve context for long conversations.
+
+Caching Strategy:
+- Uses Redis-backed context cache for recent messages
+- Write-through: cache updated on every new message
+- Fallback to DB on cache miss
 """
 
 import logging
@@ -15,6 +20,7 @@ from src.config.models import settings
 from src.models.conversations import Conversation
 from src.models.messages import Message
 from src.models.repositories import ConversationRepository, MessageRepository
+from src.retrieval.context_cache import get_context_cache
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +68,11 @@ class SummaryService:
     1. Sliding window: Keep N most recent messages
     2. Summary: Generate summary of older messages
     3. Hybrid: Summary + recent messages
+
+    Caching:
+    - Uses Redis context cache for recent messages
+    - Falls back to DB on cache miss
+    - Write-through update on new messages
     """
 
     @staticmethod
@@ -73,8 +84,13 @@ class SummaryService:
 
         Uses hybrid approach:
         - Include conversation summary (if exists)
-        - Include last N messages
+        - Include last N messages (from cache or DB)
         - Format for LLM consumption
+
+        Caching Strategy:
+        - Try Redis context cache first
+        - Fallback to DB on cache miss
+        - Cache populated on miss for next request
 
         Args:
             db: Database session
@@ -88,52 +104,68 @@ class SummaryService:
         if not conversation:
             return "", []
 
-        # Get recent messages (default order is chronological)
-        messages = MessageRepository.get_conversation_messages(
-            db,
+        # Try to get messages from cache first
+        context_cache = get_context_cache()
+
+        def db_fallback():
+            """Fallback function to get messages from DB."""
+            return MessageRepository.get_conversation_messages(
+                db,
+                conversation_id,
+                skip=0,
+                limit=MAX_CONTEXT_MESSAGES * 2,
+            )
+
+        # Get messages (cache hit or DB fallback with cache population)
+        cached_messages = context_cache.get_recent_messages(
             conversation_id,
-            skip=0,
-            limit=MAX_CONTEXT_MESSAGES * 2,  # Get more, then slice
+            db_fallback_fn=db_fallback,
         )
-        # Take last N messages
-        messages = (
-            messages[-MAX_CONTEXT_MESSAGES:]
-            if len(messages) > MAX_CONTEXT_MESSAGES
-            else messages
-        )
+
+        # If we got cached dicts, convert to usable format
+        # Otherwise, use DB messages directly
+        if cached_messages:
+            # Cached messages are already dicts
+            messages_data = cached_messages[-MAX_CONTEXT_MESSAGES:]
+        else:
+            # Fallback: direct DB query (cache disabled)
+            messages = db_fallback()
+            messages = (
+                messages[-MAX_CONTEXT_MESSAGES:]
+                if len(messages) > MAX_CONTEXT_MESSAGES
+                else messages
+            )
+            messages_data = [
+                {
+                    "role": m.role,
+                    "content": m.content,
+                    "created_at": m.created_at.isoformat() if m.created_at else None,
+                }
+                for m in messages
+            ]
 
         context_parts = []
 
         # Add summary if exists and we have many messages
         conv_summary = conversation.summary
-        if conv_summary and len(messages) >= SUMMARY_THRESHOLD // 2:
+        if conv_summary and len(messages_data) >= SUMMARY_THRESHOLD // 2:
             context_parts.append(f"[Tóm tắt hội thoại trước đó]\n{conv_summary}")
 
         # Add recent messages
-        if messages:
+        if messages_data:
             recent_context = []
-            for msg in messages:
-                role = "Người dùng" if msg.role == "user" else "Trợ lý"
+            for msg in messages_data:
+                role = "Người dùng" if msg.get("role") == "user" else "Trợ lý"
+                content = msg.get("content", "")
                 # Truncate long messages
-                content = (
-                    msg.content[:500] + "..." if len(msg.content) > 500 else msg.content
-                )
+                content = content[:500] + "..." if len(content) > 500 else content
                 recent_context.append(f"{role}: {content}")
 
             context_parts.append("[Tin nhắn gần đây]\n" + "\n".join(recent_context))
 
         context_string = "\n\n".join(context_parts) if context_parts else ""
 
-        # Return messages as dicts for flexibility
-        messages_data = [
-            {
-                "role": m.role,
-                "content": m.content,
-                "created_at": m.created_at.isoformat() if m.created_at else None,
-            }
-            for m in messages
-        ]
-
+        # messages_data already in correct format from above
         return context_string, messages_data
 
     @staticmethod

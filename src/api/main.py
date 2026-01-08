@@ -1,4 +1,6 @@
 import os
+import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field
@@ -17,12 +19,15 @@ from .routers import upload
 from .routers import documents_management
 from .routers import auth
 from .routers import conversations
+from .routers import cache
 from .middleware import (
     AuthMiddleware,
     RequestLoggingMiddleware,
     RateLimitMiddleware,
     CORSAuthMiddleware,
 )
+
+logger = logging.getLogger(__name__)
 
 try:
     from dotenv import load_dotenv
@@ -33,6 +38,78 @@ if load_dotenv is not None:
     load_dotenv()
 
 setup_logging()
+
+
+# ============================================================================
+# LIFESPAN CONTEXT MANAGER (for startup/shutdown events)
+# ============================================================================
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for FastAPI startup and shutdown events.
+
+    This replaces the deprecated @app.on_event("startup") and @app.on_event("shutdown").
+
+    Startup:
+    - Initialize database connection pool
+    - Bootstrap vector store
+    - Pre-load BGEReranker model (CUDA)
+    - Pre-load QueryEnhancer (GPT-4o-mini)
+
+    Shutdown:
+    - Close database connections
+    """
+    # STARTUP
+    logger.info(f"🚀 [Worker {os.getpid()}] Starting up...")
+
+    # 1. Initialize database
+    logger.info(f"📦 [Worker {os.getpid()}] Initializing database connection pool...")
+    init_database()
+    await startup_database()
+
+    # 2. Bootstrap vector store (sync operation)
+    logger.info(f"📦 [Worker {os.getpid()}] Bootstrapping vector store...")
+    bootstrap()
+
+    # 3. Pre-load BGEReranker model
+    logger.info(f"🔧 [Worker {os.getpid()}] Pre-loading BGEReranker model...")
+    try:
+        from src.retrieval.ranking.bge_reranker import get_singleton_reranker
+
+        reranker = get_singleton_reranker()
+        logger.info(
+            f"✅ [Worker {os.getpid()}] BGEReranker loaded successfully (device: {reranker.device})"
+        )
+    except Exception as e:
+        logger.error(f"❌ [Worker {os.getpid()}] Failed to load BGEReranker: {e}")
+
+    # 4. Pre-load QueryEnhancer
+    logger.info(
+        f"🔧 [Worker {os.getpid()}] Pre-loading QueryEnhancer (multi_query + step_back)..."
+    )
+    try:
+        enhancer = QueryEnhancer(
+            config=QueryEnhancerConfig(
+                strategies=[
+                    EnhancementStrategy.MULTI_QUERY,
+                    EnhancementStrategy.STEP_BACK,
+                ],
+                max_queries=3,
+            )
+        )
+        logger.info(f"✅ [Worker {os.getpid()}] QueryEnhancer loaded successfully")
+    except Exception as e:
+        logger.error(f"❌ [Worker {os.getpid()}] Failed to load QueryEnhancer: {e}")
+
+    logger.info(f"🎉 [Worker {os.getpid()}] Startup complete! Ready to serve requests.")
+
+    yield
+
+    # SHUTDOWN
+    logger.info(f"👋 [Worker {os.getpid()}] Shutting down...")
+    await shutdown_database()
+    logger.info(f"✅ [Worker {os.getpid()}] Shutdown complete")
+
 
 # ============================================================================
 # SWAGGER / OPENAPI CONFIGURATION
@@ -86,6 +163,7 @@ SWAGGER_TAGS = [
     },
     {"name": "Documents", "description": "Document management and statistics"},
     {"name": "Upload", "description": "Document upload and processing"},
+    {"name": "cache", "description": "Cache management and monitoring"},
     {"name": "System", "description": "Health checks and system information"},
 ]
 
@@ -96,6 +174,7 @@ app = FastAPI(
     openapi_tags=SWAGGER_TAGS,
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,  # Use lifespan context manager
 )
 
 # ============================================================================
@@ -133,26 +212,12 @@ app.include_router(upload.router, prefix="/api")
 app.include_router(
     documents_management.router, prefix="/api"
 )  # Document Management - /documents endpoints
+app.include_router(cache.router, prefix="/api")  # Cache Management - /cache endpoints
 
 
-@app.on_event("startup")
-async def init_services() -> None:
-    """Initialize all services on startup."""
-    # Initialize database connection pool first
-    init_database()
-    await startup_database()
-
-
-@app.on_event("shutdown")
-async def cleanup_services() -> None:
-    """Cleanup on shutdown."""
-    await shutdown_database()
-
-
-# Initialize vector store at module level (sync)
-bootstrap()
-
-
+# ============================================================================
+# QUICK Q&A ENDPOINT (No Authentication Required)
+# ============================================================================
 class AskIn(BaseModel):
     """Request body for quick Q&A endpoint"""
 
