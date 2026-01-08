@@ -84,6 +84,33 @@ L1_CACHE_MAXSIZE = 500  # Max 500 queries in memory (~50MB)
 
 
 # ========================================
+# ANSWER CACHE CONFIGURATION (Phase 1)
+# ========================================
+
+# Answer-level cache - caches final RAG responses
+# See: documents/CACHE_IMPLEMENTATION_PLAN.md - Phase 1
+ENABLE_ANSWER_CACHE = os.getenv("ENABLE_ANSWER_CACHE", "true").lower() == "true"
+ANSWER_CACHE_TTL = int(os.getenv("ANSWER_CACHE_TTL", "86400"))  # 24 hours
+ANSWER_CACHE_DB = int(os.getenv("ANSWER_CACHE_DB", "2"))  # Redis DB 2 for answers
+
+
+# ========================================
+# SEMANTIC CACHE CONFIGURATION (Phase 2)
+# ========================================
+
+# Semantic similarity cache - finds similar queries
+# See: documents/CACHE_IMPLEMENTATION_PLAN.md - Phase 2
+ENABLE_SEMANTIC_CACHE = os.getenv("ENABLE_SEMANTIC_CACHE", "true").lower() == "true"
+SEMANTIC_CACHE_THRESHOLD = float(os.getenv("SEMANTIC_CACHE_THRESHOLD", "0.95"))
+SEMANTIC_CACHE_DB = int(
+    os.getenv("SEMANTIC_CACHE_DB", "3")
+)  # Redis DB 3 for embeddings
+MAX_SEMANTIC_SEARCH = int(
+    os.getenv("MAX_SEMANTIC_SEARCH", "100")
+)  # Max queries to scan
+
+
+# ========================================
 # CHAT SESSION CONFIGURATION
 # ========================================
 
@@ -165,6 +192,27 @@ def get_feature_status() -> dict:
             },
             "status": (
                 "✅ Production ready" if ENABLE_REDIS_CACHE else "⚠️ Development mode"
+            ),
+        },
+        "answer_cache": {
+            "enabled": ENABLE_ANSWER_CACHE,
+            "ttl_seconds": ANSWER_CACHE_TTL,
+            "redis_db": ANSWER_CACHE_DB,
+            "status": (
+                "✅ Enabled"
+                if ENABLE_ANSWER_CACHE and ENABLE_REDIS_CACHE
+                else "⚠️ Disabled"
+            ),
+        },
+        "semantic_cache": {
+            "enabled": ENABLE_SEMANTIC_CACHE,
+            "threshold": SEMANTIC_CACHE_THRESHOLD,
+            "redis_db": SEMANTIC_CACHE_DB,
+            "max_scan": MAX_SEMANTIC_SEARCH,
+            "status": (
+                "✅ Enabled"
+                if ENABLE_SEMANTIC_CACHE and ENABLE_REDIS_CACHE
+                else "⚠️ Disabled"
             ),
         },
         "sessions": {
