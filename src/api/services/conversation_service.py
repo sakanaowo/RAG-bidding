@@ -282,13 +282,14 @@ class ConversationService:
         # Use conversation's rag_mode if not overridden
         effective_rag_mode = rag_mode or conversation.rag_mode or "balanced"
 
-        # Create user message
+        # Create user message with rag_mode for tracking
         user_message = MessageRepository.add_message(
             db=db,
             conversation_id=conversation_id,
             user_id=user_id,
             role="user",
             content=content,
+            rag_mode=effective_rag_mode,
         )
 
         # Auto-generate title from first message if not set
