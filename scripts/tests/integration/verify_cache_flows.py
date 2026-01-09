@@ -153,7 +153,9 @@ def test_semantic_cache_flow():
             print_test("Semantic Cache V2 Enabled", False, "Cache is disabled")
             return False
 
-        print_test("Semantic Cache V2 Enabled", True, f"bge_threshold={cache.bge_threshold}")
+        print_test(
+            "Semantic Cache V2 Enabled", True, f"bge_threshold={cache.bge_threshold}"
+        )
 
         # Test query
         query = f"Điều kiện tham gia đấu thầu công trình {uuid4().hex[:8]}"
@@ -174,7 +176,11 @@ def test_semantic_cache_flow():
         print_test(
             "Step 2: Find Exact Match",
             match is not None and match.bge_score >= 0.85,
-            f"bge_score={match.bge_score:.4f}, cosine={match.cosine_similarity:.4f}" if match else "No match",
+            (
+                f"bge_score={match.bge_score:.4f}, cosine={match.cosine_similarity:.4f}"
+                if match
+                else "No match"
+            ),
         )
 
         # Step 3: Stats tracking

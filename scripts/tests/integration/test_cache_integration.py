@@ -88,7 +88,10 @@ def answer_cache():
 @pytest.fixture(scope="module")
 def semantic_cache():
     """Get real SemanticCache V2 (Hybrid) instance."""
-    from src.retrieval.semantic_cache_v2 import get_semantic_cache_v2, reset_semantic_cache_v2
+    from src.retrieval.semantic_cache_v2 import (
+        get_semantic_cache_v2,
+        reset_semantic_cache_v2,
+    )
 
     reset_semantic_cache_v2()
     cache = get_semantic_cache_v2()

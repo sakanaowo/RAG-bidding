@@ -32,12 +32,12 @@ Usage:
     from src.retrieval.semantic_cache_v2 import get_semantic_cache_v2
 
     cache = get_semantic_cache_v2()
-    
+
     # Find similar cached query
     match = cache.find_similar(query)
     if match:
         return cached_answer[match.answer_cache_key]
-    
+
     # Store after caching new answer
     cache.store_embedding(query, embedding, answer_cache_key)
 """
@@ -107,12 +107,12 @@ class CacheStats:
 class HybridSemanticCache:
     """
     Hybrid Semantic Cache using Cosine pre-filter + BGE reranker.
-    
+
     This approach provides:
     - Fast filtering via cosine similarity on embeddings
     - Accurate final matching via BGE cross-encoder
     - Scalable to thousands of cached queries
-    
+
     Configuration (via feature_flags.py or env vars):
     - SEMANTIC_CACHE_COSINE_THRESHOLD: Min cosine for pre-filter (default: 0.25)
     - SEMANTIC_CACHE_COSINE_TOP_K: Max candidates for BGE (default: 30)
@@ -148,7 +148,7 @@ class HybridSemanticCache:
         self.cosine_top_k = cosine_top_k
         self.bge_threshold = bge_threshold
         self.max_scan = max_scan
-        
+
         # Lazy load components
         self._embedder = None
         self._reranker = None
@@ -189,6 +189,7 @@ class HybridSemanticCache:
         if self._embedder is None:
             try:
                 from src.embedding.embedders.openai_embedder import OpenAIEmbedder
+
                 self._embedder = OpenAIEmbedder()
                 logger.debug("✅ Embedder loaded for semantic cache")
             except Exception as e:
@@ -200,6 +201,7 @@ class HybridSemanticCache:
         if self._reranker is None:
             try:
                 from src.retrieval.ranking.bge_reranker import get_singleton_reranker
+
                 self._reranker = get_singleton_reranker()
                 logger.debug("✅ BGE reranker obtained (singleton)")
             except Exception as e:
@@ -239,7 +241,7 @@ class HybridSemanticCache:
     ) -> List[Tuple[str, float, Dict[str, Any]]]:
         """
         Pre-filter cached queries using cosine similarity.
-        
+
         Returns:
             List of (key, cosine_score, cached_data) sorted by score descending
         """
@@ -264,7 +266,7 @@ class HybridSemanticCache:
                 )
 
                 similarity = self._cosine_similarity(query_embedding, cached_embedding)
-                
+
                 if similarity >= self.cosine_threshold:
                     candidates.append((key, similarity, cached_data))
 
@@ -274,7 +276,7 @@ class HybridSemanticCache:
 
         # Sort by similarity descending and take top-k
         candidates.sort(key=lambda x: x[1], reverse=True)
-        return candidates[:self.cosine_top_k]
+        return candidates[: self.cosine_top_k]
 
     def _bge_rerank(
         self,
@@ -283,7 +285,7 @@ class HybridSemanticCache:
     ) -> Optional[Tuple[Dict[str, Any], float, float]]:
         """
         Rerank candidates using BGE cross-encoder.
-        
+
         Returns:
             (cached_data, bge_score, cosine_score) of best match, or None
         """
@@ -301,28 +303,28 @@ class HybridSemanticCache:
 
         # Prepare pairs for BGE
         pairs = [[query, data["query"]] for _, _, data in candidates]
-        
+
         try:
             # Use BGE model directly (not the rerank method which expects Documents)
             scores = reranker.model.predict(pairs, show_progress_bar=False)
-            
+
             # Find best match above threshold
             best_idx = -1
             best_score = 0.0
-            
+
             for idx, score in enumerate(scores):
                 score = float(score)
                 if score > best_score and score >= self.bge_threshold:
                     best_score = score
                     best_idx = idx
-            
+
             if best_idx >= 0:
                 cached_data = candidates[best_idx][2]
                 cosine_score = candidates[best_idx][1]
                 return (cached_data, best_score, cosine_score)
-            
+
             return None
-            
+
         except Exception as e:
             logger.warning(f"⚠️ BGE reranking failed: {e}")
             return None
@@ -510,7 +512,9 @@ class HybridSemanticCache:
             "embeddings_stored": self._stats.embeddings_stored,
             "hit_rate": round(hit_rate, 4),
             "avg_bge_score": round(self._stats.avg_bge_score, 4),
-            "avg_cosine_prefilter_time_ms": round(self._stats.avg_cosine_prefilter_time_ms, 2),
+            "avg_cosine_prefilter_time_ms": round(
+                self._stats.avg_cosine_prefilter_time_ms, 2
+            ),
             "avg_bge_rerank_time_ms": round(self._stats.avg_bge_rerank_time_ms, 2),
             "avg_total_time_ms": round(self._stats.avg_total_time_ms, 2),
             "config": {
@@ -525,7 +529,7 @@ class HybridSemanticCache:
         """Get number of cached embeddings."""
         if not self._redis:
             return 0
-        
+
         count = 0
         try:
             for _ in self._redis.scan_iter(match="rag:semantic:v2:*", count=100):

@@ -459,7 +459,9 @@ def answer(
                             "from_cache": True,
                             "cache_type": "semantic_v2",
                             "bge_score": round(similar_match.bge_score, 4),
-                            "cosine_similarity": round(similar_match.cosine_similarity, 4),
+                            "cosine_similarity": round(
+                                similar_match.cosine_similarity, 4
+                            ),
                             "similar_query": similar_match.original_query[:100],
                             "cache_hit_time_ms": processing_time_ms,
                             "original_processing_time_ms": similar_cached.get(
