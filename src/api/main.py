@@ -20,6 +20,7 @@ from .routers import documents_management
 from .routers import auth
 from .routers import conversations
 from .routers import cache
+from .routers import analytics
 from .middleware import (
     AuthMiddleware,
     RequestLoggingMiddleware,
@@ -164,6 +165,10 @@ SWAGGER_TAGS = [
     {"name": "Documents", "description": "Document management and statistics"},
     {"name": "Upload", "description": "Document upload and processing"},
     {"name": "cache", "description": "Cache management and monitoring"},
+    {
+        "name": "Analytics",
+        "description": "Dashboard analytics, cost metrics, usage statistics, and admin operations",
+    },
     {"name": "System", "description": "Health checks and system information"},
 ]
 
@@ -213,6 +218,7 @@ app.include_router(
     documents_management.router, prefix="/api"
 )  # Document Management - /documents endpoints
 app.include_router(cache.router, prefix="/api")  # Cache Management - /cache endpoints
+app.include_router(analytics.router, prefix="/api")  # Analytics - /analytics endpoints
 
 
 # ============================================================================
