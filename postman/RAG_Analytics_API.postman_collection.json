@@ -1,0 +1,1340 @@
+{
+    "info": {
+        "name": "RAG Analytics API",
+        "description": "Postman Collection for testing RAG Bidding Analytics Dashboard APIs\n\n## Setup\n1. Set environment variables:\n   - `base_url`: API base URL (e.g., http://localhost:8000)\n   - `admin_email`: Admin user email\n   - `admin_password`: Admin user password\n   - `user_email`: Regular user email\n   - `user_password`: Regular user password\n\n2. Run 'Login as Admin' or 'Login as User' first to get access token\n\n## Endpoints Overview\n- Dashboard Overview: `/api/analytics/overview`\n- Cost Analytics: `/api/analytics/cost`, `/api/analytics/cost/daily`, `/api/analytics/cost/users`\n- Knowledge Base: `/api/analytics/knowledge-base`\n- Performance: `/api/analytics/performance`\n- Feedback: `/api/analytics/feedback`\n- Engagement: `/api/analytics/engagement`\n- Admin: `/api/analytics/admin/*`\n\n## Authentication\nAll endpoints require Bearer token authentication. Admin endpoints require admin role.",
+        "version": "1.0.0",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8000",
+            "type": "string"
+        },
+        {
+            "key": "admin_email",
+            "value": "admin@example.com",
+            "type": "string"
+        },
+        {
+            "key": "admin_password",
+            "value": "Admin123456",
+            "type": "string"
+        },
+        {
+            "key": "user_email",
+            "value": "user@example.com",
+            "type": "string"
+        },
+        {
+            "key": "user_password",
+            "value": "User123456",
+            "type": "string"
+        },
+        {
+            "key": "access_token",
+            "value": "",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "Authentication",
+            "description": "Login endpoints to get access tokens",
+            "item": [
+                {
+                    "name": "Login as Admin",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.collectionVariables.set('access_token', jsonData.tokens.access_token);",
+                                    "    pm.test('Login successful', function() {",
+                                    "        pm.expect(jsonData.tokens.access_token).to.be.a('string');",
+                                    "    });",
+                                    "    pm.test('User role is admin', function() {",
+                                    "        pm.expect(jsonData.user.role).to.eql('admin');",
+                                    "    });",
+                                    "} else {",
+                                    "    pm.test('Login failed', function() {",
+                                    "        pm.expect.fail('Expected 200 but got ' + pm.response.code);",
+                                    "    });",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"{{admin_email}}\",\n    \"password\": \"{{admin_password}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/auth/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "login"
+                            ]
+                        },
+                        "description": "Login as admin user and store access token"
+                    }
+                },
+                {
+                    "name": "Login as User",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.collectionVariables.set('access_token', jsonData.tokens.access_token);",
+                                    "    pm.test('Login successful', function() {",
+                                    "        pm.expect(jsonData.tokens.access_token).to.be.a('string');",
+                                    "    });",
+                                    "    pm.test('User role is user', function() {",
+                                    "        pm.expect(jsonData.user.role).to.eql('user');",
+                                    "    });",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"{{user_email}}\",\n    \"password\": \"{{user_password}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/auth/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "login"
+                            ]
+                        },
+                        "description": "Login as regular user and store access token"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Dashboard Overview",
+            "description": "Main dashboard endpoint with aggregated metrics",
+            "item": [
+                {
+                    "name": "Get Dashboard Overview",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has required fields', function() {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('generated_at');",
+                                    "    pm.expect(jsonData).to.have.property('period');",
+                                    "    pm.expect(jsonData).to.have.property('key_metrics');",
+                                    "});",
+                                    "",
+                                    "pm.test('Key metrics has required fields', function() {",
+                                    "    var metrics = pm.response.json().key_metrics;",
+                                    "    pm.expect(metrics).to.have.property('total_cost_usd');",
+                                    "    pm.expect(metrics).to.have.property('total_queries');",
+                                    "    pm.expect(metrics).to.have.property('dau');",
+                                    "    pm.expect(metrics).to.have.property('mau');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/overview?period=month&include_details=false",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "overview"
+                            ],
+                            "query": [
+                                {
+                                    "key": "period",
+                                    "value": "month",
+                                    "description": "Time period: day, week, month, quarter, year, all_time"
+                                },
+                                {
+                                    "key": "include_details",
+                                    "value": "false",
+                                    "description": "Include full detail sections"
+                                }
+                            ]
+                        },
+                        "description": "Get dashboard overview with all key metrics.\n\nPeriod options:\n- day\n- week\n- month\n- quarter\n- year\n- all_time"
+                    }
+                },
+                {
+                    "name": "Get Dashboard Overview (with details)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response includes detail sections', function() {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    // Detail sections may be null if no data",
+                                    "    pm.expect(jsonData).to.have.property('cost_overview');",
+                                    "    pm.expect(jsonData).to.have.property('knowledge_base');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/overview?period=month&include_details=true",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "overview"
+                            ],
+                            "query": [
+                                {
+                                    "key": "period",
+                                    "value": "month"
+                                },
+                                {
+                                    "key": "include_details",
+                                    "value": "true"
+                                }
+                            ]
+                        },
+                        "description": "Get dashboard overview with full detail sections included"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Cost Analytics",
+            "description": "Cost and token usage metrics",
+            "item": [
+                {
+                    "name": "Get Cost Overview",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has cost fields', function() {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('total_cost_usd');",
+                                    "    pm.expect(jsonData).to.have.property('token_breakdown');",
+                                    "    pm.expect(jsonData).to.have.property('average_cost_per_query');",
+                                    "    pm.expect(jsonData).to.have.property('total_queries');",
+                                    "});",
+                                    "",
+                                    "pm.test('Token breakdown has input/output', function() {",
+                                    "    var tokens = pm.response.json().token_breakdown;",
+                                    "    pm.expect(tokens).to.have.property('input_tokens');",
+                                    "    pm.expect(tokens).to.have.property('output_tokens');",
+                                    "    pm.expect(tokens).to.have.property('total_tokens');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/cost?period=month",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "cost"
+                            ],
+                            "query": [
+                                {
+                                    "key": "period",
+                                    "value": "month",
+                                    "description": "Time period: day, week, month, quarter, year, all_time"
+                                }
+                            ]
+                        },
+                        "description": "Get cost overview metrics including total cost and token breakdown"
+                    }
+                },
+                {
+                    "name": "Get Cost Overview (custom dates)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has date range', function() {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('period_start');",
+                                    "    pm.expect(jsonData).to.have.property('period_end');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "// Set dates dynamically",
+                                    "var today = new Date();",
+                                    "var lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);",
+                                    "",
+                                    "pm.collectionVariables.set('end_date', today.toISOString().split('T')[0]);",
+                                    "pm.collectionVariables.set('start_date', lastWeek.toISOString().split('T')[0]);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/cost?start_date={{start_date}}&end_date={{end_date}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "cost"
+                            ],
+                            "query": [
+                                {
+                                    "key": "start_date",
+                                    "value": "{{start_date}}",
+                                    "description": "Custom start date (YYYY-MM-DD)"
+                                },
+                                {
+                                    "key": "end_date",
+                                    "value": "{{end_date}}",
+                                    "description": "Custom end date (YYYY-MM-DD)"
+                                }
+                            ]
+                        },
+                        "description": "Get cost overview with custom date range"
+                    }
+                },
+                {
+                    "name": "Get Daily Token Usage",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has daily data', function() {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('data');",
+                                    "    pm.expect(jsonData).to.have.property('total_days');",
+                                    "    pm.expect(jsonData.data).to.be.an('array');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "var today = new Date();",
+                                    "var lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);",
+                                    "",
+                                    "pm.collectionVariables.set('daily_end_date', today.toISOString().split('T')[0]);",
+                                    "pm.collectionVariables.set('daily_start_date', lastMonth.toISOString().split('T')[0]);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/cost/daily?start_date={{daily_start_date}}&end_date={{daily_end_date}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "cost",
+                                "daily"
+                            ],
+                            "query": [
+                                {
+                                    "key": "start_date",
+                                    "value": "{{daily_start_date}}"
+                                },
+                                {
+                                    "key": "end_date",
+                                    "value": "{{daily_end_date}}"
+                                }
+                            ]
+                        },
+                        "description": "Get daily token usage for chart visualization.\n\nUseful for line charts showing usage trends over time."
+                    }
+                },
+                {
+                    "name": "Get Cost Per User (Admin)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 403', function() {",
+                                    "    pm.expect([200, 403]).to.include(pm.response.code);",
+                                    "});",
+                                    "",
+                                    "if (pm.response.code === 200) {",
+                                    "    pm.test('Response has top users', function() {",
+                                    "        var jsonData = pm.response.json();",
+                                    "        pm.expect(jsonData).to.have.property('top_users');",
+                                    "        pm.expect(jsonData.top_users).to.be.an('array');",
+                                    "    });",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/cost/users?limit=10&period=month",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "cost",
+                                "users"
+                            ],
+                            "query": [
+                                {
+                                    "key": "limit",
+                                    "value": "10",
+                                    "description": "Number of top users (1-100)"
+                                },
+                                {
+                                    "key": "period",
+                                    "value": "month"
+                                }
+                            ]
+                        },
+                        "description": "Get top users by cost consumption.\n\n**Admin only** - requires admin role.\n\nReturns 403 if user is not admin."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Knowledge Base",
+            "description": "Knowledge base health metrics",
+            "item": [
+                {
+                    "name": "Get Knowledge Base Health",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has document counts', function() {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('total_documents');",
+                                    "    pm.expect(jsonData).to.have.property('total_active_documents');",
+                                    "    pm.expect(jsonData).to.have.property('total_chunks');",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has distribution data', function() {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('documents_by_category');",
+                                    "    pm.expect(jsonData).to.have.property('documents_by_type');",
+                                    "    pm.expect(jsonData).to.have.property('documents_by_status');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/knowledge-base",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "knowledge-base"
+                            ]
+                        },
+                        "description": "Get knowledge base health metrics including document counts and distribution."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "RAG Performance",
+            "description": "RAG system performance metrics",
+            "item": [
+                {
+                    "name": "Get RAG Performance",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has latency metrics', function() {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('average_latency_ms');",
+                                    "    pm.expect(jsonData).to.have.property('latency_percentiles');",
+                                    "});",
+                                    "",
+                                    "pm.test('Latency percentiles has p50/p90/p99', function() {",
+                                    "    var p = pm.response.json().latency_percentiles;",
+                                    "    pm.expect(p).to.have.property('p50');",
+                                    "    pm.expect(p).to.have.property('p90');",
+                                    "    pm.expect(p).to.have.property('p99');",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has mode distribution', function() {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('rag_mode_distribution');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/performance?period=month",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "performance"
+                            ],
+                            "query": [
+                                {
+                                    "key": "period",
+                                    "value": "month"
+                                }
+                            ]
+                        },
+                        "description": "Get RAG system performance metrics including latency percentiles and mode distribution."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Quality & Feedback",
+            "description": "User feedback and quality metrics",
+            "item": [
+                {
+                    "name": "Get Quality Feedback",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has feedback counts', function() {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('total_feedbacks');",
+                                    "    pm.expect(jsonData).to.have.property('positive_feedbacks');",
+                                    "    pm.expect(jsonData).to.have.property('negative_feedbacks');",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has quality metrics', function() {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('negative_feedback_rate');",
+                                    "    pm.expect(jsonData).to.have.property('rating_distribution');",
+                                    "    pm.expect(jsonData).to.have.property('zero_citation_rate');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/feedback?period=month&recent_limit=10",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "feedback"
+                            ],
+                            "query": [
+                                {
+                                    "key": "period",
+                                    "value": "month"
+                                },
+                                {
+                                    "key": "recent_limit",
+                                    "value": "10",
+                                    "description": "Number of recent comments (1-50)"
+                                }
+                            ]
+                        },
+                        "description": "Get quality and feedback metrics including CSAT score and rating distribution."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "User Engagement",
+            "description": "User engagement and activity metrics",
+            "item": [
+                {
+                    "name": "Get User Engagement",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has DAU/WAU/MAU', function() {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('dau');",
+                                    "    pm.expect(jsonData).to.have.property('wau');",
+                                    "    pm.expect(jsonData).to.have.property('mau');",
+                                    "});",
+                                    "",
+                                    "pm.test('DAU <= WAU <= MAU', function() {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.dau).to.be.at.most(jsonData.wau);",
+                                    "    pm.expect(jsonData.wau).to.be.at.most(jsonData.mau);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has engagement metrics', function() {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('dau_mau_ratio');",
+                                    "    pm.expect(jsonData).to.have.property('avg_queries_per_user');",
+                                    "    pm.expect(jsonData).to.have.property('top_queries');",
+                                    "    pm.expect(jsonData).to.have.property('engagement_trend');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/engagement?top_queries_limit=20&trend_days=30",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "engagement"
+                            ],
+                            "query": [
+                                {
+                                    "key": "top_queries_limit",
+                                    "value": "20",
+                                    "description": "Number of top queries (1-100)"
+                                },
+                                {
+                                    "key": "trend_days",
+                                    "value": "30",
+                                    "description": "Days for trend data (7-90)"
+                                }
+                            ]
+                        },
+                        "description": "Get user engagement metrics including DAU/WAU/MAU and top queries."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Admin Endpoints",
+            "description": "Admin-only endpoints for metrics management",
+            "item": [
+                {
+                    "name": "Trigger Aggregation (single date)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 403', function() {",
+                                    "    pm.expect([200, 403]).to.include(pm.response.code);",
+                                    "});",
+                                    "",
+                                    "if (pm.response.code === 200) {",
+                                    "    pm.test('Aggregation successful', function() {",
+                                    "        var jsonData = pm.response.json();",
+                                    "        pm.expect(jsonData.success).to.be.true;",
+                                    "        pm.expect(jsonData).to.have.property('message');",
+                                    "        pm.expect(jsonData).to.have.property('details');",
+                                    "    });",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "var yesterday = new Date();",
+                                    "yesterday.setDate(yesterday.getDate() - 1);",
+                                    "pm.collectionVariables.set('target_date', yesterday.toISOString().split('T')[0]);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"target_date\": \"{{target_date}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/admin/aggregate",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "admin",
+                                "aggregate"
+                            ]
+                        },
+                        "description": "Trigger metrics aggregation for a single date.\n\n**Admin only** - requires admin role."
+                    }
+                },
+                {
+                    "name": "Trigger Aggregation (date range)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 403', function() {",
+                                    "    pm.expect([200, 403]).to.include(pm.response.code);",
+                                    "});",
+                                    "",
+                                    "if (pm.response.code === 200) {",
+                                    "    pm.test('Backfill successful', function() {",
+                                    "        var jsonData = pm.response.json();",
+                                    "        pm.expect(jsonData.success).to.be.true;",
+                                    "    });",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "var today = new Date();",
+                                    "var lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);",
+                                    "pm.collectionVariables.set('backfill_start', lastWeek.toISOString().split('T')[0]);",
+                                    "pm.collectionVariables.set('backfill_end', today.toISOString().split('T')[0]);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"start_date\": \"{{backfill_start}}\",\n    \"end_date\": \"{{backfill_end}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/admin/aggregate",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "admin",
+                                "aggregate"
+                            ]
+                        },
+                        "description": "Backfill metrics for a date range.\n\n**Admin only** - requires admin role."
+                    }
+                },
+                {
+                    "name": "Get Aggregation Status",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 403', function() {",
+                                    "    pm.expect([200, 403]).to.include(pm.response.code);",
+                                    "});",
+                                    "",
+                                    "if (pm.response.code === 200) {",
+                                    "    pm.test('Status has required fields', function() {",
+                                    "        var jsonData = pm.response.json();",
+                                    "        pm.expect(jsonData).to.have.property('period_start');",
+                                    "        pm.expect(jsonData).to.have.property('period_end');",
+                                    "        pm.expect(jsonData).to.have.property('aggregated_days');",
+                                    "        pm.expect(jsonData).to.have.property('missing_days');",
+                                    "        pm.expect(jsonData).to.have.property('daily_status');",
+                                    "    });",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/admin/aggregation-status?days=30",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "admin",
+                                "aggregation-status"
+                            ],
+                            "query": [
+                                {
+                                    "key": "days",
+                                    "value": "30",
+                                    "description": "Number of days to check (1-365)"
+                                }
+                            ]
+                        },
+                        "description": "Get status of metrics aggregation for recent days.\n\n**Admin only** - requires admin role."
+                    }
+                },
+                {
+                    "name": "Recalculate Token Split",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 403', function() {",
+                                    "    pm.expect([200, 403]).to.include(pm.response.code);",
+                                    "});",
+                                    "",
+                                    "if (pm.response.code === 200) {",
+                                    "    pm.test('Recalculation successful', function() {",
+                                    "        var jsonData = pm.response.json();",
+                                    "        pm.expect(jsonData.success).to.be.true;",
+                                    "        pm.expect(jsonData).to.have.property('queries_updated');",
+                                    "        pm.expect(jsonData).to.have.property('metrics_updated');",
+                                    "    });",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/admin/recalculate-tokens",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "admin",
+                                "recalculate-tokens"
+                            ]
+                        },
+                        "description": "Recalculate input/output token split for records missing this data.\n\n**Admin only** - requires admin role."
+                    }
+                },
+                {
+                    "name": "Get Cache Stats",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 403', function() {",
+                                    "    pm.expect([200, 403]).to.include(pm.response.code);",
+                                    "});",
+                                    "",
+                                    "if (pm.response.code === 200) {",
+                                    "    pm.test('Cache stats returned', function() {",
+                                    "        var jsonData = pm.response.json();",
+                                    "        pm.expect(jsonData).to.have.property('enabled');",
+                                    "        pm.expect(jsonData).to.have.property('hits');",
+                                    "        pm.expect(jsonData).to.have.property('misses');",
+                                    "        pm.expect(jsonData).to.have.property('hit_rate');",
+                                    "    });",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/admin/cache-stats",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "admin",
+                                "cache-stats"
+                            ]
+                        },
+                        "description": "Get analytics cache statistics.\n\n**Admin only** - requires admin role."
+                    }
+                },
+                {
+                    "name": "Invalidate Cache (All)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 403', function() {",
+                                    "    pm.expect([200, 403]).to.include(pm.response.code);",
+                                    "});",
+                                    "",
+                                    "if (pm.response.code === 200) {",
+                                    "    pm.test('Cache invalidated', function() {",
+                                    "        var jsonData = pm.response.json();",
+                                    "        pm.expect(jsonData.success).to.be.true;",
+                                    "    });",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/admin/invalidate-cache",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "admin",
+                                "invalidate-cache"
+                            ]
+                        },
+                        "description": "Invalidate all analytics caches.\n\n**Admin only** - requires admin role."
+                    }
+                },
+                {
+                    "name": "Invalidate Cache (Cost only)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 403', function() {",
+                                    "    pm.expect([200, 403]).to.include(pm.response.code);",
+                                    "});",
+                                    "",
+                                    "if (pm.response.code === 200) {",
+                                    "    pm.test('Cost cache invalidated', function() {",
+                                    "        var jsonData = pm.response.json();",
+                                    "        pm.expect(jsonData.success).to.be.true;",
+                                    "        pm.expect(jsonData.message).to.include('Cost');",
+                                    "    });",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/admin/invalidate-cache?cache_type=cost",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "admin",
+                                "invalidate-cache"
+                            ],
+                            "query": [
+                                {
+                                    "key": "cache_type",
+                                    "value": "cost",
+                                    "description": "Cache type: cost, kb, or empty for all"
+                                }
+                            ]
+                        },
+                        "description": "Invalidate cost-related caches only.\n\n**Admin only** - requires admin role."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Error Cases",
+            "description": "Test error handling",
+            "item": [
+                {
+                    "name": "Unauthorized Request",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 401', function() {",
+                                    "    pm.response.to.have.status(401);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/overview",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "overview"
+                            ]
+                        },
+                        "description": "Test that requests without auth return 401"
+                    }
+                },
+                {
+                    "name": "Invalid Date Range",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 400', function() {",
+                                    "    pm.response.to.have.status(400);",
+                                    "});",
+                                    "",
+                                    "pm.test('Error message about date range', function() {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.detail).to.include('start_date');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/cost/daily?start_date=2026-01-10&end_date=2026-01-01",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "cost",
+                                "daily"
+                            ],
+                            "query": [
+                                {
+                                    "key": "start_date",
+                                    "value": "2026-01-10"
+                                },
+                                {
+                                    "key": "end_date",
+                                    "value": "2026-01-01"
+                                }
+                            ]
+                        },
+                        "description": "Test that invalid date range returns 400"
+                    }
+                },
+                {
+                    "name": "Admin Endpoint as User",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 403 (Forbidden)', function() {",
+                                    "    pm.response.to.have.status(403);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "// First login as regular user",
+                                    "pm.sendRequest({",
+                                    "    url: pm.collectionVariables.get('base_url') + '/api/auth/login',",
+                                    "    method: 'POST',",
+                                    "    header: { 'Content-Type': 'application/json' },",
+                                    "    body: {",
+                                    "        mode: 'raw',",
+                                    "        raw: JSON.stringify({",
+                                    "            email: pm.collectionVariables.get('user_email'),",
+                                    "            password: pm.collectionVariables.get('user_password')",
+                                    "        })",
+                                    "    }",
+                                    "}, function(err, res) {",
+                                    "    if (!err && res.code === 200) {",
+                                    "        var data = res.json();",
+                                    "        pm.collectionVariables.set('user_access_token', data.tokens.access_token);",
+                                    "    }",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{user_access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/analytics/admin/cache-stats",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "analytics",
+                                "admin",
+                                "cache-stats"
+                            ]
+                        },
+                        "description": "Test that regular user cannot access admin endpoints"
+                    }
+                }
+            ]
+        }
+    ]
+}
