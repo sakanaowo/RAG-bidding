@@ -102,6 +102,25 @@ def is_casual_query(question: str) -> tuple[bool, str | None]:
         "good evening",
     ]
 
+    # Extended greeting patterns with regex for variations (hiiii, hellooo, etc.)
+    import re
+
+    extended_greeting_patterns = [
+        r"^h+i+$",  # hi, hii, hiii, hiiii, etc.
+        r"^h+e+y+$",  # hey, heey, heyy, etc.
+        r"^h+e+l+o+$",  # helo, hello, helloo, etc.
+        r"^a+l+o+$",  # alo, aloo, alloo, etc.
+        r"^o+k+$",  # ok, okk, okkk, etc.
+        r"^ô+k+ê*$",  # ôkê, ôk, etc.
+    ]
+
+    for pattern in extended_greeting_patterns:
+        if re.match(pattern, question_lower):
+            return (
+                True,
+                "Xin chào! 👋 Tôi là trợ lý chuyên về pháp luật đấu thầu Việt Nam. Bạn cần hỏi gì về đấu thầu, tôi sẵn sàng hỗ trợ!",
+            )
+
     for greeting in greetings:
         if (
             question_lower == greeting
@@ -345,10 +364,12 @@ def answer(
     start_time = time.time()
 
     # ✅ EARLY EXIT: Check if query is casual/conversational (no RAG needed)
-    is_casual, direct_response = is_casual_query(question)
+    # 🔧 FIX: Use original_query (without context) for casual check
+    query_to_check = original_query or question
+    is_casual, direct_response = is_casual_query(query_to_check)
     if is_casual:
         logger.info(
-            f"💬 Casual query detected, skipping RAG pipeline: '{question[:50]}...'"
+            f"💬 Casual query detected, skipping RAG pipeline: '{query_to_check[:50]}...'"
         )
         return {
             "answer": direct_response,
