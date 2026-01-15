@@ -144,6 +144,102 @@ class CostPerUserResponse(BaseModel):
 
 
 # =============================================================================
+# 1.5 ACTIVE USERS DETAIL SCHEMAS (Dashboard Dialog)
+# =============================================================================
+
+
+class ActiveUserDetail(BaseModel):
+    """Detail information for an active user"""
+
+    user_id: UUID = Field(..., description="User UUID")
+    email: str = Field(..., description="User email")
+    full_name: Optional[str] = Field(None, description="User full name")
+    last_active_at: datetime = Field(..., description="Last activity timestamp")
+    queries_count: int = Field(0, description="Number of queries in period")
+    total_tokens: int = Field(0, description="Total tokens consumed in period")
+    cost_usd: float = Field(0.0, description="Cost in USD for period")
+    conversations_count: int = Field(0, description="Number of conversations in period")
+
+
+class ActiveUsersResponse(BaseModel):
+    """
+    Active users detail response
+
+    List of active users with their usage metrics
+    """
+
+    period: str = Field("day", description="Period: day, week, month")
+    active_users: List[ActiveUserDetail] = Field(
+        default_factory=list, description="List of active users with details"
+    )
+    total_active: int = Field(0, description="Total active users count")
+    total_cost: float = Field(0.0, description="Total cost for all active users")
+    total_tokens: int = Field(0, description="Total tokens for all active users")
+    total_queries: int = Field(0, description="Total queries for all active users")
+
+
+# =============================================================================
+# 1.6 ZERO CITATION MESSAGES SCHEMAS (Dashboard Dialog)
+# =============================================================================
+
+
+class ZeroCitationMessage(BaseModel):
+    """Message without citations (potential hallucination)"""
+
+    message_id: UUID = Field(..., description="Message UUID")
+    conversation_id: UUID = Field(..., description="Conversation UUID")
+    user_email: str = Field(..., description="User email who asked")
+    question: str = Field(..., description="User question (previous message)")
+    answer: str = Field(..., description="Assistant answer without citations")
+    rag_mode: Optional[str] = Field(None, description="RAG mode used")
+    created_at: datetime = Field(..., description="Message timestamp")
+    processing_time_ms: Optional[int] = Field(None, description="Processing time")
+
+
+class ZeroCitationResponse(BaseModel):
+    """
+    Zero citation messages response
+
+    List of assistant messages that have no citations
+    """
+
+    messages: List[ZeroCitationMessage] = Field(
+        default_factory=list, description="Messages without citations"
+    )
+    total_count: int = Field(0, description="Total zero-citation messages")
+    period: str = Field(..., description="Period for the data")
+    zero_citation_rate: float = Field(0.0, description="Rate of zero-citation messages")
+
+
+# =============================================================================
+# 1.7 QUERIES BY CATEGORY SCHEMAS (Phase 3 Analytics)
+# =============================================================================
+
+
+class CategoryQueryCount(BaseModel):
+    """Query count by category"""
+
+    category: str = Field(..., description="Category name")
+    query_count: int = Field(0, description="Number of queries for this category")
+    percentage: float = Field(0.0, description="Percentage of total queries")
+    avg_latency_ms: float = Field(0.0, description="Average latency for this category")
+
+
+class QueriesByCategoryResponse(BaseModel):
+    """
+    Queries by category response
+
+    Shows which document categories are queried most frequently
+    """
+
+    categories: List[CategoryQueryCount] = Field(
+        default_factory=list, description="Query counts per category"
+    )
+    total_queries: int = Field(0, description="Total queries analyzed")
+    period: str = Field(..., description="Period for the data")
+
+
+# =============================================================================
 # 2. KNOWLEDGE BASE HEALTH SCHEMAS
 # =============================================================================
 

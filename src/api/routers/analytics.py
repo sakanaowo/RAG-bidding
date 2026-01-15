@@ -346,6 +346,128 @@ async def get_user_engagement(
 
 
 # =============================================================================
+# DASHBOARD DIALOGS
+# =============================================================================
+
+from src.api.schemas.analytics_schemas import (
+    ActiveUsersResponse,
+    ZeroCitationResponse,
+)
+
+
+@router.get("/active-users", response_model=ActiveUsersResponse)
+async def get_active_users_detail(
+    period: TimePeriod = Query(
+        TimePeriod.DAY, description="Time period: day, week, month"
+    ),
+    limit: int = Query(50, ge=1, le=200, description="Maximum users to return"),
+    current_user: User = Depends(require_role(["admin"])),
+    db: Session = Depends(get_db),
+):
+    """
+    Get detailed list of active users.
+
+    Shows each active user with:
+    - Email, name
+    - Query count, token usage, cost
+    - Last active timestamp
+    - Conversation count
+
+    **Admin only** - exposes user data.
+
+    Requires: admin role
+    """
+    try:
+        return analytics_service.get_active_users_detail(
+            db=db, period=period, limit=limit
+        )
+    except Exception as e:
+        logger.error(f"Error getting active users: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get active users: {str(e)}",
+        )
+
+
+@router.get("/zero-citation-messages", response_model=ZeroCitationResponse)
+async def get_zero_citation_messages(
+    period: TimePeriod = Query(
+        TimePeriod.MONTH, description="Time period for filtering"
+    ),
+    limit: int = Query(50, ge=1, le=200, description="Maximum messages to return"),
+    current_user: User = Depends(require_role(["admin"])),
+    db: Session = Depends(get_db),
+):
+    """
+    Get assistant messages without citations.
+
+    Zero-citation answers may indicate:
+    - Hallucination risk
+    - Knowledge gaps in document base
+    - Simple queries that don't need citations
+
+    Shows each message with:
+    - Original user question
+    - Assistant answer (truncated)
+    - User email, RAG mode, timestamp
+
+    **Admin only** - exposes conversation data.
+
+    Requires: admin role
+    """
+    try:
+        return analytics_service.get_zero_citation_messages(
+            db=db, period=period, limit=limit
+        )
+    except Exception as e:
+        logger.error(f"Error getting zero-citation messages: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get zero-citation messages: {str(e)}",
+        )
+
+
+# =============================================================================
+# QUERIES BY CATEGORY (Phase 3)
+# =============================================================================
+
+from src.api.schemas.analytics_schemas import QueriesByCategoryResponse
+
+
+@router.get("/queries-by-category", response_model=QueriesByCategoryResponse)
+async def get_queries_by_category(
+    period: TimePeriod = Query(
+        TimePeriod.MONTH, description="Time period for aggregation"
+    ),
+    limit: int = Query(20, ge=1, le=50, description="Maximum categories to return"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get queries aggregated by document category.
+
+    Shows which document categories are queried most frequently.
+    Useful for understanding user interests and knowledge base usage.
+
+    Returns:
+    - Category name
+    - Query count
+    - Percentage of total
+    - Average latency
+    """
+    try:
+        return analytics_service.get_queries_by_category(
+            db=db, period=period, limit=limit
+        )
+    except Exception as e:
+        logger.error(f"Error getting queries by category: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get queries by category: {str(e)}",
+        )
+
+
+# =============================================================================
 # ADMIN - METRICS AGGREGATION
 # =============================================================================
 

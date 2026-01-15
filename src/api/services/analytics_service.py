@@ -933,6 +933,295 @@ class AnalyticsService:
             user_engagement=engagement if include_details else None,
         )
 
+    # =========================================================================
+    # 7. ACTIVE USERS DETAIL (Dashboard Dialog)
+    # =========================================================================
+
+    @staticmethod
+    def get_active_users_detail(
+        db: Session,
+        period: TimePeriod = TimePeriod.DAY,
+        limit: int = 50,
+    ):
+        """
+        Get detailed list of active users for dashboard dialog.
+
+        Uses user_usage_metrics table for daily aggregated data.
+        """
+        from src.api.schemas.analytics_schemas import (
+            ActiveUserDetail,
+            ActiveUsersResponse,
+        )
+
+        start, end, period_label = AnalyticsService._get_date_range(period)
+
+        # Get users with activity in period
+        user_metrics = (
+            db.query(
+                UserUsageMetric.user_id,
+                func.sum(UserUsageMetric.total_queries).label("queries"),
+                func.sum(UserUsageMetric.total_tokens).label("tokens"),
+                func.sum(UserUsageMetric.total_cost_usd).label("cost"),
+                func.count(distinct(UserUsageMetric.date)).label("active_days"),
+                func.max(UserUsageMetric.date).label("last_active"),
+            )
+            .filter(and_(UserUsageMetric.date >= start, UserUsageMetric.date <= end))
+            .group_by(UserUsageMetric.user_id)
+            .order_by(desc("queries"))
+            .limit(limit)
+            .all()
+        )
+
+        active_users = []
+        total_cost = 0.0
+        total_tokens = 0
+        total_queries = 0
+
+        for row in user_metrics:
+            user = db.query(User).filter(User.id == row.user_id).first()
+            if user:
+                queries = AnalyticsService._safe_int(row.queries)
+                tokens = AnalyticsService._safe_int(row.tokens)
+                cost = AnalyticsService._safe_float(row.cost)
+
+                # Count conversations in period
+                conv_count = (
+                    db.query(func.count(Conversation.id))
+                    .filter(
+                        and_(
+                            Conversation.user_id == row.user_id,
+                            Conversation.created_at >= datetime.combine(start, datetime.min.time()),
+                            Conversation.created_at <= datetime.combine(end, datetime.max.time()),
+                        )
+                    )
+                    .scalar()
+                    or 0
+                )
+
+                active_users.append(
+                    ActiveUserDetail(
+                        user_id=row.user_id,
+                        email=user.email,
+                        full_name=user.full_name,
+                        last_active_at=datetime.combine(row.last_active, datetime.min.time()),
+                        queries_count=queries,
+                        total_tokens=tokens,
+                        cost_usd=round(cost, 4),
+                        conversations_count=conv_count,
+                    )
+                )
+
+                total_cost += cost
+                total_tokens += tokens
+                total_queries += queries
+
+        return ActiveUsersResponse(
+            period=period_label,
+            active_users=active_users,
+            total_active=len(active_users),
+            total_cost=round(total_cost, 4),
+            total_tokens=total_tokens,
+            total_queries=total_queries,
+        )
+
+    # =========================================================================
+    # 8. ZERO CITATION MESSAGES (Dashboard Dialog)
+    # =========================================================================
+
+    @staticmethod
+    def get_zero_citation_messages(
+        db: Session,
+        period: TimePeriod = TimePeriod.MONTH,
+        limit: int = 50,
+    ):
+        """
+        Get list of assistant messages without citations for dashboard dialog.
+
+        Zero-citation messages may indicate hallucination or knowledge gaps.
+        """
+        from src.api.schemas.analytics_schemas import (
+            ZeroCitationMessage,
+            ZeroCitationResponse,
+        )
+
+        start, end, period_label = AnalyticsService._get_date_range(period)
+        start_dt = datetime.combine(start, datetime.min.time())
+        end_dt = datetime.combine(end, datetime.max.time())
+
+        # Get assistant messages without any citations
+        # Subquery: messages with citations
+        msgs_with_citations_sq = (
+            db.query(Citation.message_id)
+            .distinct()
+            .subquery()
+        )
+
+        # Get zero-citation messages with user info
+        zero_msgs = (
+            db.query(Message)
+            .filter(
+                and_(
+                    Message.created_at >= start_dt,
+                    Message.created_at <= end_dt,
+                    Message.role == "assistant",
+                    ~Message.id.in_(db.query(msgs_with_citations_sq)),
+                )
+            )
+            .order_by(desc(Message.created_at))
+            .limit(limit)
+            .all()
+        )
+
+        messages = []
+        for msg in zero_msgs:
+            # Get conversation and user
+            conv = db.query(Conversation).filter(Conversation.id == msg.conversation_id).first()
+            user = db.query(User).filter(User.id == conv.user_id).first() if conv else None
+
+            # Get previous user message (the question)
+            prev_msg = (
+                db.query(Message)
+                .filter(
+                    and_(
+                        Message.conversation_id == msg.conversation_id,
+                        Message.role == "user",
+                        Message.created_at < msg.created_at,
+                    )
+                )
+                .order_by(desc(Message.created_at))
+                .first()
+            )
+
+            messages.append(
+                ZeroCitationMessage(
+                    message_id=msg.id,
+                    conversation_id=msg.conversation_id,
+                    user_email=user.email if user else "unknown",
+                    question=prev_msg.content[:500] if prev_msg else "",
+                    answer=msg.content[:500] if msg.content else "",
+                    rag_mode=msg.rag_mode,
+                    created_at=msg.created_at,
+                    processing_time_ms=msg.processing_time_ms,
+                )
+            )
+
+        # Get total count and rate
+        total_assistant = (
+            db.query(func.count(Message.id))
+            .filter(
+                and_(
+                    Message.created_at >= start_dt,
+                    Message.created_at <= end_dt,
+                    Message.role == "assistant",
+                )
+            )
+            .scalar()
+            or 0
+        )
+
+        total_zero = (
+            db.query(func.count(Message.id))
+            .filter(
+                and_(
+                    Message.created_at >= start_dt,
+                    Message.created_at <= end_dt,
+                    Message.role == "assistant",
+                    ~Message.id.in_(db.query(msgs_with_citations_sq)),
+                )
+            )
+            .scalar()
+            or 0
+        )
+
+        zero_rate = total_zero / total_assistant if total_assistant > 0 else 0
+
+        return ZeroCitationResponse(
+            messages=messages,
+            total_count=total_zero,
+            period=period_label,
+            zero_citation_rate=round(zero_rate, 4),
+        )
+
+    # =========================================================================
+    # 9. QUERIES BY CATEGORY (Phase 3 Dashboard)
+    # =========================================================================
+
+    @staticmethod
+    def get_queries_by_category(
+        db: Session,
+        period: TimePeriod = TimePeriod.MONTH,
+        limit: int = 20,
+    ):
+        """
+        Get query counts aggregated by document category.
+
+        Uses categories_searched field from Query table.
+        """
+        from src.api.schemas.analytics_schemas import (
+            CategoryQueryCount,
+            QueriesByCategoryResponse,
+        )
+
+        start, end, period_label = AnalyticsService._get_date_range(period)
+        start_dt = datetime.combine(start, datetime.min.time())
+        end_dt = datetime.combine(end, datetime.max.time())
+
+        # Query with categories_searched (PostgreSQL array)
+        # Unnest the array to count each category occurrence
+        from sqlalchemy import text
+
+        unnest_query = text("""
+            SELECT 
+                unnest(categories_searched) AS category,
+                COUNT(*) AS query_count,
+                AVG(total_latency_ms) AS avg_latency
+            FROM queries
+            WHERE created_at >= :start_dt 
+              AND created_at <= :end_dt
+              AND categories_searched IS NOT NULL
+              AND array_length(categories_searched, 1) > 0
+            GROUP BY unnest(categories_searched)
+            ORDER BY query_count DESC
+            LIMIT :limit
+        """)
+
+        result = db.execute(
+            unnest_query,
+            {"start_dt": start_dt, "end_dt": end_dt, "limit": limit}
+        ).fetchall()
+
+        # Get total queries
+        total_queries = (
+            db.query(func.count(Query.id))
+            .filter(
+                and_(
+                    Query.created_at >= start_dt,
+                    Query.created_at <= end_dt,
+                )
+            )
+            .scalar()
+            or 0
+        )
+
+        categories = []
+        for row in result:
+            percentage = (row.query_count / total_queries * 100) if total_queries > 0 else 0
+            categories.append(
+                CategoryQueryCount(
+                    category=row.category or "Unknown",
+                    query_count=row.query_count,
+                    percentage=round(percentage, 2),
+                    avg_latency_ms=round(AnalyticsService._safe_float(row.avg_latency), 2),
+                )
+            )
+
+        return QueriesByCategoryResponse(
+            categories=categories,
+            total_queries=total_queries,
+            period=period_label,
+        )
+
 
 # Singleton instance
 analytics_service = AnalyticsService()
+
