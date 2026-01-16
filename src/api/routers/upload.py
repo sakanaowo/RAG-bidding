@@ -17,7 +17,7 @@ Stage 3: Confirm & Process
 """
 
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Body
+from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Body, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -26,6 +26,8 @@ from ..schemas.upload_schemas import (
     ProcessingOptions,
 )
 from ..services.upload_service import UploadProcessingService
+from src.auth.dependencies import get_current_user
+from src.models.users import User
 
 router = APIRouter(prefix="/upload", tags=["Upload & Processing"])
 
@@ -69,6 +71,7 @@ async def upload_files(
     chunk_overlap: Optional[int] = 200,
     enable_enrichment: bool = True,
     enable_validation: bool = True,
+    current_user: User = Depends(get_current_user),
 ):
     """
     Upload files for processing (Stage 1).
@@ -103,7 +106,9 @@ async def upload_files(
     )
 
     try:
-        result = await upload_service.upload_files(files, options)
+        result = await upload_service.upload_files(
+            files, options, uploaded_by=str(current_user.id)
+        )
         return JSONResponse(status_code=202, content=result)
     except HTTPException:
         raise
@@ -257,3 +262,67 @@ async def get_upload_status_legacy(upload_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# File Preview Endpoint
+# =============================================================================
+
+from fastapi.responses import FileResponse, PlainTextResponse
+from pathlib import Path
+
+
+@router.head("/{upload_id}/files/{file_id}/content")
+@router.get("/{upload_id}/files/{file_id}/content")
+async def get_file_content(
+    upload_id: str,
+    file_id: str,
+    as_text: bool = Query(False, description="Return extracted text instead of raw file"),
+):
+    """
+    Get file content for preview.
+
+    By default returns raw file for download/preview.
+    Set as_text=true to get extracted text content instead.
+    """
+    try:
+        # Get upload detail to find file path
+        detail = await upload_service.get_upload_detail(upload_id)
+        
+        if not detail:
+            raise HTTPException(status_code=404, detail="Upload not found")
+        
+        # Find the file
+        files = detail.get("files", [])
+        target_file = None
+        for f in files:
+            if f.get("file_id") == file_id:
+                target_file = f
+                break
+        
+        if not target_file:
+            raise HTTPException(status_code=404, detail="File not found in upload")
+        
+        file_path = target_file.get("file_path")
+        
+        if not file_path or not Path(file_path).exists():
+            raise HTTPException(status_code=404, detail="File not found on disk")
+        
+        if as_text:
+            # Return extracted text if available
+            text_preview = target_file.get("extracted_text_preview", "")
+            return PlainTextResponse(content=text_preview)
+        
+        # Return the raw file
+        filename = target_file.get("filename", target_file.get("original_filename", "document"))
+        return FileResponse(
+            path=file_path,
+            filename=filename,
+            media_type=target_file.get("content_type", "application/octet-stream"),
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
