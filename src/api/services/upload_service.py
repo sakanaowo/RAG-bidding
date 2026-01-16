@@ -542,14 +542,70 @@ class UploadProcessingService:
     # STAGE 2: Admin Review
     # =========================================================================
 
+    def _transform_job_for_frontend(self, job: Dict[str, Any]) -> Dict[str, Any]:
+        """Transform job data to match frontend expected format."""
+        files_data = job.get("files_data", [])
+        extracted_metadata = job.get("extracted_metadata", {})
+        extracted_files = extracted_metadata.get("files", [])
+
+        # Build files array matching FE FileInfo interface
+        files = []
+        for fd in files_data:
+            # Find matching extracted metadata
+            extracted = next(
+                (
+                    ef
+                    for ef in extracted_files
+                    if ef.get("file_id") == fd.get("file_id")
+                ),
+                {},
+            )
+            files.append(
+                {
+                    "file_id": fd.get("file_id"),
+                    "filename": fd.get("filename"),
+                    "original_filename": fd.get("filename"),
+                    "file_size": fd.get("size_bytes", 0),
+                    "file_path": fd.get("file_path"),
+                    "content_type": fd.get("content_type"),
+                    "extracted_text_preview": extracted.get("text_preview"),
+                    "auto_detected_type": extracted.get("detected_type"),
+                    "confidence": extracted.get("confidence"),
+                }
+            )
+
+        return {
+            "upload_id": job.get("upload_id"),
+            "batch_name": (
+                job.get("options", {}).get("batch_name") if job.get("options") else None
+            ),
+            "status": job.get("status"),
+            "total_files": job.get("total_files"),
+            "files": files,
+            "auto_metadata": {
+                "document_type": (
+                    extracted_files[0].get("detected_type") if extracted_files else None
+                ),
+                "confidence": (
+                    extracted_files[0].get("confidence") if extracted_files else None
+                ),
+            },
+            "admin_metadata": job.get("admin_metadata", {}),
+            "uploaded_by": job.get("uploaded_by"),
+            "created_at": job.get("created_at"),
+            "updated_at": job.get("updated_at"),
+        }
+
     async def get_pending_uploads(
         self, limit: int = 50, offset: int = 0
     ) -> Dict[str, Any]:
         """Get list of uploads pending admin review."""
         jobs = self.job_repo.list_pending_jobs(limit, offset)
+        # Transform each job to FE-expected format
+        transformed = [self._transform_job_for_frontend(job) for job in jobs]
         return {
-            "pending_count": len(jobs),
-            "uploads": jobs,
+            "pending_count": len(transformed),
+            "uploads": transformed,
         }
 
     async def get_upload_detail(self, upload_id: str) -> Dict[str, Any]:
@@ -557,7 +613,7 @@ class UploadProcessingService:
         job = self.job_repo.get_job(upload_id)
         if not job:
             raise HTTPException(status_code=404, detail="Upload not found")
-        return job
+        return self._transform_job_for_frontend(job)
 
     async def update_metadata(
         self, upload_id: str, admin_metadata: Dict
