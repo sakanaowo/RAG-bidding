@@ -169,9 +169,29 @@ DEFAULT_ENHANCEMENT_STRATEGIES = ["multi_query", "step_back"]  # balanced mode
 DEFAULT_RETRIEVAL_K = 10  # Top-k documents to retrieve
 DEFAULT_RERANK_TOP_N = 5  # Top-n after reranking
 
-# Rate limiting (TODO: implement)
-RATE_LIMIT_ENABLED = False
-RATE_LIMIT_REQUESTS_PER_MINUTE = 60
+# ========================================
+# RATE LIMITING CONFIGURATION
+# ========================================
+
+# Enable/disable rate limiting
+RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"
+
+# Daily query limit per user (default: 100 queries/day)
+RATE_LIMIT_DAILY_QUERIES = int(os.getenv("RATE_LIMIT_DAILY_QUERIES", "100"))
+
+# Redis DB for rate limiting (separate from other caches)
+RATE_LIMIT_REDIS_DB = int(os.getenv("RATE_LIMIT_REDIS_DB", "4"))
+
+# TTL for rate limit keys (24 hours)
+RATE_LIMIT_TTL_SECONDS = 86400
+
+# TODO (Future): Token-based and cost-based limits
+# RATE_LIMIT_DAILY_TOKENS = int(os.getenv("RATE_LIMIT_DAILY_TOKENS", "50000"))
+# RATE_LIMIT_DAILY_COST_USD = float(os.getenv("RATE_LIMIT_DAILY_COST_USD", "0.05"))
+
+# TODO (Future): User tier support
+# User tiers would have different limits (Free/Basic/Pro/Admin)
+# Requires: ALTER TABLE users ADD COLUMN rate_limit_tier VARCHAR(20) DEFAULT 'basic';
 
 
 # ========================================

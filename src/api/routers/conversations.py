@@ -30,6 +30,7 @@ from src.api.schemas.conversation_schemas import (
     SourceInfo,
 )
 from src.api.services.conversation_service import conversation_service
+from src.api.services.rate_limit_service import RateLimitExceededError
 
 import logging
 
@@ -338,16 +339,33 @@ async def send_message(
     - **rag_mode**: Override conversation's default RAG mode for this message
     - **include_sources**: Whether to include source citations (default: true)
     """
-    user_msg, assistant_msg, sources, processing_time = (
-        conversation_service.send_message(
-            db=db,
-            conversation_id=conversation_id,
-            user_id=current_user.id,
-            content=request.content,
-            rag_mode=request.rag_mode.value if request.rag_mode else None,
-            include_sources=request.include_sources,
+    try:
+        user_msg, assistant_msg, sources, processing_time = (
+            conversation_service.send_message(
+                db=db,
+                conversation_id=conversation_id,
+                user_id=current_user.id,
+                content=request.content,
+                rag_mode=request.rag_mode.value if request.rag_mode else None,
+                include_sources=request.include_sources,
+            )
         )
-    )
+    except RateLimitExceededError as e:
+        # Return 429 Too Many Requests with rate limit info
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "message": str(e),
+                "limit": e.result.limit,
+                "remaining": e.result.remaining,
+                "reset_at": e.result.reset_at,
+            },
+            headers={
+                "X-RateLimit-Limit": str(e.result.limit),
+                "X-RateLimit-Remaining": str(e.result.remaining),
+                "X-RateLimit-Reset": e.result.reset_at,
+            },
+        )
 
     if not user_msg or not assistant_msg:
         raise HTTPException(

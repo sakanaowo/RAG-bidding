@@ -28,6 +28,7 @@ from src.generation.chains.qa_chain import answer as rag_answer, is_casual_query
 from src.api.schemas.conversation_schemas import SourceInfo
 from src.utils.token_counter import count_message_tokens, estimate_cost_usd
 from src.api.services.summary_service import SummaryService
+from src.api.services.rate_limit_service import RateLimitService, RateLimitExceededError
 
 logger = logging.getLogger(__name__)
 
@@ -271,6 +272,15 @@ class ConversationService:
             Tuple of (user_message, assistant_message, sources, processing_time_ms)
         """
         start_time = time.time()
+
+        # Check rate limit before processing
+        rate_limit_result = RateLimitService.check_and_increment(user_id)
+        if not rate_limit_result.allowed:
+            raise RateLimitExceededError(
+                f"Daily query limit reached ({rate_limit_result.limit} queries/day). "
+                f"Remaining: {rate_limit_result.remaining}. Resets at: {rate_limit_result.reset_at}",
+                rate_limit_result
+            )
 
         # Verify conversation ownership
         conversation = ConversationService.get_conversation(
