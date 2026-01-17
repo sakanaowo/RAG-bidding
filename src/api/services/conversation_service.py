@@ -310,6 +310,8 @@ class ConversationService:
 
         # Auto-generate title from first message if not set
         if is_first_message:
+            # Refresh conversation to get the latest state after message creation
+            db.refresh(conversation)
             auto_title = content[:100] + "..." if len(content) > 100 else content
             conversation.title = auto_title
             db.commit()
@@ -420,6 +422,13 @@ class ConversationService:
         # Update conversation usage stats
         ConversationRepository.update_last_message(db, conversation_id)
 
+        # Extract actual categories from retrieved documents for analytics
+        # This provides better insights than just using the user's category filter
+        actual_categories = list(set(
+            doc.get("category") for doc in raw_sources 
+            if doc.get("category")
+        )) or conversation.category_filter  # Fallback to filter if no categories in docs
+
         # Log query for analytics with token info
         try:
             QueryRepository.log_query(
@@ -429,7 +438,7 @@ class ConversationService:
                 conversation_id=conversation_id,
                 message_id=assistant_message.id,
                 rag_mode=effective_rag_mode,
-                categories_searched=conversation.category_filter,
+                categories_searched=actual_categories,
                 retrieval_count=len(raw_sources),
                 total_latency_ms=processing_time,
                 tokens_total=total_tokens,
