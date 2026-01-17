@@ -811,3 +811,85 @@ async def get_document_stats(
     except Exception as e:
         logger.error(f"❌ Failed to get document stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===== FILE PREVIEW ENDPOINT =====
+
+from fastapi.responses import FileResponse
+from pathlib import Path as FilePath
+
+
+@router.head("/{document_id}/file")
+@router.get("/{document_id}/file")
+async def get_document_file(
+    document_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get original file for document preview.
+
+    Retrieves the source file from disk for documents in Library.
+    Uses source_file column from documents table (contains full path).
+
+    Returns:
+        FileResponse with original document file for preview/download.
+    """
+    try:
+        # Query document to get source_file
+        result = await db.execute(
+            text("""
+                SELECT document_id, document_name, filename, source_file, filepath
+                FROM documents
+                WHERE document_id = :document_id
+            """),
+            {"document_id": document_id}
+        )
+        row = result.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        # source_file contains full path (e.g., /home/.../data/uploads/{id}/file.docx)
+        # filepath may also contain path (fallback)
+        file_path = row.source_file or row.filepath
+
+        if not file_path:
+            raise HTTPException(
+                status_code=404,
+                detail="Source file path not found. Document may have been uploaded before file tracking was enabled."
+            )
+
+        file_path_obj = FilePath(file_path)
+
+        if not file_path_obj.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"File not found on disk: {file_path}"
+            )
+
+        # Determine content type based on extension
+        ext = file_path_obj.suffix.lower()
+        content_type_map = {
+            ".pdf": "application/pdf",
+            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".doc": "application/msword",
+            ".txt": "text/plain",
+            ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".xls": "application/vnd.ms-excel",
+        }
+        content_type = content_type_map.get(ext, "application/octet-stream")
+
+        filename = row.filename or file_path_obj.name
+
+        return FileResponse(
+            path=str(file_path_obj),
+            filename=filename,
+            media_type=content_type,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to get document file: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+

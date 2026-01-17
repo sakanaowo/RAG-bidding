@@ -84,6 +84,50 @@ L1_CACHE_MAXSIZE = 500  # Max 500 queries in memory (~50MB)
 
 
 # ========================================
+# ANSWER CACHE CONFIGURATION (Phase 1)
+# ========================================
+
+# Answer-level cache - caches final RAG responses
+# See: documents/CACHE_IMPLEMENTATION_PLAN.md - Phase 1
+ENABLE_ANSWER_CACHE = os.getenv("ENABLE_ANSWER_CACHE", "true").lower() == "true"
+ANSWER_CACHE_TTL = int(os.getenv("ANSWER_CACHE_TTL", "86400"))  # 24 hours
+ANSWER_CACHE_DB = int(os.getenv("ANSWER_CACHE_DB", "2"))  # Redis DB 2 for answers
+
+
+# ========================================
+# SEMANTIC CACHE CONFIGURATION (Phase 2 - V2 Hybrid)
+# ========================================
+
+# Semantic similarity cache - finds similar queries using Cosine + BGE hybrid
+# See: documents/CACHE_IMPLEMENTATION_PLAN.md - Phase 2
+ENABLE_SEMANTIC_CACHE = os.getenv("ENABLE_SEMANTIC_CACHE", "true").lower() == "true"
+SEMANTIC_CACHE_DB = int(
+    os.getenv("SEMANTIC_CACHE_DB", "3")
+)  # Redis DB 3 for embeddings
+MAX_SEMANTIC_SEARCH = int(
+    os.getenv("MAX_SEMANTIC_SEARCH", "100")
+)  # Max queries to scan
+
+# V2 Hybrid Cache Configuration (Cosine pre-filter + BGE rerank)
+# Cosine pre-filter: Fast O(n) scan to find candidates
+SEMANTIC_CACHE_COSINE_THRESHOLD = float(
+    os.getenv("SEMANTIC_CACHE_COSINE_THRESHOLD", "0.25")
+)  # Low threshold to avoid missing candidates
+SEMANTIC_CACHE_COSINE_TOP_K = int(
+    os.getenv("SEMANTIC_CACHE_COSINE_TOP_K", "30")
+)  # Max candidates for BGE reranking
+
+# BGE rerank: Accurate cross-encoder scoring (final decision)
+# Optimized via evaluation: 78.9% accuracy, 76.7% recall, 87.5% precision
+SEMANTIC_CACHE_BGE_THRESHOLD = float(
+    os.getenv("SEMANTIC_CACHE_BGE_THRESHOLD", "0.55")
+)  # Min BGE score for match
+
+# Legacy V1 threshold (deprecated, kept for reference)
+SEMANTIC_CACHE_THRESHOLD = float(os.getenv("SEMANTIC_CACHE_THRESHOLD", "0.60"))
+
+
+# ========================================
 # CHAT SESSION CONFIGURATION
 # ========================================
 
@@ -125,9 +169,29 @@ DEFAULT_ENHANCEMENT_STRATEGIES = ["multi_query", "step_back"]  # balanced mode
 DEFAULT_RETRIEVAL_K = 10  # Top-k documents to retrieve
 DEFAULT_RERANK_TOP_N = 5  # Top-n after reranking
 
-# Rate limiting (TODO: implement)
-RATE_LIMIT_ENABLED = False
-RATE_LIMIT_REQUESTS_PER_MINUTE = 60
+# ========================================
+# RATE LIMITING CONFIGURATION
+# ========================================
+
+# Enable/disable rate limiting
+RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"
+
+# Daily query limit per user (default: 100 queries/day)
+RATE_LIMIT_DAILY_QUERIES = int(os.getenv("RATE_LIMIT_DAILY_QUERIES", "100"))
+
+# Redis DB for rate limiting (separate from other caches)
+RATE_LIMIT_REDIS_DB = int(os.getenv("RATE_LIMIT_REDIS_DB", "4"))
+
+# TTL for rate limit keys (24 hours)
+RATE_LIMIT_TTL_SECONDS = 86400
+
+# TODO (Future): Token-based and cost-based limits
+# RATE_LIMIT_DAILY_TOKENS = int(os.getenv("RATE_LIMIT_DAILY_TOKENS", "50000"))
+# RATE_LIMIT_DAILY_COST_USD = float(os.getenv("RATE_LIMIT_DAILY_COST_USD", "0.05"))
+
+# TODO (Future): User tier support
+# User tiers would have different limits (Free/Basic/Pro/Admin)
+# Requires: ALTER TABLE users ADD COLUMN rate_limit_tier VARCHAR(20) DEFAULT 'basic';
 
 
 # ========================================
@@ -165,6 +229,37 @@ def get_feature_status() -> dict:
             },
             "status": (
                 "✅ Production ready" if ENABLE_REDIS_CACHE else "⚠️ Development mode"
+            ),
+        },
+        "answer_cache": {
+            "enabled": ENABLE_ANSWER_CACHE,
+            "ttl_seconds": ANSWER_CACHE_TTL,
+            "redis_db": ANSWER_CACHE_DB,
+            "status": (
+                "✅ Enabled"
+                if ENABLE_ANSWER_CACHE and ENABLE_REDIS_CACHE
+                else "⚠️ Disabled"
+            ),
+        },
+        "semantic_cache": {
+            "enabled": ENABLE_SEMANTIC_CACHE,
+            "version": "V2 (Hybrid Cosine + BGE)",
+            "redis_db": SEMANTIC_CACHE_DB,
+            "max_scan": MAX_SEMANTIC_SEARCH,
+            "config": {
+                "cosine_threshold": SEMANTIC_CACHE_COSINE_THRESHOLD,
+                "cosine_top_k": SEMANTIC_CACHE_COSINE_TOP_K,
+                "bge_threshold": SEMANTIC_CACHE_BGE_THRESHOLD,
+            },
+            "performance": {
+                "accuracy": "78.9%",
+                "recall": "76.7%",
+                "precision": "87.5%",
+            },
+            "status": (
+                "✅ Enabled (V2 Hybrid)"
+                if ENABLE_SEMANTIC_CACHE and ENABLE_REDIS_CACHE
+                else "⚠️ Disabled"
             ),
         },
         "sessions": {

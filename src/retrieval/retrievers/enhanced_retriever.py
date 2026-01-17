@@ -9,6 +9,7 @@ from src.retrieval.query_processing import (
     QueryEnhancer,
     QueryEnhancerConfig,
     EnhancementStrategy,
+    get_cached_enhancer,  # 🆕 Use cached enhancer
 )
 from src.retrieval.ranking import BaseReranker
 from .base_vector_retriever import BaseVectorRetriever
@@ -72,12 +73,11 @@ class EnhancedRetriever(BaseRetriever):
             **kwargs,
         )
 
-        # Initialize query enhancer if strategies provided
+        # Initialize query enhancer if strategies provided (🆕 use cached enhancer)
         if self.enhancement_strategies:
-            config = QueryEnhancerConfig(
+            self.query_enhancer = get_cached_enhancer(
                 strategies=self.enhancement_strategies, max_queries=3
             )
-            self.query_enhancer = QueryEnhancer(config)
 
     def _get_relevant_documents(
         self,
@@ -109,10 +109,34 @@ class EnhancedRetriever(BaseRetriever):
 
         # Step 4: Rerank if reranker provided
         if self.reranker and all_docs:
-            # Rerank and get top-k with scores
-            doc_scores = self.reranker.rerank(query, all_docs, top_k=self.k)
-            # Extract documents only (discard scores)
-            return [doc for doc, score in doc_scores]
+            try:
+                # Rerank and get top-k with scores
+                doc_scores = self.reranker.rerank(query, all_docs, top_k=self.k)
+                # Extract documents only (discard scores)
+                return [doc for doc, score in doc_scores]
+            except Exception as e:
+                import logging
+
+                logger = logging.getLogger(__name__)
+                error_msg = str(e).lower()
+                # 🆕 Handle CUDA OOM with OpenAI fallback
+                if "cuda out of memory" in error_msg or "out of memory" in error_msg:
+                    logger.warning(f"⚠️ Reranker OOM, attempting OpenAI fallback: {e}")
+                    try:
+                        from src.retrieval.ranking import OpenAIReranker
+
+                        fallback_reranker = OpenAIReranker()
+                        doc_scores = fallback_reranker.rerank(
+                            query, all_docs, top_k=self.k
+                        )
+                        return [doc for doc, score in doc_scores]
+                    except Exception as fallback_err:
+                        logger.error(f"❌ OpenAI fallback failed: {fallback_err}")
+                else:
+                    logger.error(f"❌ Reranking error: {e}")
+                # Final fallback: return docs without reranking
+                logger.warning("⚠️ Returning docs without reranking")
+                return all_docs[: self.k]
 
         # Step 5: Return top-k (no reranking)
         return all_docs[: self.k]

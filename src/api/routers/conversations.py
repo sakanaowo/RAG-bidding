@@ -30,6 +30,7 @@ from src.api.schemas.conversation_schemas import (
     SourceInfo,
 )
 from src.api.services.conversation_service import conversation_service
+from src.api.services.rate_limit_service import RateLimitExceededError
 
 import logging
 
@@ -143,6 +144,7 @@ async def get_conversation(
                 id=m.id,
                 role=m.role,
                 content=m.content,
+                rag_mode=m.rag_mode,
                 sources=_parse_sources(m.sources) if m.sources else None,
                 processing_time_ms=m.processing_time_ms,
                 tokens_total=m.tokens_total,
@@ -309,6 +311,7 @@ async def get_messages(
                 id=m.id,
                 role=m.role,
                 content=m.content,
+                rag_mode=m.rag_mode,
                 sources=_parse_sources(m.sources) if m.sources else None,
                 processing_time_ms=m.processing_time_ms,
                 tokens_total=m.tokens_total,
@@ -336,16 +339,33 @@ async def send_message(
     - **rag_mode**: Override conversation's default RAG mode for this message
     - **include_sources**: Whether to include source citations (default: true)
     """
-    user_msg, assistant_msg, sources, processing_time = (
-        conversation_service.send_message(
-            db=db,
-            conversation_id=conversation_id,
-            user_id=current_user.id,
-            content=request.content,
-            rag_mode=request.rag_mode.value if request.rag_mode else None,
-            include_sources=request.include_sources,
+    try:
+        user_msg, assistant_msg, sources, processing_time = (
+            conversation_service.send_message(
+                db=db,
+                conversation_id=conversation_id,
+                user_id=current_user.id,
+                content=request.content,
+                rag_mode=request.rag_mode.value if request.rag_mode else None,
+                include_sources=request.include_sources,
+            )
         )
-    )
+    except RateLimitExceededError as e:
+        # Return 429 Too Many Requests with rate limit info
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "message": str(e),
+                "limit": e.result.limit,
+                "remaining": e.result.remaining,
+                "reset_at": e.result.reset_at,
+            },
+            headers={
+                "X-RateLimit-Limit": str(e.result.limit),
+                "X-RateLimit-Remaining": str(e.result.remaining),
+                "X-RateLimit-Reset": e.result.reset_at,
+            },
+        )
 
     if not user_msg or not assistant_msg:
         raise HTTPException(
@@ -358,6 +378,7 @@ async def send_message(
             id=user_msg.id,
             role=user_msg.role,
             content=user_msg.content,
+            rag_mode=user_msg.rag_mode,
             sources=None,
             processing_time_ms=None,
             tokens_total=None,
@@ -368,6 +389,7 @@ async def send_message(
             id=assistant_msg.id,
             role=assistant_msg.role,
             content=assistant_msg.content,
+            rag_mode=assistant_msg.rag_mode,
             sources=sources,
             processing_time_ms=assistant_msg.processing_time_ms,
             tokens_total=assistant_msg.tokens_total,

@@ -25,6 +25,7 @@ from .user_metrics import UserUsageMetric
 # DOCUMENT REPOSITORY
 # =============================================================================
 
+
 class DocumentRepository:
     """Repository pattern for Document operations"""
 
@@ -144,6 +145,7 @@ class DocumentRepository:
 # USER REPOSITORY
 # =============================================================================
 
+
 class UserRepository:
     """Repository pattern for User operations"""
 
@@ -160,16 +162,15 @@ class UserRepository:
     @staticmethod
     def get_by_oauth(db: Session, provider: str, oauth_id: str) -> Optional[User]:
         """Get user by OAuth provider and ID"""
-        return db.query(User).filter(
-            and_(User.oauth_provider == provider, User.oauth_id == oauth_id)
-        ).first()
+        return (
+            db.query(User)
+            .filter(and_(User.oauth_provider == provider, User.oauth_id == oauth_id))
+            .first()
+        )
 
     @staticmethod
     def create(
-        db: Session,
-        email: str,
-        password_hash: Optional[str] = None,
-        **kwargs
+        db: Session, email: str, password_hash: Optional[str] = None, **kwargs
     ) -> User:
         """Create new user"""
         user = User(email=email, password_hash=password_hash, **kwargs)
@@ -221,6 +222,7 @@ class UserRepository:
 # CONVERSATION REPOSITORY
 # =============================================================================
 
+
 class ConversationRepository:
     """Repository pattern for Conversation operations"""
 
@@ -235,7 +237,7 @@ class ConversationRepository:
         user_id: UUID,
         skip: int = 0,
         limit: int = 50,
-        include_deleted: bool = False
+        include_deleted: bool = False,
     ) -> List[Conversation]:
         """Get all conversations for a user"""
         query = db.query(Conversation).filter(Conversation.user_id == user_id)
@@ -243,7 +245,12 @@ class ConversationRepository:
         if not include_deleted:
             query = query.filter(Conversation.deleted_at.is_(None))
 
-        return query.order_by(desc(Conversation.last_message_at)).offset(skip).limit(limit).all()
+        return (
+            query.order_by(desc(Conversation.last_message_at))
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
 
     @staticmethod
     def create(
@@ -251,14 +258,11 @@ class ConversationRepository:
         user_id: UUID,
         title: Optional[str] = None,
         rag_mode: str = "balanced",
-        **kwargs
+        **kwargs,
     ) -> Conversation:
         """Create new conversation"""
         conversation = Conversation(
-            user_id=user_id,
-            title=title,
-            rag_mode=rag_mode,
-            **kwargs
+            user_id=user_id, title=title, rag_mode=rag_mode, **kwargs
         )
         db.add(conversation)
         db.commit()
@@ -276,16 +280,15 @@ class ConversationRepository:
 
     @staticmethod
     def update_usage(
-        db: Session,
-        conversation_id: UUID,
-        tokens: int,
-        cost_usd: float
+        db: Session, conversation_id: UUID, tokens: int, cost_usd: float
     ) -> None:
         """Update token and cost usage"""
         conversation = ConversationRepository.get_by_id(db, conversation_id)
         if conversation:
             conversation.total_tokens = (conversation.total_tokens or 0) + tokens
-            conversation.total_cost_usd = float(conversation.total_cost_usd or 0) + cost_usd
+            conversation.total_cost_usd = (
+                float(conversation.total_cost_usd or 0) + cost_usd
+            )
             db.commit()
 
     @staticmethod
@@ -300,7 +303,9 @@ class ConversationRepository:
         return True
 
     @staticmethod
-    def update_title(db: Session, conversation_id: UUID, title: str) -> Optional[Conversation]:
+    def update_title(
+        db: Session, conversation_id: UUID, title: str
+    ) -> Optional[Conversation]:
         """Update conversation title"""
         conversation = ConversationRepository.get_by_id(db, conversation_id)
         if not conversation:
@@ -316,6 +321,7 @@ class ConversationRepository:
 # MESSAGE REPOSITORY
 # =============================================================================
 
+
 class MessageRepository:
     """Repository pattern for Message operations"""
 
@@ -326,10 +332,7 @@ class MessageRepository:
 
     @staticmethod
     def get_conversation_messages(
-        db: Session,
-        conversation_id: UUID,
-        skip: int = 0,
-        limit: int = 100
+        db: Session, conversation_id: UUID, skip: int = 0, limit: int = 100
     ) -> List[Message]:
         """Get all messages in a conversation"""
         return (
@@ -351,9 +354,15 @@ class MessageRepository:
         sources: Optional[Dict] = None,
         processing_time_ms: Optional[int] = None,
         tokens_total: Optional[int] = None,
-        rag_mode: Optional[str] = None
+        rag_mode: Optional[str] = None,
     ) -> Message:
-        """Add a message to conversation"""
+        """
+        Add a message to conversation.
+
+        Uses write-through caching:
+        1. Save to DB first
+        2. Update Redis context cache
+        """
         message = Message(
             conversation_id=conversation_id,
             user_id=user_id,
@@ -362,7 +371,7 @@ class MessageRepository:
             sources=sources,
             processing_time_ms=processing_time_ms,
             tokens_total=tokens_total,
-            rag_mode=rag_mode
+            rag_mode=rag_mode,
         )
         db.add(message)
         db.commit()
@@ -370,6 +379,18 @@ class MessageRepository:
 
         # Update conversation last_message_at
         ConversationRepository.update_last_message(db, conversation_id)
+
+        # Write-through: Update context cache
+        try:
+            from src.retrieval.context_cache import get_context_cache
+
+            context_cache = get_context_cache()
+            context_cache.append_message(conversation_id, message)
+        except Exception as e:
+            # Cache update failure is not critical
+            import logging
+
+            logging.getLogger(__name__).debug(f"Context cache update failed: {e}")
 
         return message
 
@@ -389,6 +410,7 @@ class MessageRepository:
 # DOCUMENT CHUNK REPOSITORY
 # =============================================================================
 
+
 class DocumentChunkRepository:
     """Repository pattern for DocumentChunk operations"""
 
@@ -400,7 +422,9 @@ class DocumentChunkRepository:
     @staticmethod
     def get_by_chunk_id(db: Session, chunk_id: str) -> Optional[DocumentChunk]:
         """Get chunk by string chunk_id"""
-        return db.query(DocumentChunk).filter(DocumentChunk.chunk_id == chunk_id).first()
+        return (
+            db.query(DocumentChunk).filter(DocumentChunk.chunk_id == chunk_id).first()
+        )
 
     @staticmethod
     def get_by_document(db: Session, document_id: UUID) -> List[DocumentChunk]:
@@ -414,9 +438,7 @@ class DocumentChunkRepository:
 
     @staticmethod
     def create_batch(
-        db: Session,
-        document_id: UUID,
-        chunks: List[Dict[str, Any]]
+        db: Session, document_id: UUID, chunks: List[Dict[str, Any]]
     ) -> List[DocumentChunk]:
         """Create multiple chunks for a document"""
         chunk_records = []
@@ -444,11 +466,9 @@ class DocumentChunkRepository:
     @staticmethod
     def increment_retrieval_count(db: Session, chunk_ids: List[UUID]) -> None:
         """Increment retrieval count for chunks"""
-        db.query(DocumentChunk).filter(
-            DocumentChunk.id.in_(chunk_ids)
-        ).update(
+        db.query(DocumentChunk).filter(DocumentChunk.id.in_(chunk_ids)).update(
             {DocumentChunk.retrieval_count: DocumentChunk.retrieval_count + 1},
-            synchronize_session=False
+            synchronize_session=False,
         )
         db.commit()
 
@@ -467,6 +487,7 @@ class DocumentChunkRepository:
 # CITATION REPOSITORY
 # =============================================================================
 
+
 class CitationRepository:
     """Repository pattern for Citation operations"""
 
@@ -478,7 +499,7 @@ class CitationRepository:
         chunk_id: UUID,
         citation_number: int,
         citation_text: Optional[str] = None,
-        relevance_score: Optional[float] = None
+        relevance_score: Optional[float] = None,
     ) -> Citation:
         """Create a citation"""
         citation = Citation(
@@ -487,7 +508,7 @@ class CitationRepository:
             chunk_id=chunk_id,
             citation_number=citation_number,
             citation_text=citation_text,
-            relevance_score=relevance_score
+            relevance_score=relevance_score,
         )
         db.add(citation)
         db.commit()
@@ -506,9 +527,7 @@ class CitationRepository:
 
     @staticmethod
     def create_batch(
-        db: Session,
-        message_id: UUID,
-        citations: List[Dict[str, Any]]
+        db: Session, message_id: UUID, citations: List[Dict[str, Any]]
     ) -> List[Citation]:
         """Create multiple citations for a message"""
         citation_records = []
@@ -519,7 +538,7 @@ class CitationRepository:
                 chunk_id=cit_data["chunk_id"],
                 citation_number=cit_data.get("citation_number", i + 1),
                 citation_text=cit_data.get("citation_text"),
-                relevance_score=cit_data.get("relevance_score")
+                relevance_score=cit_data.get("relevance_score"),
             )
             db.add(citation)
             citation_records.append(citation)
@@ -532,6 +551,7 @@ class CitationRepository:
 # FEEDBACK REPOSITORY
 # =============================================================================
 
+
 class FeedbackRepository:
     """Repository pattern for Feedback operations"""
 
@@ -542,7 +562,7 @@ class FeedbackRepository:
         message_id: UUID,
         rating: int,
         feedback_type: Optional[str] = None,
-        comment: Optional[str] = None
+        comment: Optional[str] = None,
     ) -> Feedback:
         """Create feedback"""
         feedback = Feedback(
@@ -550,7 +570,7 @@ class FeedbackRepository:
             message_id=message_id,
             rating=rating,
             feedback_type=feedback_type,
-            comment=comment
+            comment=comment,
         )
         db.add(feedback)
         db.commit()
@@ -563,7 +583,9 @@ class FeedbackRepository:
         return db.query(Feedback).filter(Feedback.message_id == message_id).all()
 
     @staticmethod
-    def get_user_feedback(db: Session, user_id: UUID, limit: int = 50) -> List[Feedback]:
+    def get_user_feedback(
+        db: Session, user_id: UUID, limit: int = 50
+    ) -> List[Feedback]:
         """Get feedback from a user"""
         return (
             db.query(Feedback)
@@ -595,13 +617,14 @@ class FeedbackRepository:
             "total_feedback": total,
             "average_rating": float(avg_rating) if avg_rating else None,
             "by_type": dict(by_type),
-            "rating_distribution": dict(rating_distribution)
+            "rating_distribution": dict(rating_distribution),
         }
 
 
 # =============================================================================
 # QUERY REPOSITORY
 # =============================================================================
+
 
 class QueryRepository:
     """Repository pattern for Query analytics"""
@@ -618,7 +641,7 @@ class QueryRepository:
         retrieval_count: Optional[int] = None,
         total_latency_ms: Optional[int] = None,
         tokens_total: Optional[int] = None,
-        estimated_cost_usd: Optional[float] = None
+        estimated_cost_usd: Optional[float] = None,
     ) -> Query:
         """Log a query for analytics"""
         # Generate query hash for cache lookup
@@ -635,7 +658,7 @@ class QueryRepository:
             retrieval_count=retrieval_count,
             total_latency_ms=total_latency_ms,
             tokens_total=tokens_total,
-            estimated_cost_usd=estimated_cost_usd
+            estimated_cost_usd=estimated_cost_usd,
         )
         db.add(query)
         db.commit()
@@ -649,10 +672,7 @@ class QueryRepository:
 
     @staticmethod
     def get_user_queries(
-        db: Session,
-        user_id: UUID,
-        skip: int = 0,
-        limit: int = 50
+        db: Session, user_id: UUID, skip: int = 0, limit: int = 50
     ) -> List[Query]:
         """Get queries by user"""
         return (
@@ -668,7 +688,9 @@ class QueryRepository:
     def get_popular_queries(db: Session, limit: int = 20) -> List[Dict[str, Any]]:
         """Get most common queries"""
         results = (
-            db.query(Query.query_hash, Query.query_text, func.count(Query.id).label("count"))
+            db.query(
+                Query.query_hash, Query.query_text, func.count(Query.id).label("count")
+            )
             .group_by(Query.query_hash, Query.query_text)
             .order_by(desc("count"))
             .limit(limit)
@@ -693,13 +715,14 @@ class QueryRepository:
             "total_queries": total,
             "avg_latency_ms": float(avg_latency) if avg_latency else None,
             "total_cost_usd": float(total_cost) if total_cost else 0,
-            "by_mode": dict(by_mode)
+            "by_mode": dict(by_mode),
         }
 
 
 # =============================================================================
 # USER USAGE METRIC REPOSITORY
 # =============================================================================
+
 
 class UserUsageMetricRepository:
     """Repository pattern for UserUsageMetric operations"""
@@ -708,9 +731,13 @@ class UserUsageMetricRepository:
     def get_or_create_today(db: Session, user_id: UUID) -> UserUsageMetric:
         """Get or create today's metric for user"""
         today = date.today()
-        metric = db.query(UserUsageMetric).filter(
-            and_(UserUsageMetric.user_id == user_id, UserUsageMetric.date == today)
-        ).first()
+        metric = (
+            db.query(UserUsageMetric)
+            .filter(
+                and_(UserUsageMetric.user_id == user_id, UserUsageMetric.date == today)
+            )
+            .first()
+        )
 
         if not metric:
             metric = UserUsageMetric(user_id=user_id, date=today)
@@ -727,7 +754,7 @@ class UserUsageMetricRepository:
         queries: int = 0,
         messages: int = 0,
         tokens: int = 0,
-        cost_usd: float = 0
+        cost_usd: float = 0,
     ) -> UserUsageMetric:
         """Increment usage metrics for today"""
         metric = UserUsageMetricRepository.get_or_create_today(db, user_id)
@@ -743,9 +770,7 @@ class UserUsageMetricRepository:
 
     @staticmethod
     def get_user_history(
-        db: Session,
-        user_id: UUID,
-        days: int = 30
+        db: Session, user_id: UUID, days: int = 30
     ) -> List[UserUsageMetric]:
         """Get user usage history for last N days"""
         return (
@@ -759,16 +784,20 @@ class UserUsageMetricRepository:
     @staticmethod
     def get_total_usage(db: Session, user_id: UUID) -> Dict[str, Any]:
         """Get total usage for user"""
-        result = db.query(
-            func.sum(UserUsageMetric.total_queries).label("queries"),
-            func.sum(UserUsageMetric.total_messages).label("messages"),
-            func.sum(UserUsageMetric.total_tokens).label("tokens"),
-            func.sum(UserUsageMetric.total_cost_usd).label("cost")
-        ).filter(UserUsageMetric.user_id == user_id).first()
+        result = (
+            db.query(
+                func.sum(UserUsageMetric.total_queries).label("queries"),
+                func.sum(UserUsageMetric.total_messages).label("messages"),
+                func.sum(UserUsageMetric.total_tokens).label("tokens"),
+                func.sum(UserUsageMetric.total_cost_usd).label("cost"),
+            )
+            .filter(UserUsageMetric.user_id == user_id)
+            .first()
+        )
 
         return {
             "total_queries": result.queries or 0,
             "total_messages": result.messages or 0,
             "total_tokens": result.tokens or 0,
-            "total_cost_usd": float(result.cost) if result.cost else 0
+            "total_cost_usd": float(result.cost) if result.cost else 0,
         }

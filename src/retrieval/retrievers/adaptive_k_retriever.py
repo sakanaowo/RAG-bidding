@@ -48,12 +48,19 @@ class AdaptiveKRetriever(BaseRetriever):
         run_manager: CallbackManagerForRetrieverRun | None = None,
     ) -> List[Document]:
         """Retrieve with adaptive k."""
+        import logging
 
-        # Step 1: Analyze complexity
-        analysis = self.complexity_analyzer.analyze(query)
+        logger = logging.getLogger(__name__)
+
+        # Step 1: Analyze complexity (FIX: use correct method name)
+        analysis = self.complexity_analyzer.analyze_question_complexity(query)
+        logger.info(
+            f"📊 Adaptive K: complexity={analysis.get('complexity')}, suggested_k={analysis.get('suggested_k')}"
+        )
 
         # Step 2: Determine k based on complexity
         k = self._determine_k(analysis)
+        logger.info(f"📊 Adaptive K: using k={k}")
 
         # Step 3: Update enhanced_retriever's k
         self.enhanced_retriever.k = k

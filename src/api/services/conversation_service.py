@@ -24,10 +24,11 @@ from src.models.repositories import (
     QueryRepository,
     UserUsageMetricRepository,
 )
-from src.generation.chains.qa_chain import answer as rag_answer
+from src.generation.chains.qa_chain import answer as rag_answer, is_casual_query
 from src.api.schemas.conversation_schemas import SourceInfo
 from src.utils.token_counter import count_message_tokens, estimate_cost_usd
 from src.api.services.summary_service import SummaryService
+from src.api.services.rate_limit_service import RateLimitService, RateLimitExceededError
 
 logger = logging.getLogger(__name__)
 
@@ -272,6 +273,15 @@ class ConversationService:
         """
         start_time = time.time()
 
+        # Check rate limit before processing
+        rate_limit_result = RateLimitService.check_and_increment(user_id)
+        if not rate_limit_result.allowed:
+            raise RateLimitExceededError(
+                f"Daily query limit reached ({rate_limit_result.limit} queries/day). "
+                f"Remaining: {rate_limit_result.remaining}. Resets at: {rate_limit_result.reset_at}",
+                rate_limit_result
+            )
+
         # Verify conversation ownership
         conversation = ConversationService.get_conversation(
             db, conversation_id, user_id
@@ -282,20 +292,57 @@ class ConversationService:
         # Use conversation's rag_mode if not overridden
         effective_rag_mode = rag_mode or conversation.rag_mode or "balanced"
 
-        # Create user message
+        # Check if this is the first message BEFORE creating user message
+        # (message_count is 0 or None at this point for new conversations)
+        is_first_message = (
+            not conversation.title and (conversation.message_count or 0) == 0
+        )
+
+        # Create user message with rag_mode for tracking
         user_message = MessageRepository.add_message(
             db=db,
             conversation_id=conversation_id,
             user_id=user_id,
             role="user",
             content=content,
+            rag_mode=effective_rag_mode,
         )
 
         # Auto-generate title from first message if not set
-        if not conversation.title and conversation.message_count <= 1:
+        if is_first_message:
+            # Refresh conversation to get the latest state after message creation
+            db.refresh(conversation)
             auto_title = content[:100] + "..." if len(content) > 100 else content
             conversation.title = auto_title
             db.commit()
+            db.refresh(conversation)
+
+        # 🚀 EARLY EXIT: Check if query is casual/conversational (no RAG needed)
+        # This avoids expensive context building for simple greetings/thanks
+        is_casual, direct_response = is_casual_query(content)
+        if is_casual and direct_response:
+            processing_time = int((time.time() - start_time) * 1000)
+            logger.info(
+                f"💬 Casual query early exit in {processing_time}ms: '{content[:30]}...'"
+            )
+
+            # Create assistant message with direct response (no RAG)
+            assistant_message = MessageRepository.add_message(
+                db=db,
+                conversation_id=conversation_id,
+                user_id=user_id,
+                role="assistant",
+                content=direct_response,
+                sources=None,  # No sources for casual responses
+                processing_time_ms=processing_time,
+                rag_mode="casual",  # Mark as casual mode
+                tokens_total=0,  # No LLM tokens used
+            )
+
+            # Update conversation usage stats
+            ConversationRepository.update_last_message(db, conversation_id)
+
+            return user_message, assistant_message, [], processing_time
 
         # Build conversation context for RAG (summary + recent messages)
         conversation_context, _ = SummaryService.build_context_for_rag(
@@ -317,7 +364,7 @@ class ConversationService:
                 question=enhanced_question,
                 mode=effective_rag_mode,
                 reranker_type="bge",
-                filter_status=None,  # Status not in embedding metadata
+                original_query=content,  # 🆕 Pass original query for cache key
             )
 
             assistant_content = rag_result.get(
@@ -375,6 +422,13 @@ class ConversationService:
         # Update conversation usage stats
         ConversationRepository.update_last_message(db, conversation_id)
 
+        # Extract actual categories from retrieved documents for analytics
+        # This provides better insights than just using the user's category filter
+        actual_categories = list(set(
+            doc.get("category") for doc in raw_sources 
+            if doc.get("category")
+        )) or conversation.category_filter  # Fallback to filter if no categories in docs
+
         # Log query for analytics with token info
         try:
             QueryRepository.log_query(
@@ -384,7 +438,7 @@ class ConversationService:
                 conversation_id=conversation_id,
                 message_id=assistant_message.id,
                 rag_mode=effective_rag_mode,
-                categories_searched=conversation.category_filter,
+                categories_searched=actual_categories,
                 retrieval_count=len(raw_sources),
                 total_latency_ms=processing_time,
                 tokens_total=total_tokens,

@@ -3,7 +3,16 @@ UserUsageMetric Model - Schema v3
 Represents daily usage metrics per user for billing and analytics
 """
 
-from sqlalchemy import Column, Integer, TIMESTAMP, ForeignKey, Index, Numeric, Date, BigInteger
+from sqlalchemy import (
+    Column,
+    Integer,
+    TIMESTAMP,
+    ForeignKey,
+    Index,
+    Numeric,
+    Date,
+    BigInteger,
+)
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -20,7 +29,7 @@ if TYPE_CHECKING:
 class UserUsageMetric(Base):
     """
     UserUsageMetric model for daily usage tracking
-    
+
     Aggregates daily usage per user:
     - Number of queries and messages
     - Token consumption
@@ -36,7 +45,7 @@ class UserUsageMetric(Base):
         primary_key=True,
         default=uuid.uuid4,
         server_default=func.gen_random_uuid(),
-        comment="Primary key"
+        comment="Primary key",
     )
 
     # Foreign key
@@ -45,50 +54,39 @@ class UserUsageMetric(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="User ID"
+        comment="User ID",
     )
 
     # Date for aggregation
-    date = Column(
-        Date,
-        nullable=False,
-        index=True,
-        comment="Metric date (YYYY-MM-DD)"
-    )
+    date = Column(Date, nullable=False, index=True, comment="Metric date (YYYY-MM-DD)")
 
     # Usage counts
     total_queries = Column(
-        Integer,
-        default=0,
-        nullable=True,
-        comment="Total queries made"
+        Integer, default=0, nullable=True, comment="Total queries made"
     )
 
     total_messages = Column(
-        Integer,
-        default=0,
-        nullable=True,
-        comment="Total messages sent"
+        Integer, default=0, nullable=True, comment="Total messages sent"
     )
 
     total_tokens = Column(
-        BigInteger,
-        default=0,
-        nullable=True,
-        comment="Total tokens consumed"
+        BigInteger, default=0, nullable=True, comment="Total tokens consumed"
+    )
+
+    total_input_tokens = Column(
+        BigInteger, default=0, nullable=True, comment="Total input tokens consumed"
+    )
+
+    total_output_tokens = Column(
+        BigInteger, default=0, nullable=True, comment="Total output tokens consumed"
     )
 
     total_cost_usd = Column(
-        Numeric(10, 4),
-        default=0,
-        nullable=True,
-        comment="Total estimated cost in USD"
+        Numeric(10, 4), default=0, nullable=True, comment="Total estimated cost in USD"
     )
 
     categories_accessed = Column(
-        ARRAY(Text),
-        nullable=True,
-        comment="Categories accessed during the day"
+        ARRAY(Text), nullable=True, comment="Categories accessed during the day"
     )
 
     # Timestamp
@@ -96,14 +94,11 @@ class UserUsageMetric(Base):
         TIMESTAMP(timezone=False),
         server_default=func.current_timestamp(),
         nullable=True,
-        comment="Record creation timestamp"
+        comment="Record creation timestamp",
     )
 
     # Relationships
-    user = relationship(
-        "User",
-        back_populates="usage_metrics"
-    )
+    user = relationship("User", back_populates="usage_metrics")
 
     # Indexes
     __table_args__ = (

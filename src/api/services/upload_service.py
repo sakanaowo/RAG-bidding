@@ -1,6 +1,18 @@
 """
-Upload Processing Service
-Handles file upload, classification, and processing pipeline
+Upload Processing Service - 2-Stage Workflow
+============================================
+
+Stage 1: Upload & Extract
+- Receive files
+- Save to permanent storage (data/uploads/{upload_id}/)
+- Extract text and auto-classify
+- Save to document_upload_jobs with status='pending_review'
+
+Stage 2: Admin Review & Confirm
+- Admin reviews extracted metadata
+- Admin can edit metadata (document_type, category, etc.)
+- Admin confirms → triggers embedding generation
+- Or admin cancels → marks as cancelled, optionally deletes files
 """
 
 import uuid
@@ -8,19 +20,17 @@ import asyncio
 import time
 from typing import List, Dict, Any, Optional
 from pathlib import Path
-import tempfile
 import shutil
 import logging
 from concurrent.futures import ThreadPoolExecutor
+import json
+from datetime import datetime
 
 from fastapi import UploadFile, HTTPException
 
 from ..schemas.upload_schemas import (
     DocumentType,
     ProcessingStatus,
-    ClassificationResult,
-    ProcessingProgress,
-    ProcessingResult,
     ProcessingOptions,
 )
 from .document_classifier import DocumentClassifier
@@ -31,21 +41,344 @@ from ...embedding.embedders.openai_embedder import OpenAIEmbedder
 from ...embedding.store.pgvector_store import PGVectorStore
 from ...config.models import settings
 from ...config.database import get_db_sync
-from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
+
+# Base path for permanent file storage
+UPLOAD_STORAGE_BASE = Path(__file__).parent.parent.parent.parent / "data" / "uploads"
+
+
+class UploadJobRepository:
+    """Database repository for upload job tracking."""
+
+    @staticmethod
+    def create_job(
+        upload_id: str,
+        files_data: List[Dict],
+        storage_path: str,
+        extracted_metadata: Dict,
+        options: Optional[Dict] = None,
+        uploaded_by: Optional[str] = None,
+    ) -> bool:
+        """Create a new upload job in pending_review status."""
+        conn = None
+        try:
+            conn = get_db_sync()
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                INSERT INTO document_upload_jobs (
+                    upload_id, status, total_files, 
+                    files_data, storage_path, extracted_metadata,
+                    options, uploaded_by,
+                    created_at, updated_at
+                ) VALUES (
+                    %(upload_id)s, 'pending_review', %(total_files)s,
+                    %(files_data)s, %(storage_path)s, %(extracted_metadata)s,
+                    %(options)s, %(uploaded_by)s,
+                    NOW(), NOW()
+                )
+            """,
+                {
+                    "upload_id": upload_id,
+                    "total_files": len(files_data),
+                    "files_data": json.dumps(files_data),
+                    "storage_path": storage_path,
+                    "extracted_metadata": json.dumps(extracted_metadata),
+                    "options": json.dumps(options) if options else None,
+                    "uploaded_by": uploaded_by,
+                },
+            )
+            conn.commit()
+            logger.info(
+                f"✅ Created upload job {upload_id} with {len(files_data)} files"
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to create upload job: {e}")
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    @staticmethod
+    def get_job(upload_id: str) -> Optional[Dict]:
+        """Get upload job by upload_id."""
+        conn = None
+        try:
+            conn = get_db_sync()
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT 
+                    upload_id, status, total_files, completed_files, failed_files,
+                    files_data, storage_path, extracted_metadata, admin_metadata,
+                    options, error_message, uploaded_by, confirmed_by,
+                    created_at, updated_at, confirmed_at, cancelled_at, cancel_reason,
+                    progress_data
+                FROM document_upload_jobs
+                WHERE upload_id = %(upload_id)s
+            """,
+                {"upload_id": upload_id},
+            )
+
+            row = cursor.fetchone()
+            if not row:
+                return None
+
+            return {
+                "upload_id": row[0],
+                "status": row[1],
+                "total_files": row[2],
+                "completed_files": row[3],
+                "failed_files": row[4],
+                "files_data": row[5] if row[5] else [],
+                "storage_path": row[6],
+                "extracted_metadata": row[7] if row[7] else {},
+                "admin_metadata": row[8] if row[8] else {},
+                "options": row[9] if row[9] else {},
+                "error_message": row[10],
+                "uploaded_by": str(row[11]) if row[11] else None,
+                "confirmed_by": str(row[12]) if row[12] else None,
+                "created_at": row[13].isoformat() if row[13] else None,
+                "updated_at": row[14].isoformat() if row[14] else None,
+                "confirmed_at": row[15].isoformat() if row[15] else None,
+                "cancelled_at": row[16].isoformat() if row[16] else None,
+                "cancel_reason": row[17],
+                "progress_data": row[18] if row[18] else [],
+            }
+        except Exception as e:
+            logger.error(f"Failed to get upload job: {e}")
+            return None
+        finally:
+            if conn:
+                conn.close()
+
+    @staticmethod
+    def list_pending_jobs(limit: int = 50, offset: int = 0) -> List[Dict]:
+        """List all jobs with pending_review status."""
+        conn = None
+        try:
+            conn = get_db_sync()
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT 
+                    upload_id, status, total_files,
+                    files_data, extracted_metadata, admin_metadata,
+                    uploaded_by, created_at, updated_at
+                FROM document_upload_jobs
+                WHERE status = 'pending_review'
+                ORDER BY created_at DESC
+                LIMIT %(limit)s OFFSET %(offset)s
+            """,
+                {"limit": limit, "offset": offset},
+            )
+
+            jobs = []
+            for row in cursor.fetchall():
+                jobs.append(
+                    {
+                        "upload_id": row[0],
+                        "status": row[1],
+                        "total_files": row[2],
+                        "files_data": row[3] if row[3] else [],
+                        "extracted_metadata": row[4] if row[4] else {},
+                        "admin_metadata": row[5] if row[5] else {},
+                        "uploaded_by": str(row[6]) if row[6] else None,
+                        "created_at": row[7].isoformat() if row[7] else None,
+                        "updated_at": row[8].isoformat() if row[8] else None,
+                    }
+                )
+            return jobs
+        except Exception as e:
+            logger.error(f"Failed to list pending jobs: {e}")
+            return []
+        finally:
+            if conn:
+                conn.close()
+
+    @staticmethod
+    def update_admin_metadata(upload_id: str, admin_metadata: Dict) -> bool:
+        """Update admin-edited metadata for a job."""
+        conn = None
+        try:
+            conn = get_db_sync()
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                UPDATE document_upload_jobs
+                SET admin_metadata = %(admin_metadata)s
+                WHERE upload_id = %(upload_id)s AND status = 'pending_review'
+            """,
+                {
+                    "upload_id": upload_id,
+                    "admin_metadata": json.dumps(admin_metadata),
+                },
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            logger.error(f"Failed to update admin metadata: {e}")
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    @staticmethod
+    def confirm_job(upload_id: str, confirmed_by: Optional[str] = None) -> bool:
+        """Mark job as confirmed and ready for processing."""
+        conn = None
+        try:
+            conn = get_db_sync()
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                UPDATE document_upload_jobs
+                SET status = 'confirmed',
+                    confirmed_by = %(confirmed_by)s,
+                    confirmed_at = NOW()
+                WHERE upload_id = %(upload_id)s AND status = 'pending_review'
+            """,
+                {
+                    "upload_id": upload_id,
+                    "confirmed_by": confirmed_by,
+                },
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            logger.error(f"Failed to confirm job: {e}")
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    @staticmethod
+    def update_job_status(
+        upload_id: str, status: str, error_message: Optional[str] = None
+    ) -> bool:
+        """Update job status."""
+        conn = None
+        try:
+            conn = get_db_sync()
+            cursor = conn.cursor()
+
+            completed_at_clause = (
+                ", completed_at = NOW()" if status in ("completed", "failed") else ""
+            )
+
+            cursor.execute(
+                f"""
+                UPDATE document_upload_jobs
+                SET status = %(status)s,
+                    error_message = %(error_message)s
+                    {completed_at_clause}
+                WHERE upload_id = %(upload_id)s
+            """,
+                {
+                    "upload_id": upload_id,
+                    "status": status,
+                    "error_message": error_message,
+                },
+            )
+            conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update job status: {e}")
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    @staticmethod
+    def update_progress(
+        upload_id: str, progress_data: List[Dict], completed: int = 0, failed: int = 0
+    ) -> bool:
+        """Update processing progress."""
+        conn = None
+        try:
+            conn = get_db_sync()
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                UPDATE document_upload_jobs
+                SET progress_data = %(progress_data)s,
+                    completed_files = %(completed)s,
+                    failed_files = %(failed)s
+                WHERE upload_id = %(upload_id)s
+            """,
+                {
+                    "upload_id": upload_id,
+                    "progress_data": json.dumps(progress_data),
+                    "completed": completed,
+                    "failed": failed,
+                },
+            )
+            conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update progress: {e}")
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    @staticmethod
+    def cancel_job(upload_id: str, reason: Optional[str] = None) -> bool:
+        """Cancel a pending job."""
+        conn = None
+        try:
+            conn = get_db_sync()
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                UPDATE document_upload_jobs
+                SET status = 'cancelled',
+                    cancelled_at = NOW(),
+                    cancel_reason = %(reason)s
+                WHERE upload_id = %(upload_id)s AND status = 'pending_review'
+            """,
+                {
+                    "upload_id": upload_id,
+                    "reason": reason,
+                },
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            logger.error(f"Failed to cancel job: {e}")
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                conn.close()
 
 
 class UploadProcessingService:
     """
-    Service for handling file uploads and processing pipeline.
+    Service for handling file uploads with 2-stage workflow.
 
-    Workflow:
-    1. Receive files → Store temporarily
-    2. Classify document types → Auto-detection
-    3. Route to appropriate pipeline → Preprocessing
-    4. Generate embeddings → Store in vector DB
-    5. Track progress → Return results
+    Stage 1: upload_files() - Save files and extract metadata
+    Stage 2: confirm_upload() - Process confirmed files (chunking + embedding)
     """
 
     def __init__(self):
@@ -53,7 +386,7 @@ class UploadProcessingService:
         self.embedder = OpenAIEmbedder()
         self.vector_store = PGVectorStore()
         self.doc_id_generator = DocumentIDGenerator()
-        self.processing_jobs: Dict[str, Dict] = {}
+        self.job_repo = UploadJobRepository()
         self.executor = ThreadPoolExecutor(max_workers=4)
 
         # Initialize working pipeline
@@ -66,94 +399,483 @@ class UploadProcessingService:
             ".txt": TxtLoader,
         }
 
+        # Ensure upload storage directory exists
+        UPLOAD_STORAGE_BASE.mkdir(parents=True, exist_ok=True)
+
+    # =========================================================================
+    # STAGE 1: Upload & Extract
+    # =========================================================================
+
     async def upload_files(
-        self, files: List[UploadFile], options: ProcessingOptions = None
+        self,
+        files: List[UploadFile],
+        options: Optional[ProcessingOptions] = None,
+        uploaded_by: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Handle multiple file uploads and start processing.
-
-        Args:
-            files: List of uploaded files
-            options: Processing configuration options
-
-        Returns:
-            Upload response with job ID and initial status
+        Stage 1: Upload files, save to storage, extract metadata.
+        Does NOT process embeddings yet - waits for admin confirmation.
         """
         upload_id = str(uuid.uuid4())
+        storage_path = UPLOAD_STORAGE_BASE / upload_id
 
         try:
             # Validate files
             validated_files = await self._validate_files(files)
 
-            # Store files temporarily
-            temp_files = await self._store_temp_files(validated_files, upload_id)
+            # Create storage directory
+            storage_path.mkdir(parents=True, exist_ok=True)
 
-            # Initialize processing job
-            job_data = {
-                "upload_id": upload_id,
-                "files": temp_files,
-                "options": options or ProcessingOptions(),
-                "status": ProcessingStatus.PENDING,
-                "created_at": time.time(),
-                "progress": [],
-            }
+            # Save files and extract metadata
+            files_data = []
+            extracted_metadata = {"files": []}
 
-            self.processing_jobs[upload_id] = job_data
+            for file in validated_files:
+                file_id = str(uuid.uuid4())
+                filename = file.filename or f"unknown_{file_id}"
+                ext = Path(filename).suffix.lower()
+                file_path = storage_path / filename
 
-            # Start async processing
-            asyncio.create_task(self._process_files_async(upload_id))
+                # Save file content
+                content = await file.read()
+                file_path.write_bytes(content)
+                await file.seek(0)
 
-            # Return immediate response
+                # Extract text preview and classify
+                text_preview = ""
+                doc_type = DocumentType.OTHER
+                confidence = 0.0
+
+                try:
+                    loader_class = self.loaders.get(ext)
+                    if loader_class:
+                        loader = loader_class()
+                        loaded_content = loader.load(str(file_path))
+                        full_text = (
+                            loaded_content.content
+                            if hasattr(loaded_content, "content")
+                            else str(loaded_content)
+                        )
+                        text_preview = full_text[:1000]  # First 1000 chars as preview
+
+                        # Auto-classify
+                        doc_type, confidence, reasoning = (
+                            self.classifier.classify_document(filename, full_text)
+                        )
+                except Exception as e:
+                    logger.warning(f"Failed to extract text from {filename}: {e}")
+
+                file_info = {
+                    "file_id": file_id,
+                    "filename": filename,
+                    "file_path": str(file_path),
+                    "size_bytes": len(content),
+                    "content_type": file.content_type,
+                    "extension": ext,
+                }
+                files_data.append(file_info)
+
+                extracted_metadata["files"].append(
+                    {
+                        "file_id": file_id,
+                        "filename": filename,
+                        "detected_type": (
+                            doc_type.value
+                            if hasattr(doc_type, "value")
+                            else str(doc_type)
+                        ),
+                        "confidence": confidence,
+                        "text_preview": text_preview,
+                    }
+                )
+
+            # Prepare options dict
+            options_dict = None
+            if options:
+                options_dict = {
+                    "batch_name": options.batch_name,
+                    "chunk_size": options.chunk_size,
+                    "chunk_overlap": options.chunk_overlap,
+                    "enable_enrichment": options.enable_enrichment,
+                    "enable_validation": options.enable_validation,
+                }
+
+            # Save to database
+            if not self.job_repo.create_job(
+                upload_id=upload_id,
+                files_data=files_data,
+                storage_path=str(storage_path),
+                extracted_metadata=extracted_metadata,
+                options=options_dict,
+                uploaded_by=uploaded_by,
+            ):
+                raise Exception("Failed to save upload job to database")
+
+            logger.info(
+                f"✅ Stage 1 complete: Upload {upload_id} saved with {len(files_data)} files"
+            )
+
             return {
                 "upload_id": upload_id,
-                "files_received": len(validated_files),
-                "status": ProcessingStatus.PENDING,
-                "message": f"Received {len(validated_files)} files. Processing started.",
-                "estimated_time_minutes": self._estimate_processing_time(
-                    validated_files
-                ),
+                "status": "pending_review",
+                "total_files": len(files_data),
+                "files": [
+                    {
+                        "file_id": f["file_id"],
+                        "filename": f["filename"],
+                        "size_bytes": f["size_bytes"],
+                    }
+                    for f in files_data
+                ],
+                "extracted_metadata": extracted_metadata,
+                "message": "Files uploaded successfully. Awaiting admin review and confirmation.",
             }
 
         except Exception as e:
+            # Cleanup on failure
+            if storage_path.exists():
+                shutil.rmtree(storage_path, ignore_errors=True)
             logger.error(f"Upload failed for {upload_id}: {str(e)}")
             raise HTTPException(status_code=400, detail=f"Upload failed: {str(e)}")
 
-    async def get_processing_status(self, upload_id: str) -> Dict[str, Any]:
-        """Get current processing status for upload job"""
-        if upload_id not in self.processing_jobs:
-            raise HTTPException(status_code=404, detail="Upload job not found")
+    # =========================================================================
+    # STAGE 2: Admin Review
+    # =========================================================================
 
-        job = self.processing_jobs[upload_id]
+    def _transform_job_for_frontend(self, job: Dict[str, Any]) -> Dict[str, Any]:
+        """Transform job data to match frontend expected format."""
+        files_data = job.get("files_data", [])
+        extracted_metadata = job.get("extracted_metadata", {})
+        extracted_files = extracted_metadata.get("files", [])
+
+        # Build files array matching FE FileInfo interface
+        files = []
+        for fd in files_data:
+            # Find matching extracted metadata
+            extracted = next(
+                (
+                    ef
+                    for ef in extracted_files
+                    if ef.get("file_id") == fd.get("file_id")
+                ),
+                {},
+            )
+            files.append(
+                {
+                    "file_id": fd.get("file_id"),
+                    "filename": fd.get("filename"),
+                    "original_filename": fd.get("filename"),
+                    "file_size": fd.get("size_bytes", 0),
+                    "file_path": fd.get("file_path"),
+                    "content_type": fd.get("content_type"),
+                    "extracted_text_preview": extracted.get("text_preview"),
+                    "auto_detected_type": extracted.get("detected_type"),
+                    "confidence": extracted.get("confidence"),
+                }
+            )
 
         return {
-            "upload_id": upload_id,
-            "status": job["status"],
-            "progress": job["progress"],
-            "total_files": len(job["files"]),
-            "completed_files": len(
-                [p for p in job["progress"] if p.status == ProcessingStatus.COMPLETED]
+            "upload_id": job.get("upload_id"),
+            "batch_name": (
+                job.get("options", {}).get("batch_name") if job.get("options") else None
             ),
-            "failed_files": len(
-                [p for p in job["progress"] if p.status == ProcessingStatus.FAILED]
-            ),
+            "status": job.get("status"),
+            "total_files": job.get("total_files"),
+            "files": files,
+            "auto_metadata": {
+                "document_type": (
+                    extracted_files[0].get("detected_type") if extracted_files else None
+                ),
+                "confidence": (
+                    extracted_files[0].get("confidence") if extracted_files else None
+                ),
+            },
+            "admin_metadata": job.get("admin_metadata", {}),
+            "uploaded_by": job.get("uploaded_by"),
+            "created_at": job.get("created_at"),
+            "updated_at": job.get("updated_at"),
         }
 
+    async def get_pending_uploads(
+        self, limit: int = 50, offset: int = 0
+    ) -> Dict[str, Any]:
+        """Get list of uploads pending admin review."""
+        jobs = self.job_repo.list_pending_jobs(limit, offset)
+        # Transform each job to FE-expected format
+        transformed = [self._transform_job_for_frontend(job) for job in jobs]
+        return {
+            "pending_count": len(transformed),
+            "uploads": transformed,
+        }
+
+    async def get_upload_detail(self, upload_id: str) -> Dict[str, Any]:
+        """Get detailed info about a specific upload."""
+        job = self.job_repo.get_job(upload_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Upload not found")
+        return self._transform_job_for_frontend(job)
+
+    async def update_metadata(
+        self, upload_id: str, admin_metadata: Dict
+    ) -> Dict[str, Any]:
+        """Update admin-edited metadata for an upload."""
+        job = self.job_repo.get_job(upload_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Upload not found")
+
+        if job["status"] != "pending_review":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot edit metadata for upload with status '{job['status']}'",
+            )
+
+        if not self.job_repo.update_admin_metadata(upload_id, admin_metadata):
+            raise HTTPException(status_code=500, detail="Failed to update metadata")
+
+        return {"message": "Metadata updated successfully", "upload_id": upload_id}
+
+    async def cancel_upload(
+        self, upload_id: str, reason: Optional[str] = None, delete_files: bool = False
+    ) -> Dict[str, Any]:
+        """Cancel a pending upload."""
+        job = self.job_repo.get_job(upload_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Upload not found")
+
+        if job["status"] != "pending_review":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot cancel upload with status '{job['status']}'",
+            )
+
+        if not self.job_repo.cancel_job(upload_id, reason):
+            raise HTTPException(status_code=500, detail="Failed to cancel upload")
+
+        # Optionally delete files
+        if delete_files and job.get("storage_path"):
+            storage_path = Path(job["storage_path"])
+            if storage_path.exists():
+                shutil.rmtree(storage_path, ignore_errors=True)
+                logger.info(f"Deleted files for cancelled upload {upload_id}")
+
+        return {
+            "message": "Upload cancelled successfully",
+            "upload_id": upload_id,
+            "files_deleted": delete_files,
+        }
+
+    # =========================================================================
+    # STAGE 3: Confirm & Process Embeddings
+    # =========================================================================
+
+    async def confirm_and_process(
+        self, upload_id: str, confirmed_by: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Stage 2: Admin confirms upload → process embeddings.
+        """
+        job = self.job_repo.get_job(upload_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Upload not found")
+
+        if job["status"] != "pending_review":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot confirm upload with status '{job['status']}'. Must be 'pending_review'.",
+            )
+
+        # Mark as confirmed
+        if not self.job_repo.confirm_job(upload_id, confirmed_by):
+            raise HTTPException(status_code=500, detail="Failed to confirm upload")
+
+        # Start async processing
+        asyncio.create_task(self._process_confirmed_upload(upload_id))
+
+        return {
+            "message": "Upload confirmed. Processing started.",
+            "upload_id": upload_id,
+            "status": "processing",
+        }
+
+    async def _process_confirmed_upload(self, upload_id: str):
+        """Process confirmed upload: chunking + embedding."""
+        try:
+            job = self.job_repo.get_job(upload_id)
+            if not job:
+                logger.error(f"Job not found for processing: {upload_id}")
+                return
+
+            self.job_repo.update_job_status(upload_id, "processing")
+
+            files_data = job.get("files_data", [])
+            admin_metadata = job.get("admin_metadata", {})
+            extracted_metadata = job.get("extracted_metadata", {})
+            options = job.get("options", {})
+
+            progress_data = []
+            completed = 0
+            failed = 0
+
+            for i, file_info in enumerate(files_data):
+                file_progress = {
+                    "file_id": file_info["file_id"],
+                    "filename": file_info["filename"],
+                    "status": "processing",
+                    "progress_percent": 0,
+                    "error_message": None,
+                    "document_id": None,
+                    "chunks_created": 0,
+                }
+                progress_data.append(file_progress)
+
+                try:
+                    # Get metadata for this file
+                    file_metadata = next(
+                        (
+                            f
+                            for f in extracted_metadata.get("files", [])
+                            if f["file_id"] == file_info["file_id"]
+                        ),
+                        {},
+                    )
+
+                    # Use admin metadata if provided, otherwise use extracted
+                    doc_type = admin_metadata.get("document_type") or file_metadata.get(
+                        "detected_type", "other"
+                    )
+
+                    # Process file
+                    file_progress["progress_percent"] = 20
+                    self.job_repo.update_progress(
+                        upload_id, progress_data, completed, failed
+                    )
+
+                    # Run pipeline
+                    batch_name = options.get("batch_name")
+                    chunks = await self._run_working_pipeline(
+                        file_info["file_path"], doc_type, batch_name
+                    )
+
+                    file_progress["progress_percent"] = 50
+                    self.job_repo.update_progress(
+                        upload_id, progress_data, completed, failed
+                    )
+
+                    # Convert chunks to LangChain Documents and store
+                    from langchain_core.documents import Document
+
+                    if not chunks:
+                        raise Exception("No chunks generated from document")
+
+                    documents = []
+                    for chunk in chunks:
+                        chunk_metadata = chunk.to_dict()
+                        chunk_metadata.pop("content", None)
+                        doc = Document(
+                            page_content=chunk.content, metadata=chunk_metadata
+                        )
+                        documents.append(doc)
+
+                    file_progress["progress_percent"] = 70
+                    self.job_repo.update_progress(
+                        upload_id, progress_data, completed, failed
+                    )
+
+                    # Store embeddings
+                    self.vector_store.add_documents(documents)
+
+                    file_progress["progress_percent"] = 90
+
+                    # Insert into documents table
+                    if chunks:
+                        first_chunk = chunks[0]
+                        document_id = first_chunk.document_id
+                        document_name = (
+                            first_chunk.section_title
+                            or first_chunk.extra_metadata.get("title")
+                            or file_info["filename"]
+                        )
+
+                        category_mapping = {
+                            "law": "Luật chính",
+                            "decree": "Nghị định",
+                            "circular": "Thông tư",
+                            "decision": "Quyết định",
+                            "bidding": "Hồ sơ mời thầu",
+                            "template": "Mẫu báo cáo",
+                            "exam": "Câu hỏi thi",
+                            "other": "Khác",
+                        }
+                        category = admin_metadata.get(
+                            "category"
+                        ) or category_mapping.get(doc_type, "Khác")
+
+                        self._insert_into_documents_table(
+                            document_id=document_id,
+                            document_name=document_name,
+                            document_type=doc_type,
+                            category=category,
+                            filename=file_info["filename"],
+                            source_file=file_info["file_path"],
+                            total_chunks=len(chunks),
+                        )
+
+                        file_progress["document_id"] = document_id
+
+                    file_progress["status"] = "completed"
+                    file_progress["progress_percent"] = 100
+                    file_progress["chunks_created"] = len(chunks)
+                    completed += 1
+
+                except Exception as e:
+                    logger.error(f"Failed to process file {file_info['filename']}: {e}")
+                    file_progress["status"] = "failed"
+                    file_progress["error_message"] = str(e)
+                    failed += 1
+
+                self.job_repo.update_progress(
+                    upload_id, progress_data, completed, failed
+                )
+
+            # Final status
+            if failed == 0:
+                self.job_repo.update_job_status(upload_id, "completed")
+            elif completed > 0:
+                self.job_repo.update_job_status(
+                    upload_id, "completed"
+                )  # Partial success
+            else:
+                self.job_repo.update_job_status(
+                    upload_id, "failed", "All files failed to process"
+                )
+
+            logger.info(
+                f"✅ Processing complete for upload {upload_id}: {completed} completed, {failed} failed"
+            )
+
+        except Exception as e:
+            logger.error(f"Processing failed for upload {upload_id}: {e}")
+            self.job_repo.update_job_status(upload_id, "failed", str(e))
+
+    # =========================================================================
+    # Helper Methods
+    # =========================================================================
+
     async def _validate_files(self, files: List[UploadFile]) -> List[UploadFile]:
-        """Validate uploaded files"""
+        """Validate uploaded files."""
         if not files:
             raise ValueError("No files provided")
 
-        if len(files) > 10:  # Limit batch size
+        if len(files) > 10:
             raise ValueError("Maximum 10 files per upload")
 
         validated = []
         for file in files:
-            # Check file size (50MB limit)
-            if hasattr(file, "size") and file.size > 50 * 1024 * 1024:
-                raise ValueError(f"File {file.filename} exceeds 50MB limit")
+            filename = file.filename or f"unknown_file"
+            if hasattr(file, "size") and file.size and file.size > 50 * 1024 * 1024:
+                raise ValueError(f"File {filename} exceeds 50MB limit")
 
-            # Check file extension
-            ext = Path(file.filename).suffix.lower()
+            ext = Path(filename).suffix.lower()
             if ext not in self.loaders:
                 raise ValueError(f"Unsupported file type: {ext}")
 
@@ -161,274 +883,21 @@ class UploadProcessingService:
 
         return validated
 
-    async def _store_temp_files(
-        self, files: List[UploadFile], upload_id: str
-    ) -> List[Dict]:
-        """Store files in temporary directory"""
-        temp_dir = Path(tempfile.gettempdir()) / "rag_uploads" / upload_id
-        temp_dir.mkdir(parents=True, exist_ok=True)
-
-        stored_files = []
-
-        for file in files:
-            # Generate unique filename but preserve original name for pipeline compatibility
-            file_id = str(uuid.uuid4())
-            ext = Path(file.filename).suffix
-            # Use original filename for pipeline compatibility
-            temp_path = temp_dir / file.filename
-
-            # Save file content
-            content = await file.read()
-            temp_path.write_bytes(content)
-
-            stored_files.append(
-                {
-                    "file_id": file_id,
-                    "original_name": file.filename,
-                    "temp_path": str(temp_path),
-                    "size_bytes": len(content),
-                    "content_type": file.content_type,
-                    "extension": ext,
-                }
-            )
-
-            # Reset file pointer for potential reuse
-            await file.seek(0)
-
-        return stored_files
-
-    async def _process_files_async(self, upload_id: str):
-        """Async file processing workflow"""
-        try:
-            job = self.processing_jobs[upload_id]
-            job["status"] = ProcessingStatus.CLASSIFYING
-
-            # Initialize progress tracking
-            for file_info in job["files"]:
-                progress = ProcessingProgress(
-                    file_id=file_info["file_id"],
-                    filename=file_info["original_name"],
-                    status=ProcessingStatus.PENDING,
-                    progress_percent=0,
-                )
-                job["progress"].append(progress)
-
-            # Process each file
-            for i, file_info in enumerate(job["files"]):
-                try:
-                    await self._process_single_file(upload_id, i, file_info)
-                except Exception as e:
-                    logger.error(
-                        f"Failed to process file {file_info['original_name']}: {str(e)}"
-                    )
-                    job["progress"][i].status = ProcessingStatus.FAILED
-                    job["progress"][i].error_message = str(e)
-
-            # Update overall status
-            completed = sum(
-                1 for p in job["progress"] if p.status == ProcessingStatus.COMPLETED
-            )
-            failed = sum(
-                1 for p in job["progress"] if p.status == ProcessingStatus.FAILED
-            )
-
-            if failed == 0:
-                job["status"] = ProcessingStatus.COMPLETED
-            elif completed > 0:
-                job["status"] = ProcessingStatus.COMPLETED  # Partial success
-            else:
-                job["status"] = ProcessingStatus.FAILED
-
-            # Cleanup temp files
-            await self._cleanup_temp_files(upload_id)
-
-        except Exception as e:
-            logger.error(f"Processing job {upload_id} failed: {str(e)}")
-            job["status"] = ProcessingStatus.FAILED
-
-    async def _process_single_file(
-        self, upload_id: str, file_index: int, file_info: Dict
-    ):
-        """Process a single file through the pipeline"""
-        job = self.processing_jobs[upload_id]
-        progress = job["progress"][file_index]
-        start_time = time.time()
-
-        try:
-            # Step 1: Load file content
-            progress.status = ProcessingStatus.CLASSIFYING
-            progress.current_step = "Loading file content"
-            progress.progress_percent = 10
-
-            loader_class = self.loaders[file_info["extension"]]
-            loader = loader_class()
-            content = loader.load(file_info["temp_path"])
-
-            # Step 2: Classify document type
-            progress.current_step = "Classifying document type"
-            progress.progress_percent = 20
-
-            doc_type, confidence, reasoning = self.classifier.classify_document(
-                file_info["original_name"],
-                content.content if hasattr(content, "content") else str(content),
-            )
-
-            # Step 3: Process with working pipeline
-            progress.status = ProcessingStatus.PREPROCESSING
-            progress.current_step = f"Processing as {doc_type.value}"
-            progress.progress_percent = 40
-
-            # Use working pipeline for all document types
-            batch_name = job["options"].batch_name
-            chunks = await self._run_working_pipeline(
-                file_info["temp_path"], doc_type.value, batch_name
-            )
-
-            # Step 4: Prepare documents for embedding (no embedding yet)
-            progress.status = ProcessingStatus.EMBEDDING
-            progress.current_step = "Preparing documents for embedding"
-            progress.progress_percent = 70
-
-            # Convert chunks to LangChain Documents
-            from langchain_core.documents import Document
-
-            documents = []
-            for chunk in chunks:
-                # Convert UniversalChunk to metadata dict
-                chunk_metadata = chunk.to_dict()
-                # Remove content from metadata to avoid duplication
-                chunk_metadata.pop("content", None)
-
-                doc = Document(page_content=chunk.content, metadata=chunk_metadata)
-                documents.append(doc)
-
-            # Step 5: Store in vector database (embeddings generated in batch internally)
-            progress.status = ProcessingStatus.STORING
-            progress.current_step = "Generating embeddings and storing in database"
-            progress.progress_percent = 80
-
-            # add_documents() will batch embed all texts internally via LangChain
-            # This is MUCH faster than individual embed_text() calls
-            self.vector_store.add_documents(documents)
-            stored_count = len(documents)
-
-            # Step 5.5: Insert into documents table
-            progress.current_step = "Registering in documents table"
-            progress.progress_percent = 95
-
-            # Extract document info from first chunk
-            first_chunk = chunks[0]
-            # UniversalChunk has direct fields, not .metadata wrapper
-            document_id = first_chunk.document_id
-            # Use section_title or original filename as document name
-            document_name = (
-                first_chunk.section_title
-                or first_chunk.extra_metadata.get("title")
-                or file_info["original_name"]
-            )
-            source_file = file_info["temp_path"]
-            filename = file_info["original_name"]
-
-            # Determine category from doc_type
-            category_mapping = {
-                "law": "Luật chính",
-                "decree": "Nghị định",
-                "circular": "Thông tư",
-                "decision": "Quyết định",
-                "bidding": "Hồ sơ mời thầu",
-                "template": "Mẫu báo cáo",
-                "exam": "Câu hỏi thi",
-                "other": "Khác",
-            }
-            category = category_mapping.get(doc_type, "Khác")
-
-            # Insert into documents table
-            self._insert_into_documents_table(
-                document_id=document_id,
-                document_name=document_name,
-                document_type=doc_type,
-                category=category,
-                filename=filename,
-                source_file=source_file,
-                total_chunks=len(chunks),
-            )
-
-            # Step 6: Complete
-            progress.status = ProcessingStatus.COMPLETED
-            progress.current_step = "Completed"
-            progress.progress_percent = 100
-            progress.chunks_created = len(chunks)
-            progress.embeddings_created = stored_count
-            progress.processing_time_ms = int((time.time() - start_time) * 1000)
-            progress.document_id = document_id  # Add document_id for easy access
-
-        except Exception as e:
-            logger.error(f"Single file processing failed: {str(e)}")
-            progress.status = ProcessingStatus.FAILED
-            progress.error_message = str(e)
-            progress.processing_time_ms = int((time.time() - start_time) * 1000)
-
     async def _run_working_pipeline(
-        self, file_path: str, document_type: str, batch_name: str = None
+        self, file_path: str, document_type: str, batch_name: Optional[str] = None
     ):
-        """Run document through working pipeline"""
+        """Run document through working pipeline."""
 
         def _sync_pipeline():
-            from pathlib import Path
-
             success, chunks, error_msg = self.working_pipeline.process_file(
                 Path(file_path), document_type=document_type, batch_name=batch_name
             )
             if not success:
-                raise Exception(f"Working pipeline failed: {error_msg}")
+                raise Exception(f"Pipeline failed: {error_msg}")
             return chunks
 
-        # Run in thread pool for CPU-intensive work
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(self.executor, _sync_pipeline)
-
-    async def _basic_chunking(self, content, file_info: Dict):
-        """Fallback basic chunking for unsupported document types"""
-        from ...preprocessing.chunking.semantic_chunker import SemanticChunker
-        from ...preprocessing.schema import (
-            UnifiedLegalChunk,
-            DocumentInfo,
-            LegalMetadata,
-        )
-
-        chunker = SemanticChunker(
-            chunk_size=settings.chunk_size, chunk_overlap=settings.chunk_overlap
-        )
-
-        text_content = content.content if hasattr(content, "content") else str(content)
-        basic_chunks = chunker.chunk_text(text_content)
-
-        # Convert to UnifiedLegalChunk format
-        unified_chunks = []
-        for i, chunk_text in enumerate(basic_chunks):
-            doc_info = DocumentInfo(
-                title=file_info["original_name"],
-                file_path=file_info["temp_path"],
-                file_size=file_info["size_bytes"],
-            )
-
-            metadata = LegalMetadata(
-                document_info=doc_info, chunk_index=i, total_chunks=len(basic_chunks)
-            )
-
-            chunk = UnifiedLegalChunk(content=chunk_text, metadata=metadata)
-            unified_chunks.append(chunk)
-
-        return unified_chunks
-
-    async def _cleanup_temp_files(self, upload_id: str):
-        """Clean up temporary files"""
-        try:
-            temp_dir = Path(tempfile.gettempdir()) / "rag_uploads" / upload_id
-            if temp_dir.exists():
-                shutil.rmtree(temp_dir)
-        except Exception as e:
-            logger.warning(f"Failed to cleanup temp files for {upload_id}: {str(e)}")
 
     def _insert_into_documents_table(
         self,
@@ -440,52 +909,31 @@ class UploadProcessingService:
         source_file: str,
         total_chunks: int,
     ):
-        """
-        Insert document record into documents table.
-
-        Called after successful vector DB storage to maintain consistency.
-        Uses UPSERT to handle potential duplicates.
-        """
+        """Insert document record into documents table."""
         conn = None
         try:
             conn = get_db_sync()
             cursor = conn.cursor()
 
-            insert_query = """
+            cursor.execute(
+                """
                 INSERT INTO documents (
-                    document_id,
-                    document_name,
-                    document_type,
-                    category,
-                    filename,
-                    source_file,
-                    total_chunks,
-                    status,
-                    created_at,
-                    updated_at
+                    document_id, document_name, document_type, category,
+                    filename, source_file, total_chunks, status,
+                    created_at, updated_at
                 ) VALUES (
-                    %(document_id)s,
-                    %(document_name)s,
-                    %(document_type)s,
-                    %(category)s,
-                    %(filename)s,
-                    %(source_file)s,
-                    %(total_chunks)s,
-                    'active',
-                    NOW(),
-                    NOW()
+                    %(document_id)s, %(document_name)s, %(document_type)s, %(category)s,
+                    %(filename)s, %(source_file)s, %(total_chunks)s, 'active',
+                    NOW(), NOW()
                 )
                 ON CONFLICT (document_id) DO UPDATE SET
                     document_name = EXCLUDED.document_name,
                     total_chunks = EXCLUDED.total_chunks,
                     updated_at = NOW()
-            """
-
-            cursor.execute(
-                insert_query,
+            """,
                 {
                     "document_id": document_id,
-                    "document_name": document_name[:200],  # Truncate if needed
+                    "document_name": document_name[:200],
                     "document_type": document_type,
                     "category": category,
                     "filename": filename,
@@ -494,31 +942,16 @@ class UploadProcessingService:
                 },
             )
             conn.commit()
-
-            logger.info(
-                f"✅ Inserted document into documents table: {document_id} ({total_chunks} chunks)"
-            )
-
+            logger.info(f"✅ Inserted document: {document_id} ({total_chunks} chunks)")
         except Exception as e:
-            logger.error(f"❌ Failed to insert into documents table: {e}")
+            logger.error(f"❌ Failed to insert document: {e}")
             if conn:
                 conn.rollback()
-            # Don't raise - vector DB storage succeeded, this is supplementary
-
         finally:
             if conn:
                 conn.close()
 
-    def _estimate_processing_time(self, files: List[UploadFile]) -> int:
-        """Estimate processing time in minutes"""
-        # Rough estimate: 1-2 minutes per file depending on size
-        base_time = len(files) * 1.5
-
-        # Add time based on file sizes (if available)
-        for file in files:
-            if hasattr(file, "size"):
-                # Add 1 minute per 10MB
-                size_mb = file.size / (1024 * 1024)
-                base_time += size_mb / 10
-
-        return max(1, int(base_time))  # At least 1 minute
+    # Legacy method for backward compatibility
+    async def get_processing_status(self, upload_id: str) -> Dict[str, Any]:
+        """Get current processing status for upload job."""
+        return await self.get_upload_detail(upload_id)

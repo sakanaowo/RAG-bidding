@@ -40,7 +40,7 @@ class Settings:
     # Phase 1 Enhanced Features - Quick Wins
     enable_adaptive_retrieval: bool = _env_bool("ENABLE_ADAPTIVE_RETRIEVAL", True)
     enable_enhanced_prompts: bool = _env_bool("ENABLE_ENHANCED_PROMPTS", True)
-    rag_mode: str = os.getenv("RAG_MODE", "balanced")  # fast, balanced, quality
+    rag_mode: str = os.getenv("RAG_MODE", "fast")  # fast, balanced, quality
 
     # Retrieval tuning
     retrieval_k: int = int(os.getenv("RETRIEVAL_K", "5"))

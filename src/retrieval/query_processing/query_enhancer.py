@@ -3,6 +3,7 @@ from enum import Enum
 from typing import List, Dict, Optional
 import os
 import logging
+import threading
 from functools import lru_cache
 
 from .strategies import (
@@ -41,6 +42,55 @@ class QueryEnhancerConfig:
     def __post_init__(self):
         if self.strategies is None:
             self.strategies = [EnhancementStrategy.MULTI_QUERY]
+
+
+# ===== SINGLETON CACHE FOR QUERY ENHANCERS =====
+_enhancer_cache: Dict[str, "QueryEnhancer"] = {}
+_enhancer_cache_lock = threading.Lock()
+
+
+def get_cached_enhancer(
+    strategies: List[EnhancementStrategy], max_queries: int = 3
+) -> "QueryEnhancer":
+    """
+    Get a cached QueryEnhancer instance based on strategies.
+
+    Thread-safe caching to avoid re-initializing LLM clients for each request.
+
+    Args:
+        strategies: List of enhancement strategies
+        max_queries: Max queries for multi-query strategy
+
+    Returns:
+        Cached QueryEnhancer instance
+    """
+    # Create cache key from strategies
+    key = "|".join(sorted(s.value for s in strategies)) + f"|{max_queries}"
+
+    # Fast path: return cached instance
+    if key in _enhancer_cache:
+        logger.debug(f"📦 QueryEnhancer cache hit: {key}")
+        return _enhancer_cache[key]
+
+    # Slow path: create new instance with lock
+    with _enhancer_cache_lock:
+        # Double-check after acquiring lock
+        if key not in _enhancer_cache:
+            logger.info(f"🔧 Creating cached QueryEnhancer: {key}")
+            config = QueryEnhancerConfig(
+                strategies=list(strategies),
+                max_queries=max_queries,
+            )
+            _enhancer_cache[key] = QueryEnhancer(config)
+        return _enhancer_cache[key]
+
+
+def clear_enhancer_cache():
+    """Clear the enhancer cache (for testing only)."""
+    global _enhancer_cache
+    with _enhancer_cache_lock:
+        _enhancer_cache.clear()
+        logger.warning("⚠️ QueryEnhancer cache cleared")
 
 
 class QueryEnhancer:

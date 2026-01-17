@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # Global singleton instance và thread lock để thread-safe
 _reranker_instance: Optional["BGEReranker"] = None
 _reranker_lock = threading.Lock()
+_cuda_oom_fallback = False  # Track if we've hit CUDA OOM
 
 
 def get_singleton_reranker(
@@ -29,7 +30,8 @@ def get_singleton_reranker(
     device: str = "auto",
     max_length: int = 512,
     batch_size: int = 32,
-) -> "BGEReranker":
+    fallback_to_openai: bool = True,  # 🆕 Fallback to OpenAI on CUDA OOM
+) -> BaseReranker:  # 🔧 Changed from BGEReranker to BaseReranker
     """
     Factory function để lấy singleton instance của BGEReranker.
 
@@ -41,16 +43,26 @@ def get_singleton_reranker(
         device: "auto", "cuda", hoặc "cpu"
         max_length: Max sequence length cho model
         batch_size: Batch size cho reranking (auto-adjust based on device)
+        fallback_to_openai: Fallback to OpenAI on CUDA OOM (default: True)
 
     Returns:
-        BGEReranker instance (singleton)
+        BaseReranker instance (BGEReranker or OpenAIReranker on fallback)
 
     Example:
         >>> reranker = get_singleton_reranker()  # Lần đầu: load model (1.2GB)
         >>> reranker2 = get_singleton_reranker()  # Lần sau: reuse instance
         >>> assert reranker is reranker2  # True - cùng instance
     """
-    global _reranker_instance
+    global _reranker_instance, _cuda_oom_fallback
+
+    # 🆕 Check if we've hit CUDA OOM - fallback IMMEDIATELY
+    if _cuda_oom_fallback and fallback_to_openai:
+        logger.warning(
+            "⚠️ CUDA OOM flag detected, returning OpenAI reranker instead of BGE"
+        )
+        from .openai_reranker import OpenAIReranker
+
+        return OpenAIReranker()
 
     # Fast path: Nếu đã có instance, return ngay (không cần lock)
     if _reranker_instance is not None:
@@ -72,18 +84,39 @@ def get_singleton_reranker(
 
     # Slow path: Tạo instance mới (cần lock)
     with _reranker_lock:
+        # 🆕 Double-check OOM flag inside lock
+        if _cuda_oom_fallback and fallback_to_openai:
+            logger.warning(
+                "⚠️ CUDA OOM detected previously (inside lock), falling back to OpenAI reranker"
+            )
+            from .openai_reranker import OpenAIReranker
+
+            return OpenAIReranker()
+
         # Double-check: Có thể thread khác đã tạo xong trong lúc chờ lock
         if _reranker_instance is None:
             logger.info(
                 f"🔧 Creating singleton BGEReranker instance "
                 f"(model: {model_name}, device: {device})"
             )
-            _reranker_instance = BGEReranker(
-                model_name=model_name,
-                device=device,  # Now guaranteed to be "cpu" or "cuda"
-                max_length=max_length,
-                batch_size=batch_size,
-            )
+            try:
+                _reranker_instance = BGEReranker(
+                    model_name=model_name,
+                    device=device,  # Now guaranteed to be "cpu" or "cuda"
+                    max_length=max_length,
+                    batch_size=batch_size,
+                )
+            except Exception as e:
+                error_msg = str(e).lower()
+                if "cuda out of memory" in error_msg or "out of memory" in error_msg:
+                    logger.error(f"❌ CUDA OOM during BGE init: {e}")
+                    _cuda_oom_fallback = True
+                    if fallback_to_openai:
+                        logger.info("🔄 Falling back to OpenAI reranker...")
+                        from .openai_reranker import OpenAIReranker
+
+                        return OpenAIReranker()
+                raise
         return _reranker_instance
 
 
@@ -246,12 +279,40 @@ class BGEReranker(BaseReranker):
                 pairs, batch_size=self.batch_size, show_progress_bar=False
             )
         except Exception as e:
-            logger.error(f"❌ Prediction error: {e}")
+            error_msg = str(e).lower()
+            if "cuda out of memory" in error_msg or "out of memory" in error_msg:
+                global _cuda_oom_fallback
+                _cuda_oom_fallback = True
+                logger.error(f"❌ CUDA OOM during reranking: {e}")
+                logger.warning(
+                    "⚠️ Setting fallback flag - future calls will use OpenAI reranker"
+                )
+                # Try to free CUDA memory
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                # 🆕 Fallback to OpenAI IMMEDIATELY in same request
+                try:
+                    logger.info(
+                        "🔄 Attempting OpenAI reranker fallback for current request..."
+                    )
+                    from .openai_reranker import OpenAIReranker
+
+                    openai_reranker = OpenAIReranker()
+                    return openai_reranker.rerank(query, documents, top_k)
+                except Exception as openai_err:
+                    logger.error(f"❌ OpenAI fallback also failed: {openai_err}")
+                    # Final fallback: return original order with dummy scores
+                    return [
+                        (doc, 1.0 - i * 0.1) for i, doc in enumerate(documents[:top_k])
+                    ]
+            else:
+                logger.error(f"❌ Prediction error: {e}")
             # Fallback: return original order with dummy scores
             return [(doc, 1.0 - i * 0.1) for i, doc in enumerate(documents[:top_k])]
 
         # Zip documents with scores và sort
-        doc_scores = list(zip(documents, scores))
+        # Convert scores to float explicitly (scores might be numpy/torch tensors)
+        doc_scores = [(doc, float(score)) for doc, score in zip(documents, scores)]
         doc_scores.sort(key=lambda x: x[1], reverse=True)
 
         # Log performance

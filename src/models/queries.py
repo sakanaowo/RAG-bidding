@@ -3,7 +3,16 @@ Query Model - Schema v3
 Represents query analytics for tracking and optimization
 """
 
-from sqlalchemy import Column, String, Integer, Text, TIMESTAMP, ForeignKey, Index, Numeric
+from sqlalchemy import (
+    Column,
+    String,
+    Integer,
+    Text,
+    TIMESTAMP,
+    ForeignKey,
+    Index,
+    Numeric,
+)
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -21,7 +30,7 @@ if TYPE_CHECKING:
 class Query(Base):
     """
     Query model for analytics and optimization
-    
+
     Tracks:
     - Query text and hash (for caching)
     - RAG mode and categories searched
@@ -36,7 +45,7 @@ class Query(Base):
         primary_key=True,
         default=uuid.uuid4,
         server_default=func.gen_random_uuid(),
-        comment="Primary key"
+        comment="Primary key",
     )
 
     # Foreign keys (all optional for anonymous queries)
@@ -45,7 +54,7 @@ class Query(Base):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
-        comment="User who made the query"
+        comment="User who made the query",
     )
 
     conversation_id = Column(
@@ -53,7 +62,7 @@ class Query(Base):
         ForeignKey("conversations.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
-        comment="Parent conversation"
+        comment="Parent conversation",
     )
 
     message_id = Column(
@@ -61,59 +70,48 @@ class Query(Base):
         ForeignKey("messages.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
-        comment="Associated message"
+        comment="Associated message",
     )
 
     # Query details
-    query_text = Column(
-        Text,
-        nullable=False,
-        comment="Original query text"
-    )
+    query_text = Column(Text, nullable=False, comment="Original query text")
 
     query_hash = Column(
-        String(64),
-        nullable=True,
-        index=True,
-        comment="SHA-256 hash for cache lookup"
+        String(64), nullable=True, index=True, comment="SHA-256 hash for cache lookup"
     )
 
     # RAG configuration
     rag_mode = Column(
         String(50),
         nullable=True,
-        comment="RAG mode used: fast, balanced, quality, adaptive"
+        comment="RAG mode used: fast, balanced, quality, adaptive",
     )
 
     categories_searched = Column(
-        ARRAY(Text),
-        nullable=True,
-        comment="Categories searched"
+        ARRAY(Text), nullable=True, comment="Categories searched"
     )
 
     # Performance metrics
     retrieval_count = Column(
-        Integer,
-        nullable=True,
-        comment="Number of documents retrieved"
+        Integer, nullable=True, comment="Number of documents retrieved"
     )
 
     total_latency_ms = Column(
-        Integer,
-        nullable=True,
-        comment="Total query latency in milliseconds"
+        Integer, nullable=True, comment="Total query latency in milliseconds"
     )
 
-    tokens_total = Column(
-        Integer,
-        nullable=True,
-        comment="Total tokens used"
+    tokens_total = Column(Integer, nullable=True, comment="Total tokens used")
+
+    input_tokens = Column(
+        Integer, nullable=True, comment="Number of input/prompt tokens"
+    )
+
+    output_tokens = Column(
+        Integer, nullable=True, comment="Number of output/completion tokens"
     )
 
     estimated_cost_usd = Column(
-        Numeric(10, 6),
-        nullable=True,
-        comment="Estimated cost in USD"
+        Numeric(10, 6), nullable=True, comment="Estimated cost in USD"
     )
 
     # Timestamp
@@ -121,19 +119,13 @@ class Query(Base):
         TIMESTAMP(timezone=False),
         server_default=func.current_timestamp(),
         nullable=True,
-        comment="Query timestamp"
+        comment="Query timestamp",
     )
 
     # Relationships
-    user = relationship(
-        "User",
-        back_populates="queries"
-    )
-    
-    conversation = relationship(
-        "Conversation",
-        back_populates="queries"
-    )
+    user = relationship("User", back_populates="queries")
+
+    conversation = relationship("Conversation", back_populates="queries")
 
     # Indexes
     __table_args__ = (
@@ -144,7 +136,11 @@ class Query(Base):
     )
 
     def __repr__(self):
-        preview = self.query_text[:30] + "..." if len(self.query_text) > 30 else self.query_text
+        preview = (
+            self.query_text[:30] + "..."
+            if len(self.query_text) > 30
+            else self.query_text
+        )
         return f"<Query(id={self.id}, query={preview})>"
 
     def to_dict(self):
@@ -152,7 +148,9 @@ class Query(Base):
         return {
             "id": str(self.id),
             "user_id": str(self.user_id) if self.user_id else None,
-            "conversation_id": str(self.conversation_id) if self.conversation_id else None,
+            "conversation_id": (
+                str(self.conversation_id) if self.conversation_id else None
+            ),
             "message_id": str(self.message_id) if self.message_id else None,
             "query_text": self.query_text,
             "query_hash": self.query_hash,
@@ -161,6 +159,8 @@ class Query(Base):
             "retrieval_count": self.retrieval_count,
             "total_latency_ms": self.total_latency_ms,
             "tokens_total": self.tokens_total,
-            "estimated_cost_usd": float(self.estimated_cost_usd) if self.estimated_cost_usd else None,
+            "estimated_cost_usd": (
+                float(self.estimated_cost_usd) if self.estimated_cost_usd else None
+            ),
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
