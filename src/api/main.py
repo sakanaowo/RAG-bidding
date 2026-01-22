@@ -150,7 +150,6 @@ Sử dụng JWT Bearer token. Các bước:
 - **fast**: Không enhancement, không reranking (~1s)
 - **balanced**: Multi-Query + Step-Back + BGE reranking (~2-3s) ⭐ Default
 - **quality**: All 4 strategies + RRF fusion (~3-5s)
-- **adaptive**: Dynamic K selection dựa trên query complexity
 """
 
 SWAGGER_TAGS = [
@@ -234,9 +233,9 @@ class AskIn(BaseModel):
             "example": "Điều kiện để nhà thầu được tham gia đấu thầu là gì?"
         },
     )
-    mode: Literal["fast", "balanced", "quality", "adaptive"] = Field(
-        default="fast",
-        description="RAG mode: fast (1s), balanced (2-3s), quality (3-5s), adaptive",
+    mode: Literal["fast", "balanced", "quality"] = Field(
+        default="balanced",
+        description="RAG mode: fast (1s), balanced (2-3s), quality (3-5s)",
     )
     reranker: Literal["bge", "openai"] = Field(
         default="bge", description="Reranker: bge (local, free) hoặc openai (API, paid)"
@@ -324,9 +323,8 @@ def ask(body: AskIn):
 
     **RAG Modes:**
     - `fast`: Không enhancement, không reranking (~1s)
-    - `balanced`: Multi-Query + BGE reranking (~2-3s) ⭐ Recommended
+    - `balanced`: Multi-Query + BGE reranking (~2-3s) ⭐ Default
     - `quality`: Full enhancement + RRF fusion (~3-5s)
-    - `adaptive`: Dynamic K selection
     """
     if not body.question or not body.question.strip():
         raise HTTPException(400, detail="question is required")

@@ -77,6 +77,10 @@ class Settings:
     citation_check: bool = _env_bool("CITATION_CHECK", True)
     factual_consistency_check: bool = _env_bool("FACTUAL_CONSISTENCY_CHECK", False)
 
+    # Chain of Thought (CoT) reasoning
+    enable_cot_reasoning: bool = _env_bool("ENABLE_COT_REASONING", False)
+    cot_analyzer_model: str = os.getenv("COT_ANALYZER_MODEL", "gpt-4o-mini")
+
     # Fallback behaviors
     fallback_to_basic_rag: bool = _env_bool("FALLBACK_TO_BASIC_RAG", True)
     max_processing_time: int = int(os.getenv("MAX_PROCESSING_TIME", "30"))
@@ -120,16 +124,7 @@ class RAGPresets:
             "parallel_processing": True,
         }
 
-    @staticmethod
-    def get_adaptive_mode() -> Dict[str, object]:
-        """Adaptive mode: Query enhancement + dynamic K selection."""
-        return {
-            "enable_query_enhancement": True,
-            "enable_reranking": True,
-            "enable_answer_validation": False,
-            "retrieval_k": 5,  # Will be adjusted by AdaptiveKRetriever
-            "parallel_processing": True,
-        }
+    # NOTE: get_adaptive_mode() removed - use balanced mode instead
 
 
 def apply_preset(preset_name: str) -> None:
@@ -138,15 +133,16 @@ def apply_preset(preset_name: str) -> None:
         "fast": RAGPresets.get_fast_mode(),
         "balanced": RAGPresets.get_balanced_mode(),
         "quality": RAGPresets.get_quality_mode(),
-        "adaptive": RAGPresets.get_adaptive_mode(),
+        # NOTE: adaptive removed - use balanced as default
     }
 
     if preset_name not in presets:
         raise ValueError(
-            f"Unknown preset: {preset_name}. Available presets: {list(presets.keys())}"
+            f"Unknown preset: {preset_name}. Available: fast, balanced, quality"
         )
 
     settings.rag_mode = preset_name
     for key, value in presets[preset_name].items():
         if hasattr(settings, key):
             setattr(settings, key, value)
+
