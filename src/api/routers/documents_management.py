@@ -543,6 +543,85 @@ async def get_document(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.patch("/{document_id}")
+async def update_document_metadata(
+    document_id: str,
+    document_name: Optional[str] = Query(None, description="New document name/title"),
+    category: Optional[str] = Query(None, description="New category"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update document metadata (name, category).
+    
+    Updates the documents table fields. Does NOT update status - use /{document_id}/status for that.
+    
+    Example:
+        PATCH /documents/{document_id}?document_name=New Title&category=Luật đấu thầu
+    """
+    try:
+        # Check if document exists
+        check_query = text("""
+            SELECT document_id, document_name, category
+            FROM documents
+            WHERE document_id = :document_id
+        """)
+        result = await db.execute(check_query, {"document_id": document_id})
+        row = result.fetchone()
+        
+        if not row:
+            raise HTTPException(
+                status_code=404, detail=f"Document {document_id} not found"
+            )
+        
+        # Build update query dynamically based on provided fields
+        update_fields = []
+        params = {"document_id": document_id}
+        
+        if document_name is not None:
+            update_fields.append("document_name = :document_name")
+            params["document_name"] = document_name
+            
+        if category is not None:
+            update_fields.append("category = :category")
+            params["category"] = category
+        
+        if not update_fields:
+            return {
+                "success": True,
+                "document_id": document_id,
+                "message": "No changes requested"
+            }
+        
+        # Always update updated_at
+        update_fields.append("updated_at = NOW()")
+        
+        update_query = text(f"""
+            UPDATE documents
+            SET {', '.join(update_fields)}
+            WHERE document_id = :document_id
+        """)
+        
+        await db.execute(update_query, params)
+        await db.commit()
+        
+        logger.info(f"✅ Updated document {document_id} metadata: name={document_name}, category={category}")
+        
+        return {
+            "success": True,
+            "document_id": document_id,
+            "document_name": document_name if document_name else row.document_name,
+            "category": category if category else row.category,
+            "message": "Document metadata updated successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"❌ Error updating document metadata: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.patch("/{document_id}/status")
 async def update_document_status(
     document_id: str,

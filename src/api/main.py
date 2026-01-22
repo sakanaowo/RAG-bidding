@@ -16,6 +16,7 @@ from src.retrieval.query_processing.query_enhancer import (
     QueryEnhancerConfig,
 )
 from .routers import upload
+from .routers import user_upload  # User document contribution
 from .routers import documents_management
 from .routers import auth
 from .routers import conversations
@@ -213,6 +214,7 @@ app.include_router(
     conversations.router, prefix="/api"
 )  # Conversations - /conversations/*
 app.include_router(upload.router, prefix="/api")
+app.include_router(user_upload.router, prefix="/api")  # User document contribution
 app.include_router(
     documents_management.router, prefix="/api"
 )  # Document Management - /documents endpoints
