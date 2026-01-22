@@ -85,6 +85,15 @@ class Settings:
     fallback_to_basic_rag: bool = _env_bool("FALLBACK_TO_BASIC_RAG", True)
     max_processing_time: int = int(os.getenv("MAX_PROCESSING_TIME", "30"))
 
+    # User Upload Limits
+    max_files_per_day: int = int(os.getenv("MAX_FILES_PER_DAY", "5"))
+    max_file_size_mb: int = int(os.getenv("MAX_FILE_SIZE_MB", "10"))
+    user_allowed_extensions: list[str] = field(
+        default_factory=lambda: os.getenv(
+            "USER_ALLOWED_EXTENSIONS", ".pdf,.docx,.txt,.doc"
+        ).split(",")
+    )
+
 
 settings = Settings()
 
@@ -145,4 +154,3 @@ def apply_preset(preset_name: str) -> None:
     for key, value in presets[preset_name].items():
         if hasattr(settings, key):
             setattr(settings, key, value)
-
