@@ -341,21 +341,32 @@ def answer(
     original_query: (
         str | None
     ) = None,  # 🆕 Original query for cache key (without context)
+    use_cot: bool = False,  # 🆕 Enable Chain of Thought reasoning
 ) -> Dict:
     """
     Answer a question using RAG pipeline.
 
     Args:
         question: User's question (may include conversation context)
-        mode: RAG mode (fast/balanced/quality/adaptive)
+        mode: RAG mode (fast/balanced/quality)
         reranker_type: Reranker to use ("bge" or "openai")
         use_cache: Enable answer caching (default: True)
         original_query: Original user query for cache key (without conversation context).
                        If None, uses question as cache key.
+        use_cot: Enable 2-step Chain of Thought reasoning (default: False).
+                 Adds ~1s latency but improves quality for complex queries.
 
     Returns:
         Dict with answer, sources, and metadata
     """
+    # 🆕 CoT: If enabled, delegate to reasoning chain
+    if use_cot:
+        from .reasoning_chain import answer_with_reasoning
+        return answer_with_reasoning(
+            query=original_query or question,
+            mode=mode or "balanced",
+            context=question if original_query else None,
+        )
     # 🆕 Use original_query for cache operations if provided
     cache_key_query = original_query or question
     import logging

@@ -16,6 +16,7 @@ from src.retrieval.query_processing.query_enhancer import (
     QueryEnhancerConfig,
 )
 from .routers import upload
+from .routers import user_upload  # User document contribution
 from .routers import documents_management
 from .routers import auth
 from .routers import conversations
@@ -150,7 +151,6 @@ Sử dụng JWT Bearer token. Các bước:
 - **fast**: Không enhancement, không reranking (~1s)
 - **balanced**: Multi-Query + Step-Back + BGE reranking (~2-3s) ⭐ Default
 - **quality**: All 4 strategies + RRF fusion (~3-5s)
-- **adaptive**: Dynamic K selection dựa trên query complexity
 """
 
 SWAGGER_TAGS = [
@@ -214,6 +214,7 @@ app.include_router(
     conversations.router, prefix="/api"
 )  # Conversations - /conversations/*
 app.include_router(upload.router, prefix="/api")
+app.include_router(user_upload.router, prefix="/api")  # User document contribution
 app.include_router(
     documents_management.router, prefix="/api"
 )  # Document Management - /documents endpoints
@@ -234,9 +235,9 @@ class AskIn(BaseModel):
             "example": "Điều kiện để nhà thầu được tham gia đấu thầu là gì?"
         },
     )
-    mode: Literal["fast", "balanced", "quality", "adaptive"] = Field(
-        default="fast",
-        description="RAG mode: fast (1s), balanced (2-3s), quality (3-5s), adaptive",
+    mode: Literal["fast", "balanced", "quality"] = Field(
+        default="balanced",
+        description="RAG mode: fast (1s), balanced (2-3s), quality (3-5s)",
     )
     reranker: Literal["bge", "openai"] = Field(
         default="bge", description="Reranker: bge (local, free) hoặc openai (API, paid)"
@@ -324,9 +325,8 @@ def ask(body: AskIn):
 
     **RAG Modes:**
     - `fast`: Không enhancement, không reranking (~1s)
-    - `balanced`: Multi-Query + BGE reranking (~2-3s) ⭐ Recommended
+    - `balanced`: Multi-Query + BGE reranking (~2-3s) ⭐ Default
     - `quality`: Full enhancement + RRF fusion (~3-5s)
-    - `adaptive`: Dynamic K selection
     """
     if not body.question or not body.question.strip():
         raise HTTPException(400, detail="question is required")

@@ -115,13 +115,15 @@ class UploadJobRepository:
             cursor.execute(
                 """
                 SELECT 
-                    upload_id, status, total_files, completed_files, failed_files,
-                    files_data, storage_path, extracted_metadata, admin_metadata,
-                    options, error_message, uploaded_by, confirmed_by,
-                    created_at, updated_at, confirmed_at, cancelled_at, cancel_reason,
-                    progress_data
-                FROM document_upload_jobs
-                WHERE upload_id = %(upload_id)s
+                    j.upload_id, j.status, j.total_files, j.completed_files, j.failed_files,
+                    j.files_data, j.storage_path, j.extracted_metadata, j.admin_metadata,
+                    j.options, j.error_message, j.uploaded_by, j.confirmed_by,
+                    j.created_at, j.updated_at, j.confirmed_at, j.cancelled_at, j.cancel_reason,
+                    j.progress_data,
+                    u.email as uploader_email, u.username as uploader_username, u.full_name as uploader_full_name
+                FROM document_upload_jobs j
+                LEFT JOIN users u ON j.uploaded_by::uuid = u.id
+                WHERE j.upload_id = %(upload_id)s
             """,
                 {"upload_id": upload_id},
             )
@@ -150,6 +152,9 @@ class UploadJobRepository:
                 "cancelled_at": row[16].isoformat() if row[16] else None,
                 "cancel_reason": row[17],
                 "progress_data": row[18] if row[18] else [],
+                "uploader_email": row[19],
+                "uploader_username": row[20],
+                "uploader_full_name": row[21],
             }
         except Exception as e:
             logger.error(f"Failed to get upload job: {e}")
@@ -169,12 +174,14 @@ class UploadJobRepository:
             cursor.execute(
                 """
                 SELECT 
-                    upload_id, status, total_files,
-                    files_data, extracted_metadata, admin_metadata,
-                    uploaded_by, created_at, updated_at
-                FROM document_upload_jobs
-                WHERE status = 'pending_review'
-                ORDER BY created_at DESC
+                    j.upload_id, j.status, j.total_files,
+                    j.files_data, j.extracted_metadata, j.admin_metadata,
+                    j.uploaded_by, j.created_at, j.updated_at,
+                    u.email as uploader_email, u.username as uploader_username, u.full_name as uploader_full_name
+                FROM document_upload_jobs j
+                LEFT JOIN users u ON j.uploaded_by::uuid = u.id
+                WHERE j.status = 'pending_review'
+                ORDER BY j.created_at DESC
                 LIMIT %(limit)s OFFSET %(offset)s
             """,
                 {"limit": limit, "offset": offset},
@@ -193,6 +200,9 @@ class UploadJobRepository:
                         "uploaded_by": str(row[6]) if row[6] else None,
                         "created_at": row[7].isoformat() if row[7] else None,
                         "updated_at": row[8].isoformat() if row[8] else None,
+                        "uploader_email": row[9],
+                        "uploader_username": row[10],
+                        "uploader_full_name": row[11],
                     }
                 )
             return jobs
@@ -592,6 +602,9 @@ class UploadProcessingService:
             },
             "admin_metadata": job.get("admin_metadata", {}),
             "uploaded_by": job.get("uploaded_by"),
+            "uploader_email": job.get("uploader_email"),
+            "uploader_username": job.get("uploader_username"),
+            "uploader_full_name": job.get("uploader_full_name"),
             "created_at": job.get("created_at"),
             "updated_at": job.get("updated_at"),
         }

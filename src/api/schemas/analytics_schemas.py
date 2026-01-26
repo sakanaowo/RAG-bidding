@@ -33,7 +33,7 @@ class RAGMode(str, Enum):
     FAST = "fast"
     BALANCED = "balanced"
     QUALITY = "quality"
-    ADAPTIVE = "adaptive"
+    # NOTE: ADAPTIVE removed - use BALANCED as default
 
 
 # =============================================================================

@@ -24,7 +24,12 @@ from src.models.repositories import (
     QueryRepository,
     UserUsageMetricRepository,
 )
-from src.generation.chains.qa_chain import answer as rag_answer, is_casual_query
+from src.generation.chains.qa_chain import answer as rag_answer
+from src.generation.intent_detector import (
+    IntentDetector,
+    QueryIntent,
+    get_intent_detector,
+)
 from src.api.schemas.conversation_schemas import SourceInfo
 from src.utils.token_counter import count_message_tokens, estimate_cost_usd
 from src.api.services.summary_service import SummaryService
@@ -317,46 +322,92 @@ class ConversationService:
             db.commit()
             db.refresh(conversation)
 
-        # 🚀 EARLY EXIT: Check if query is casual/conversational (no RAG needed)
-        # This avoids expensive context building for simple greetings/thanks
-        is_casual, direct_response = is_casual_query(content)
-        if is_casual and direct_response:
-            processing_time = int((time.time() - start_time) * 1000)
-            logger.info(
-                f"💬 Casual query early exit in {processing_time}ms: '{content[:30]}...'"
-            )
+        # 🆕 INTENT DETECTION: Check query intent BEFORE attaching context
+        # This prevents gibberish/off-topic queries from polluting RAG with irrelevant context
+        intent_detector = get_intent_detector()
+        intent_result = intent_detector.detect(content)
+        
+        logger.info(
+            f"🎯 Intent detected: {intent_result.intent.value} "
+            f"(confidence: {intent_result.confidence:.2f}, reason: {intent_result.reason})"
+        )
 
-            # Create assistant message with direct response (no RAG)
+        # Handle GIBBERISH: Skip RAG entirely, return polite error
+        if intent_result.intent == QueryIntent.GIBBERISH:
+            processing_time = int((time.time() - start_time) * 1000)
+            logger.info(f"🚫 Gibberish query rejected in {processing_time}ms: '{content[:30]}...'")
+            
             assistant_message = MessageRepository.add_message(
                 db=db,
                 conversation_id=conversation_id,
                 user_id=user_id,
                 role="assistant",
-                content=direct_response,
-                sources=None,  # No sources for casual responses
+                content=intent_result.suggested_response or "Xin lỗi, tôi không hiểu câu hỏi của bạn.",
+                sources=None,
                 processing_time_ms=processing_time,
-                rag_mode="casual",  # Mark as casual mode
-                tokens_total=0,  # No LLM tokens used
+                rag_mode="gibberish",
+                tokens_total=0,
             )
-
-            # Update conversation usage stats
             ConversationRepository.update_last_message(db, conversation_id)
-
             return user_message, assistant_message, [], processing_time
 
-        # Build conversation context for RAG (summary + recent messages)
-        conversation_context, _ = SummaryService.build_context_for_rag(
-            db, conversation_id, content
-        )
+        # Handle OFF_TOPIC: Skip RAG, redirect to domain
+        if intent_result.intent == QueryIntent.OFF_TOPIC:
+            processing_time = int((time.time() - start_time) * 1000)
+            logger.info(f"🔄 Off-topic query redirected in {processing_time}ms: '{content[:30]}...'")
+            
+            assistant_message = MessageRepository.add_message(
+                db=db,
+                conversation_id=conversation_id,
+                user_id=user_id,
+                role="assistant",
+                content=intent_result.suggested_response or "Tôi chỉ hỗ trợ về pháp luật đấu thầu.",
+                sources=None,
+                processing_time_ms=processing_time,
+                rag_mode="off_topic",
+                tokens_total=0,
+            )
+            ConversationRepository.update_last_message(db, conversation_id)
+            return user_message, assistant_message, [], processing_time
 
-        # Enhance question with conversation context if available
+        # Handle CASUAL: Skip RAG, return direct response
+        if intent_result.intent == QueryIntent.CASUAL:
+            processing_time = int((time.time() - start_time) * 1000)
+            logger.info(f"💬 Casual query early exit in {processing_time}ms: '{content[:30]}...'")
+
+            assistant_message = MessageRepository.add_message(
+                db=db,
+                conversation_id=conversation_id,
+                user_id=user_id,
+                role="assistant",
+                content=intent_result.suggested_response or "Xin chào! Tôi có thể giúp gì cho bạn?",
+                sources=None,
+                processing_time_ms=processing_time,
+                rag_mode="casual",
+                tokens_total=0,
+            )
+            ConversationRepository.update_last_message(db, conversation_id)
+            return user_message, assistant_message, [], processing_time
+
+        # 🆕 SMART CONTEXT: Only attach context for ON_TOPIC or CONTEXT_FOLLOW_UP
         enhanced_question = content
-        if conversation_context:
-            enhanced_question = f"""[CONTEXT HỘI THOẠI]
+        conversation_context = None
+        
+        if intent_result.intent in [QueryIntent.ON_TOPIC, QueryIntent.CONTEXT_FOLLOW_UP]:
+            # Build conversation context for RAG (summary + recent messages)
+            conversation_context, _ = SummaryService.build_context_for_rag(
+                db, conversation_id, content
+            )
+            
+            # Only attach context if query is a context follow-up
+            # For ON_TOPIC with context, we still pass context but let RAG prioritize docs
+            if conversation_context and intent_result.intent == QueryIntent.CONTEXT_FOLLOW_UP:
+                enhanced_question = f"""[CONTEXT HỘI THOẠI]
 {conversation_context}
 
 [CÂU HỎI HIỆN TẠI]
 {content}"""
+                logger.info("📎 Context attached for follow-up query")
 
         # Call RAG pipeline with enhanced question
         try:
