@@ -27,6 +27,8 @@ class Settings:
     collection: str = os.getenv("LC_COLLECTION", "docs")
     embed_model: str = os.getenv("EMBED_MODEL", "text-embedding-3-small")
     llm_model: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
+    llm_provider: str = os.getenv("LLM_PROVIDER", "openai")  # "openai" or "gemini"
+    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
     chunk_size: int = int(os.getenv("CHUNK_SIZE", "1000"))
     chunk_overlap: int = int(os.getenv("CHUNK_OVERLAP", "200"))
     allowed_ext: list[str] = field(

@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage
 import os
 import re
 import logging
 import time
+
+from src.generation.llm_factory import get_llm
 
 logger = logging.getLogger(__name__)
 
@@ -15,39 +16,31 @@ class BaseEnhancementStrategy(ABC):
     Abstract base class cho tất cả enhancement strategies
 
     Provides:
-    - LLM client (LangChain ChatOpenAI)
+    - LLM client (via LLM factory - supports OpenAI/Gemini)
     - Common LLM calling method
     - Response parsing utilities
     - Error handling & retries
     """
 
-    def __init__(self, llm_model: str, temperature: float = 0.7):
+    def __init__(self, llm_model: str = None, temperature: float = 0.7):
         """
         Initialize strategy
 
         Args:
-            llm_model: OpenAI model name (gpt-4o-mini, gpt-4, etc.)
+            llm_model: Model name (ignored, uses settings from LLM factory)
             temperature: Sampling temperature (0.0-1.0)
         """
-        self.llm_model = llm_model
         self.temperature = temperature
 
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable not set")
-
-        # Initialize LangChain ChatOpenAI
-        self.client = ChatOpenAI(
-            model=llm_model,
+        # Use LLM factory for multi-provider support
+        self.client = get_llm(
             temperature=temperature,
-            openai_api_key=api_key,
             max_tokens=500,
-            request_timeout=30,
+            timeout=30,
         )
 
         logger.info(
-            f"Initialized {self.__class__.__name__} "
-            f"with model={llm_model}, temp={temperature}"
+            f"Initialized {self.__class__.__name__} with temp={temperature}"
         )
 
     @abstractmethod

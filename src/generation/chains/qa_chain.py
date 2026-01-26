@@ -1,7 +1,6 @@
 import os
 import time
 from typing import Dict, Literal
-from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import (
@@ -18,9 +17,10 @@ from src.retrieval.retrievers import create_retriever
 from src.retrieval.answer_cache import get_answer_cache
 from src.retrieval.semantic_cache_v2 import get_semantic_cache_v2
 from src.config.models import settings, apply_preset
+from src.generation.llm_factory import get_llm
 
 
-model = ChatOpenAI(model=settings.llm_model, temperature=0)
+model = get_llm(temperature=0)
 
 
 def is_complex_query(question: str) -> bool:

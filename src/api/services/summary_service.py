@@ -12,7 +12,6 @@ import logging
 from typing import Optional, List, Dict, Any, Tuple
 from uuid import UUID
 
-from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from sqlalchemy.orm import Session
 
@@ -21,6 +20,7 @@ from src.models.conversations import Conversation
 from src.models.messages import Message
 from src.models.repositories import ConversationRepository, MessageRepository
 from src.retrieval.context_cache import get_context_cache
+from src.generation.llm_factory import get_llm
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ TOKEN_LIMIT_ESTIMATE = 4000  # Approximate token budget for context
 # - SUMMARY_THRESHOLD = 10+: Lazy summarization (low cost, may lose context)
 
 # LLM for summarization
-summary_model = ChatOpenAI(model=settings.llm_model, temperature=0)
+summary_model = get_llm(temperature=0)
 
 
 SUMMARY_PROMPT = ChatPromptTemplate.from_messages(

@@ -13,8 +13,8 @@ import json
 import logging
 from typing import Dict, Any, Optional
 
-from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
+from src.generation.llm_factory import get_llm
 
 logger = logging.getLogger(__name__)
 
@@ -58,12 +58,11 @@ Giải thích intent_type:
         Initialize ReasoningChain.
         
         Args:
-            analyzer_model: Model for query analysis (fast model recommended)
+            analyzer_model: Model for query analysis (ignored when using Gemini provider)
             rag_mode: Mode for RAG pipeline
             analysis_timeout: Timeout for analysis step in seconds
         """
-        self.analyzer = ChatOpenAI(
-            model=analyzer_model,
+        self.analyzer = get_llm(
             temperature=0,
             timeout=analysis_timeout,
         )
