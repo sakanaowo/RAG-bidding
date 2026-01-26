@@ -189,17 +189,18 @@ gcloud auth configure-docker asia-southeast1-docker.pkg.dev
 ### ⚠️ LƯU Ý QUAN TRỌNG: Memory với BGE Reranker và Gunicorn Workers
 
 **Vấn đề:**
+
 - BGE Reranker model (`BAAI/bge-reranker-v2-m3`) cần **~1.2-1.5GB RAM** để load
 - Gunicorn fork workers, mỗi worker load model **RIÊNG** (không share giữa processes)
 - `preload_app=True` chỉ share code Python, **KHÔNG share model đã load vào RAM**
 
 **Tính toán memory:**
 
-| Workers | Model Memory | App Overhead | Tổng RAM cần |
-|---------|-------------|--------------|--------------|
-| 1 worker | 1.5GB | 500MB | ~2GB |
-| 2 workers | 3GB | 1GB | ~4GB |
-| 4 workers | 6GB | 2GB | **~8GB** |
+| Workers   | Model Memory | App Overhead | Tổng RAM cần |
+| --------- | ------------ | ------------ | ------------ |
+| 1 worker  | 1.5GB        | 500MB        | ~2GB         |
+| 2 workers | 3GB          | 1GB          | ~4GB         |
+| 4 workers | 6GB          | 2GB          | **~8GB**     |
 
 **Khuyến nghị cho Cloud Run:**
 
@@ -219,6 +220,7 @@ gcloud auth configure-docker asia-southeast1-docker.pkg.dev
 ```
 
 > 💡 **Best Practice cho Cloud Run**: Dùng **1 worker per container instance** và để Cloud Run auto-scale bằng cách spawn nhiều instances. Điều này giúp:
+>
 > - Tận dụng auto-scaling của Cloud Run
 > - Đơn giản hóa memory management
 > - Tránh memory issues với large models
@@ -317,6 +319,7 @@ CMD exec gunicorn \
 ```
 
 > ⚠️ **Nếu muốn dùng 2+ workers**, cần set env var `GUNICORN_WORKERS=2` và tăng memory lên `8Gi`:
+>
 > ```bash
 > gcloud run deploy ... --memory=8Gi --set-env-vars="GUNICORN_WORKERS=2"
 > ```
