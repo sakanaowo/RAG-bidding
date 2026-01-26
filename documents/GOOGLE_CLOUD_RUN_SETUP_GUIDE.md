@@ -9,22 +9,22 @@
 
 ### ⚠️ Critical Decisions (QUAN TRỌNG)
 
-| Quyết định | Khuyến nghị | Lý do |
-|------------|-------------|-------|
+| Quyết định           | Khuyến nghị          | Lý do                                         |
+| -------------------- | -------------------- | --------------------------------------------- |
 | **Gunicorn Workers** | `GUNICORN_WORKERS=1` | Mỗi worker load BGE model (~1.5GB) riêng biệt |
-| **Memory** | `4Gi` minimum | BGE model + FastAPI + buffers |
-| **Min Instances** | `1` (production) | Tránh cold start 50-60s (do BGE loading) |
-| **Scaling** | Cloud Run instances | Không dùng nhiều workers trong 1 container |
+| **Memory**           | `4Gi` minimum        | BGE model + FastAPI + buffers                 |
+| **Min Instances**    | `1` (production)     | Tránh cold start 50-60s (do BGE loading)      |
+| **Scaling**          | Cloud Run instances  | Không dùng nhiều workers trong 1 container    |
 
 ### 📊 Quick Start - Chọn Configuration
 
-| Scenario | Memory | Workers | Reranking | Command |
-|----------|--------|---------|-----------|---------|
-| **Dev/Test** | 2Gi | 1 | false | `--memory=2Gi --set-env-vars="ENABLE_RERANKING=false"` |
-| **Staging** | 4Gi | 1 | bge | `--memory=4Gi --min-instances=0` |
-| **Prod (Balanced)** | 4Gi | 1 | bge | `--memory=4Gi --min-instances=1` |
-| **Prod (High Quality)** | 4Gi | 1 | openai | `--memory=4Gi --set-env-vars="RERANKER_TYPE=openai"` |
-| **Prod (Max Perf)** | 8Gi | 1 | bge | `--memory=8Gi --cpu=4 --min-instances=2` |
+| Scenario                | Memory | Workers | Reranking | Command                                                |
+| ----------------------- | ------ | ------- | --------- | ------------------------------------------------------ |
+| **Dev/Test**            | 2Gi    | 1       | false     | `--memory=2Gi --set-env-vars="ENABLE_RERANKING=false"` |
+| **Staging**             | 4Gi    | 1       | bge       | `--memory=4Gi --min-instances=0`                       |
+| **Prod (Balanced)**     | 4Gi    | 1       | bge       | `--memory=4Gi --min-instances=1`                       |
+| **Prod (High Quality)** | 4Gi    | 1       | openai    | `--memory=4Gi --set-env-vars="RERANKER_TYPE=openai"`   |
+| **Prod (Max Perf)**     | 8Gi    | 1       | bge       | `--memory=8Gi --cpu=4 --min-instances=2`               |
 
 ### ✅ Fallback Mechanism (Đã Verified)
 
@@ -40,16 +40,16 @@ BGE GPU OOM → BGE CPU → OpenAI API → Dummy scores
 
 ## 📋 Thông Tin Project
 
-| Thông số         | Giá trị                                                             |
-| ---------------- | ------------------------------------------------------------------- |
-| **Framework**    | FastAPI 0.112.4                                                     |
-| **Python**       | 3.10                                                                |
-| **Database**     | PostgreSQL 15+ với pgvector extension (NullPool - no connection pooling) |
+| Thông số         | Giá trị                                                                                 |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| **Framework**    | FastAPI 0.112.4                                                                         |
+| **Python**       | 3.10                                                                                    |
+| **Database**     | PostgreSQL 15+ với pgvector extension (NullPool - no connection pooling)                |
 | **Cache**        | Redis (5 databases: DB0=cache, DB1=sessions, DB2=answers, DB3=semantic, DB4=rate-limit) |
-| **ML Models**    | BGE Reranker (BAAI/bge-reranker-v2-m3) với auto-fallback to OpenAI |
-| **Entry Point**  | `src.api.main:app`                                                  |
-| **Default Port** | 8000                                                                |
-| **Cold Start**   | ~50-60s (với BGE model loading)                                     |
+| **ML Models**    | BGE Reranker (BAAI/bge-reranker-v2-m3) với auto-fallback to OpenAI                      |
+| **Entry Point**  | `src.api.main:app`                                                                      |
+| **Default Port** | 8000                                                                                    |
+| **Cold Start**   | ~50-60s (với BGE model loading)                                                         |
 
 ## Mục Lục
 
@@ -159,12 +159,13 @@ Project RAG-Bidding yêu cầu các biến môi trường sau:
 | `CORS_ORIGINS`       | Allowed CORS origins                | `https://your-frontend.com`                   |
 | `ENABLE_REDIS_CACHE` | Enable Redis caching                | `true`                                        |
 | `ENABLE_RERANKING`   | Enable BGE reranker                 | `true`                                        |
-| `RERANKER_TYPE`      | Force reranker type                 | `openai` (skip BGE, go direct to API)        |
+| `RERANKER_TYPE`      | Force reranker type                 | `openai` (skip BGE, go direct to API)         |
 | `RAG_MODE`           | RAG processing mode                 | `balanced`                                    |
 
-> 💡 **Fallback Control**: 
+> 💡 **Fallback Control**:
+>
 > - `ENABLE_RERANKING=false`: Tắt reranking hoàn toàn
-> - `RERANKER_TYPE=openai`: Bỏ qua BGE, dùng OpenAI API ngay từ đầu  
+> - `RERANKER_TYPE=openai`: Bỏ qua BGE, dùng OpenAI API ngay từ đầu
 > - `RERANKER_TYPE=bge`: Force dùng BGE (default, có fallback to OpenAI nếu OOM)
 
 ---
@@ -254,7 +255,7 @@ gcloud auth configure-docker asia-southeast1-docker.pkg.dev
 ```python
 # Trong bge_reranker.py - Có 3 lớp fallback:
 
-# 1. INIT TIME: Nếu không load được BGE model  
+# 1. INIT TIME: Nếu không load được BGE model
 try:
     _reranker_instance = BGEReranker(device="cuda")
 except Exception as e:
@@ -264,7 +265,7 @@ except Exception as e:
 
 # 2. RUNTIME: Nếu CUDA OOM khi rerank
 try:
-    scores = model.predict(pairs)  # BGE prediction  
+    scores = model.predict(pairs)  # BGE prediction
 except Exception as e:
     if "cuda out of memory" in str(e).lower():
         _cuda_oom_fallback = True  # Set global flag
@@ -273,22 +274,23 @@ except Exception as e:
 
 # 3. FUTURE CALLS: Global flag prevents BGE loading
 if _cuda_oom_fallback:
-    return OpenAIReranker()  # ✅ Skip BGE entirely  
+    return OpenAIReranker()  # ✅ Skip BGE entirely
 ```
 
 **Fallback tiers:**
+
 1. **BGE GPU** (Fastest, 100-150ms, cần 1.5GB VRAM)
-2. **BGE CPU** (Medium, 300-500ms, cần 1.5GB RAM)  
+2. **BGE CPU** (Medium, 300-500ms, cần 1.5GB RAM)
 3. **OpenAI API** (Slowest, 500-2000ms, không cần local memory)
 4. **Dummy scores** (Fallback cuối, trả về original order)
 
 **Production recommendation:**
 
-| Scenario | Memory | CPU | Env Vars |
-|----------|--------|-----|----------|
-| **Trust BGE** | `8Gi` | `2` | `ENABLE_RERANKING=true` |
-| **OpenAI only** | `2Gi` | `1` | `ENABLE_RERANKING=true,RERANKER_TYPE=openai` |
-| **No rerank** | `2Gi` | `1` | `ENABLE_RERANKING=false` |
+| Scenario        | Memory | CPU | Env Vars                                     |
+| --------------- | ------ | --- | -------------------------------------------- |
+| **Trust BGE**   | `8Gi`  | `2` | `ENABLE_RERANKING=true`                      |
+| **OpenAI only** | `2Gi`  | `1` | `ENABLE_RERANKING=true,RERANKER_TYPE=openai` |
+| **No rerank**   | `2Gi`  | `1` | `ENABLE_RERANKING=false`                     |
 
 **Khuyến nghị cho Cloud Run:**
 
@@ -1835,6 +1837,7 @@ gcloud run services update rag-bidding-api \
 **Vấn đề**: BGE model không load được hoặc CUDA OOM
 
 **Log patterns cần chú ý:**
+
 ```bash
 # Check fallback logs
 gcloud run services logs read rag-bidding-api \
@@ -1843,6 +1846,7 @@ gcloud run services logs read rag-bidding-api \
 ```
 
 **Expected log flow khi fallback:**
+
 ```
 🔧 Creating singleton BGEReranker instance (model: BAAI/bge-reranker-v2-m3, device: cuda)
 ❌ CUDA OOM during BGE init: CUDA out of memory
@@ -1852,7 +1856,7 @@ gcloud run services logs read rag-bidding-api \
 
 **Solutions:**
 
-```bash  
+```bash
 # Option 1: Tăng memory cho BGE
 gcloud run services update rag-bidding-api \
     --memory=8Gi --cpu=2 \
@@ -1864,7 +1868,7 @@ gcloud run services update rag-bidding-api \
     --memory=2Gi --cpu=1 \
     --region=asia-southeast1
 
-# Option 3: Force CPU cho BGE (nếu CUDA issues)  
+# Option 3: Force CPU cho BGE (nếu CUDA issues)
 gcloud run services update rag-bidding-api \
     --set-env-vars="RERANKER_DEVICE=cpu" \
     --memory=4Gi --cpu=2 \
@@ -1878,11 +1882,12 @@ gcloud run services update rag-bidding-api \
 ```
 
 **Verify fallback hoạt động:**
+
 ```bash
 # Test API endpoint
 SERVICE_URL=$(gcloud run services describe rag-bidding-api --region=asia-southeast1 --format="value(status.url)")
 
-# Send test query to /ask endpoint  
+# Send test query to /ask endpoint
 curl -X POST "$SERVICE_URL/ask" \
     -H "Content-Type: application/json" \
     -d '{"query": "test reranking fallback"}' \
@@ -2095,7 +2100,7 @@ echo "🌐 Service URL: ${SERVICE_URL}"
 ```
 ⚠️ LUÔN SET: GUNICORN_WORKERS=1
 
-Lý do: 
+Lý do:
 - Gunicorn fork() tạo memory space RIÊNG cho mỗi worker
 - Singleton pattern trong Python KHÔNG share giữa processes
 - 4 workers = 4 copies của BGE model = ~6GB RAM chỉ cho model!
@@ -2113,7 +2118,7 @@ Startup sequence với BGE model:
 1. Container start: ~5s
 2. Python import: ~10s (heavy dependencies)
 3. Database init: ~2s
-4. Vector store bootstrap: ~3s  
+4. Vector store bootstrap: ~3s
 5. BGE model loading: ~30-40s ⚠️ HEAVIEST
 ───────────────────────────────
 Total: 50-60s
@@ -2138,7 +2143,7 @@ poolclass=NullPool  # Mỗi request tạo connection mới
 
 Layer 1 (Init):     BGE GPU load → OOM → OpenAIReranker
 Layer 2 (Runtime):  BGE predict → OOM → set flag + OpenAI fallback
-Layer 3 (Future):   Global _cuda_oom_fallback=True → skip BGE entirely  
+Layer 3 (Future):   Global _cuda_oom_fallback=True → skip BGE entirely
 Layer 4 (Final):    OpenAI fails → return dummy scores (original order)
 
 Kết luận: System tự xử lý, không cần lo crash!
@@ -2146,15 +2151,15 @@ Kết luận: System tự xử lý, không cần lo crash!
 
 ### 📊 Configuration Matrix
 
-| Environment | Memory | CPU | Workers | Min Inst | Reranking | Monthly Cost* |
-|-------------|--------|-----|---------|----------|-----------|---------------|
-| **Dev** | 2Gi | 1 | 1 | 0 | false | ~$10-20 |
-| **Staging** | 4Gi | 2 | 1 | 0 | bge (auto-fallback) | ~$30-50 |
-| **Prod Light** | 4Gi | 2 | 1 | 1 | openai | ~$80-120 |
-| **Prod Standard** | 4Gi | 2 | 1 | 1 | bge | ~$80-120 |
-| **Prod Premium** | 8Gi | 4 | 1 | 2 | bge | ~$200-300 |
+| Environment       | Memory | CPU | Workers | Min Inst | Reranking           | Monthly Cost\* |
+| ----------------- | ------ | --- | ------- | -------- | ------------------- | -------------- |
+| **Dev**           | 2Gi    | 1   | 1       | 0        | false               | ~$10-20        |
+| **Staging**       | 4Gi    | 2   | 1       | 0        | bge (auto-fallback) | ~$30-50        |
+| **Prod Light**    | 4Gi    | 2   | 1       | 1        | openai              | ~$80-120       |
+| **Prod Standard** | 4Gi    | 2   | 1       | 1        | bge                 | ~$80-120       |
+| **Prod Premium**  | 8Gi    | 4   | 1       | 2        | bge                 | ~$200-300      |
 
-*Chi phí ước tính, phụ thuộc vào traffic thực tế
+\*Chi phí ước tính, phụ thuộc vào traffic thực tế
 
 ### 🎯 Recommended Production Configuration
 
@@ -2215,6 +2220,7 @@ gcloud run services describe rag-bidding-api \
 - [VPC Connector](https://cloud.google.com/vpc/docs/configure-serverless-vpc-access)
 
 ### Project-specific Documentation
+
 - [DEPLOYMENT_ANALYSIS.md](DEPLOYMENT_ANALYSIS.md) - Phân tích chi tiết codebase
 
 ---

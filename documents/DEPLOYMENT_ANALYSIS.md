@@ -35,18 +35,18 @@ async def lifespan(app: FastAPI):
     # 1. Initialize database connection pool (NullPool for async)
     init_database()
     await startup_database()
-    
+
     # 2. Bootstrap vector store (create tables, collection)
     bootstrap()  # PGVector tables + extensions
-    
+
     # 3. Pre-load BGE Reranker (SINGLETON - ~1.2GB RAM)
     reranker = get_singleton_reranker()  # ⚠️ HEAVY OPERATION
-    
+
     # 4. Pre-load QueryEnhancer (GPT-4o-mini API)
     enhancer = QueryEnhancer(...)  # Lightweight
-    
+
     yield  # App runs
-    
+
     # Shutdown
     await shutdown_database()
 ```
@@ -70,11 +70,11 @@ _cuda_oom_fallback = False  # Fallback flag
 
 def get_singleton_reranker(...):
     global _reranker_instance, _cuda_oom_fallback
-    
+
     # Fast path - return existing instance
     if _reranker_instance is not None:
         return _reranker_instance
-    
+
     # Slow path - create new instance (with lock)
     with _reranker_lock:
         if _reranker_instance is None:
@@ -87,6 +87,7 @@ def get_singleton_reranker(...):
 ```
 
 **⚠️ VẤN ĐỀ VỚI GUNICORN WORKERS**:
+
 - Singleton chỉ hoạt động **trong cùng process**
 - Gunicorn **fork** workers → mỗi worker có **memory space riêng**
 - 4 workers = 4 copies của BGE model = **~4.8GB RAM chỉ cho model**
@@ -117,16 +118,16 @@ return [(doc, 1.0 - i*0.1) for i, doc in enumerate(docs[:top_k])]
 
 ### 3. Memory Breakdown Per Worker
 
-| Component | RAM Usage | Notes |
-|-----------|-----------|-------|
-| Python Runtime | ~100MB | Base Python interpreter |
-| FastAPI + Dependencies | ~200MB | LangChain, SQLAlchemy, etc. |
-| BGE Reranker Model | ~1.2-1.5GB | CrossEncoder weights |
-| OpenAI Embeddings | ~50MB | Tokenizer only (API-based) |
-| PostgreSQL Connections | ~50MB | With NullPool |
-| Redis Connections | ~10MB | 5 databases |
-| Request Processing | ~100MB | Buffers, temp data |
-| **Total per Worker** | **~1.7-2GB** | Without heavy requests |
+| Component              | RAM Usage    | Notes                       |
+| ---------------------- | ------------ | --------------------------- |
+| Python Runtime         | ~100MB       | Base Python interpreter     |
+| FastAPI + Dependencies | ~200MB       | LangChain, SQLAlchemy, etc. |
+| BGE Reranker Model     | ~1.2-1.5GB   | CrossEncoder weights        |
+| OpenAI Embeddings      | ~50MB        | Tokenizer only (API-based)  |
+| PostgreSQL Connections | ~50MB        | With NullPool               |
+| Redis Connections      | ~10MB        | 5 databases                 |
+| Request Processing     | ~100MB       | Buffers, temp data          |
+| **Total per Worker**   | **~1.7-2GB** | Without heavy requests      |
 
 **4 Workers Total**: ~6.8-8GB RAM
 
@@ -151,6 +152,7 @@ class DatabaseConfig:
 **⚠️ QUAN TRỌNG**: Sử dụng **NullPool** - mỗi request tạo connection mới
 
 **Lý do**: NullPool tương thích với async engine, nhưng cho production nên:
+
 - Option 1: Dùng pgBouncer external
 - Option 2: Cloud SQL Proxy handles pooling
 
@@ -199,7 +201,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/health", "/docs", "/redoc", "/openapi.json",
         "/api/auth/login", "/api/auth/register", "/api/auth/refresh",
     ]
-    
+
     # Extracts JWT → adds to request.state
     # Does NOT block - just enriches request
 ```
@@ -226,28 +228,28 @@ def answer(question, mode="balanced", reranker_type="bge"):
     is_casual, response = is_casual_query(question)
     if is_casual:
         return response
-    
+
     # 2. Check Answer Cache (exact match)
     cache = get_answer_cache()
     cached = cache.get(question)
     if cached:
         return cached  # ⚡ ~5ms
-    
+
     # 3. Check Semantic Cache (similar queries)
     semantic_cache = get_semantic_cache_v2()
     match = semantic_cache.find_similar(question)
     if match:
         return answer_cache.get(match.answer_cache_key)  # ⚡ ~450ms
-    
+
     # 4. Run full RAG pipeline
     retriever = create_retriever(mode=mode, reranker_type=reranker_type)
     docs = retriever.retrieve(question)
     answer = llm.generate(question, docs)
-    
+
     # 5. Cache result
     cache.set(question, answer)
     semantic_cache.store_embedding(question, embedding, cache_key)
-    
+
     return answer  # ⏱️ ~2-5s
 ```
 
@@ -259,18 +261,18 @@ def answer(question, mode="balanced", reranker_type="bge"):
 def create_retriever(mode, enable_reranking=True, reranker_type="bge"):
     # Base retriever (always)
     base = BaseVectorRetriever(k=5)
-    
+
     if mode == "fast":
         # No enhancement, no reranking
         return base  # ~1s
-    
+
     elif mode == "balanced":  # DEFAULT
         # Multi-Query + Step-Back + BGE Reranking
         return EnhancedRetriever(
             strategies=[MULTI_QUERY, STEP_BACK],
             reranker=get_singleton_reranker(),
         )  # ~2-3s
-    
+
     elif mode == "quality":
         # All 4 strategies + RRF fusion
         return FusionRetriever(
@@ -283,14 +285,14 @@ def create_retriever(mode, enable_reranking=True, reranker_type="bge"):
 
 ## 🌐 API Endpoints Summary
 
-| Endpoint | Auth Required | Heavy Operations | Memory Impact |
-|----------|---------------|------------------|---------------|
-| `POST /ask` | ❌ No | BGE + GPT + DB | High |
-| `POST /api/conversations/{id}/messages` | ✅ Yes | BGE + GPT + DB | High |
-| `GET /api/conversations` | ✅ Yes | DB only | Low |
-| `GET /api/documents` | ✅ Yes | DB only | Low |
-| `POST /api/auth/login` | ❌ No | JWT only | Low |
-| `GET /health` | ❌ No | DB ping | Very Low |
+| Endpoint                                | Auth Required | Heavy Operations | Memory Impact |
+| --------------------------------------- | ------------- | ---------------- | ------------- |
+| `POST /ask`                             | ❌ No         | BGE + GPT + DB   | High          |
+| `POST /api/conversations/{id}/messages` | ✅ Yes        | BGE + GPT + DB   | High          |
+| `GET /api/conversations`                | ✅ Yes        | DB only          | Low           |
+| `GET /api/documents`                    | ✅ Yes        | DB only          | Low           |
+| `POST /api/auth/login`                  | ❌ No         | JWT only         | Low           |
+| `GET /health`                           | ❌ No         | DB ping          | Very Low      |
 
 ---
 
@@ -466,12 +468,12 @@ If ENABLE_REDIS_CACHE=true:
 
 ## 📊 Final Recommendation Matrix
 
-| Scenario | Workers | Memory | CPU | Reranking | Min Instances | Cost |
-|----------|---------|--------|-----|-----------|---------------|------|
-| **Dev/Test** | 1 | 2Gi | 1 | false | 0 | $ |
-| **Staging** | 1 | 4Gi | 2 | bge (auto-fallback) | 0 | $$ |
-| **Production Light** | 1 | 4Gi | 2 | openai | 1 | $$$ |
-| **Production Full** | 1 | 8Gi | 4 | bge | 2 | $$$$ |
+| Scenario             | Workers | Memory | CPU | Reranking           | Min Instances | Cost |
+| -------------------- | ------- | ------ | --- | ------------------- | ------------- | ---- |
+| **Dev/Test**         | 1       | 2Gi    | 1   | false               | 0             | $    |
+| **Staging**          | 1       | 4Gi    | 2   | bge (auto-fallback) | 0             | $$   |
+| **Production Light** | 1       | 4Gi    | 2   | openai              | 1             | $$$  |
+| **Production Full**  | 1       | 8Gi    | 4   | bge                 | 2             | $$$$ |
 
 ---
 
@@ -489,4 +491,4 @@ If ENABLE_REDIS_CACHE=true:
 
 ---
 
-*Document generated: 26/01/2026*
+_Document generated: 26/01/2026_
