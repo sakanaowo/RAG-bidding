@@ -551,17 +551,31 @@ def answer(
         [("system", system_prompt), ("user", USER_TEMPLATE)]
     )
 
-    # Build chain dynamically with the correct retriever and prompt
-    rag_chain = (
-        {"context": retriever | fmt_docs, "question": RunnablePassthrough()}
-        | prompt
-        | model
-        | StrOutputParser()
-    )
+    # Build chain - retrieve docs ONCE, reuse for context AND source_documents
+    # BUG FIX: Previously retriever was called twice (once in rag_chain, once in RunnableParallel)
+    def retrieve_and_format(question: str):
+        """Retrieve docs once, return both formatted context and raw docs."""
+        docs = retriever.invoke(question)
+        context = fmt_docs(docs)
+        return {"context": context, "source_documents": docs, "question": question}
 
-    chain = RunnableParallel(answer=rag_chain, source_documents=retriever)
-
-    result = chain.invoke(question)
+    # Chain that uses pre-retrieved docs
+    answer_chain = prompt | model | StrOutputParser()
+    
+    # Retrieve once, then generate answer
+    retrieved = retrieve_and_format(question)
+    
+    logger.info(f"📄 Retrieved {len(retrieved['source_documents'])} documents (single call)")
+    
+    answer = answer_chain.invoke({
+        "context": retrieved["context"],
+        "question": retrieved["question"]
+    })
+    
+    result = {
+        "answer": answer,
+        "source_documents": retrieved["source_documents"]
+    }
 
     # Enrich source documents with status from documents table
     doc_statuses = _get_document_statuses(result["source_documents"])

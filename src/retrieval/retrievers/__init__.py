@@ -1,10 +1,13 @@
 # src/retrieval/retrievers/__init__.py
 
+import logging
 from typing import Optional, Literal
 from .base_vector_retriever import BaseVectorRetriever
 from .enhanced_retriever import EnhancedRetriever
 from .fusion_retriever import FusionRetriever
 # NOTE: AdaptiveKRetriever removed - use balanced mode instead
+
+logger = logging.getLogger(__name__)
 
 from src.embedding.store.pgvector_store import vector_store
 from src.retrieval.query_processing import EnhancementStrategy
@@ -62,16 +65,23 @@ def create_retriever(
 
     if mode == "fast":
         # Fast mode: no enhancement, no reranking
+        logger.info(
+            f"🚀 Created BaseVectorRetriever | mode=fast | "
+            f"strategies=None | reranker=None"
+        )
         return base
 
     elif mode == "balanced":
         # Balanced mode (recommended default)
+        strategies = [EnhancementStrategy.MULTI_QUERY, EnhancementStrategy.STEP_BACK]
+        logger.info(
+            f"⚖️ Created EnhancedRetriever | mode=balanced | "
+            f"strategies={[s.value for s in strategies]} | "
+            f"reranker={type(reranker).__name__ if reranker else 'None'}"
+        )
         return EnhancedRetriever(
             base_retriever=base,
-            enhancement_strategies=[
-                EnhancementStrategy.MULTI_QUERY,
-                EnhancementStrategy.STEP_BACK,
-            ],
+            enhancement_strategies=strategies,
             reranker=reranker,
             k=5,
             retrieval_k=5,
@@ -79,14 +89,20 @@ def create_retriever(
 
     elif mode == "quality":
         # Quality mode: full pipeline with RRF
+        strategies = [
+            EnhancementStrategy.MULTI_QUERY,
+            EnhancementStrategy.HYDE,
+            EnhancementStrategy.STEP_BACK,
+            EnhancementStrategy.DECOMPOSITION,
+        ]
+        logger.info(
+            f"💎 Created FusionRetriever | mode=quality | "
+            f"strategies={[s.value for s in strategies]} | "
+            f"reranker={type(reranker).__name__ if reranker else 'None'} | rrf_k=60"
+        )
         return FusionRetriever(
             base_retriever=base,
-            enhancement_strategies=[
-                EnhancementStrategy.MULTI_QUERY,
-                EnhancementStrategy.HYDE,
-                EnhancementStrategy.STEP_BACK,
-                EnhancementStrategy.DECOMPOSITION,
-            ],
+            enhancement_strategies=strategies,
             reranker=reranker,
             k=5,
             retrieval_k=5,
