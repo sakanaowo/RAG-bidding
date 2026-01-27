@@ -73,17 +73,31 @@ async def lifespan(app: FastAPI):
     logger.info(f"📦 [Worker {os.getpid()}] Bootstrapping vector store...")
     bootstrap()
 
-    # 3. Pre-load BGEReranker model
-    logger.info(f"🔧 [Worker {os.getpid()}] Pre-loading BGEReranker model...")
-    try:
-        from src.retrieval.ranking.bge_reranker import get_singleton_reranker
+    # 3. Pre-load Reranker based on config
+    from src.config.feature_flags import DEFAULT_RERANKER_TYPE
 
-        reranker = get_singleton_reranker()
+    if DEFAULT_RERANKER_TYPE == "bge":
+        logger.info(f"🔧 [Worker {os.getpid()}] Pre-loading BGEReranker model...")
+        try:
+            from src.retrieval.ranking.bge_reranker import get_singleton_reranker
+
+            reranker = get_singleton_reranker()
+            logger.info(
+                f"✅ [Worker {os.getpid()}] BGEReranker loaded successfully (device: {reranker.device})"
+            )
+        except Exception as e:
+            logger.error(f"❌ [Worker {os.getpid()}] Failed to load BGEReranker: {e}")
+    elif DEFAULT_RERANKER_TYPE == "openai":
         logger.info(
-            f"✅ [Worker {os.getpid()}] BGEReranker loaded successfully (device: {reranker.device})"
+            f"🔧 [Worker {os.getpid()}] Using OpenAI Reranker (no preload needed)"
         )
-    except Exception as e:
-        logger.error(f"❌ [Worker {os.getpid()}] Failed to load BGEReranker: {e}")
+        logger.info(
+            f"✅ [Worker {os.getpid()}] OpenAI Reranker configured successfully"
+        )
+    else:
+        logger.warning(
+            f"⚠️ [Worker {os.getpid()}] Unknown reranker type: {DEFAULT_RERANKER_TYPE}"
+        )
 
     # 4. Pre-load QueryEnhancer
     logger.info(
@@ -239,8 +253,9 @@ class AskIn(BaseModel):
         default="balanced",
         description="RAG mode: fast (1s), balanced (2-3s), quality (3-5s)",
     )
-    reranker: Literal["bge", "openai"] = Field(
-        default="bge", description="Reranker: bge (local, free) hoặc openai (API, paid)"
+    reranker: Literal["bge", "openai"] | None = Field(
+        default=None,
+        description="Reranker: bge (local, free) hoặc openai (API, paid). None = use config default",
     )
 
     model_config = {
@@ -249,12 +264,10 @@ class AskIn(BaseModel):
                 {
                     "question": "Điều kiện để nhà thầu được tham gia đấu thầu là gì?",
                     "mode": "balanced",
-                    "reranker": "bge",
                 },
                 {
                     "question": "Quy trình lựa chọn nhà thầu qua mạng như thế nào?",
                     "mode": "quality",
-                    "reranker": "bge",
                 },
             ]
         }

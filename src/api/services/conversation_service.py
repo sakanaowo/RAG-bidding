@@ -284,7 +284,7 @@ class ConversationService:
             raise RateLimitExceededError(
                 f"Daily query limit reached ({rate_limit_result.limit} queries/day). "
                 f"Remaining: {rate_limit_result.remaining}. Resets at: {rate_limit_result.reset_at}",
-                rate_limit_result
+                rate_limit_result,
             )
 
         # Verify conversation ownership
@@ -326,7 +326,7 @@ class ConversationService:
         # This prevents gibberish/off-topic queries from polluting RAG with irrelevant context
         intent_detector = get_intent_detector()
         intent_result = intent_detector.detect(content)
-        
+
         logger.info(
             f"🎯 Intent detected: {intent_result.intent.value} "
             f"(confidence: {intent_result.confidence:.2f}, reason: {intent_result.reason})"
@@ -335,14 +335,17 @@ class ConversationService:
         # Handle GIBBERISH: Skip RAG entirely, return polite error
         if intent_result.intent == QueryIntent.GIBBERISH:
             processing_time = int((time.time() - start_time) * 1000)
-            logger.info(f"🚫 Gibberish query rejected in {processing_time}ms: '{content[:30]}...'")
-            
+            logger.info(
+                f"🚫 Gibberish query rejected in {processing_time}ms: '{content[:30]}...'"
+            )
+
             assistant_message = MessageRepository.add_message(
                 db=db,
                 conversation_id=conversation_id,
                 user_id=user_id,
                 role="assistant",
-                content=intent_result.suggested_response or "Xin lỗi, tôi không hiểu câu hỏi của bạn.",
+                content=intent_result.suggested_response
+                or "Xin lỗi, tôi không hiểu câu hỏi của bạn.",
                 sources=None,
                 processing_time_ms=processing_time,
                 rag_mode="gibberish",
@@ -354,14 +357,17 @@ class ConversationService:
         # Handle OFF_TOPIC: Skip RAG, redirect to domain
         if intent_result.intent == QueryIntent.OFF_TOPIC:
             processing_time = int((time.time() - start_time) * 1000)
-            logger.info(f"🔄 Off-topic query redirected in {processing_time}ms: '{content[:30]}...'")
-            
+            logger.info(
+                f"🔄 Off-topic query redirected in {processing_time}ms: '{content[:30]}...'"
+            )
+
             assistant_message = MessageRepository.add_message(
                 db=db,
                 conversation_id=conversation_id,
                 user_id=user_id,
                 role="assistant",
-                content=intent_result.suggested_response or "Tôi chỉ hỗ trợ về pháp luật đấu thầu.",
+                content=intent_result.suggested_response
+                or "Tôi chỉ hỗ trợ về pháp luật đấu thầu.",
                 sources=None,
                 processing_time_ms=processing_time,
                 rag_mode="off_topic",
@@ -373,14 +379,17 @@ class ConversationService:
         # Handle CASUAL: Skip RAG, return direct response
         if intent_result.intent == QueryIntent.CASUAL:
             processing_time = int((time.time() - start_time) * 1000)
-            logger.info(f"💬 Casual query early exit in {processing_time}ms: '{content[:30]}...'")
+            logger.info(
+                f"💬 Casual query early exit in {processing_time}ms: '{content[:30]}...'"
+            )
 
             assistant_message = MessageRepository.add_message(
                 db=db,
                 conversation_id=conversation_id,
                 user_id=user_id,
                 role="assistant",
-                content=intent_result.suggested_response or "Xin chào! Tôi có thể giúp gì cho bạn?",
+                content=intent_result.suggested_response
+                or "Xin chào! Tôi có thể giúp gì cho bạn?",
                 sources=None,
                 processing_time_ms=processing_time,
                 rag_mode="casual",
@@ -392,16 +401,22 @@ class ConversationService:
         # 🆕 SMART CONTEXT: Only attach context for ON_TOPIC or CONTEXT_FOLLOW_UP
         enhanced_question = content
         conversation_context = None
-        
-        if intent_result.intent in [QueryIntent.ON_TOPIC, QueryIntent.CONTEXT_FOLLOW_UP]:
+
+        if intent_result.intent in [
+            QueryIntent.ON_TOPIC,
+            QueryIntent.CONTEXT_FOLLOW_UP,
+        ]:
             # Build conversation context for RAG (summary + recent messages)
             conversation_context, _ = SummaryService.build_context_for_rag(
                 db, conversation_id, content
             )
-            
+
             # Only attach context if query is a context follow-up
             # For ON_TOPIC with context, we still pass context but let RAG prioritize docs
-            if conversation_context and intent_result.intent == QueryIntent.CONTEXT_FOLLOW_UP:
+            if (
+                conversation_context
+                and intent_result.intent == QueryIntent.CONTEXT_FOLLOW_UP
+            ):
                 enhanced_question = f"""[CONTEXT HỘI THOẠI]
 {conversation_context}
 
@@ -414,7 +429,7 @@ class ConversationService:
             rag_result = rag_answer(
                 question=enhanced_question,
                 mode=effective_rag_mode,
-                reranker_type="bge",
+                reranker_type=None,  # Use config default (DEFAULT_RERANKER_TYPE)
                 original_query=content,  # 🆕 Pass original query for cache key
             )
 
@@ -475,10 +490,10 @@ class ConversationService:
 
         # Extract actual categories from retrieved documents for analytics
         # This provides better insights than just using the user's category filter
-        actual_categories = list(set(
-            doc.get("category") for doc in raw_sources 
-            if doc.get("category")
-        )) or conversation.category_filter  # Fallback to filter if no categories in docs
+        actual_categories = (
+            list(set(doc.get("category") for doc in raw_sources if doc.get("category")))
+            or conversation.category_filter
+        )  # Fallback to filter if no categories in docs
 
         # Log query for analytics with token info
         try:

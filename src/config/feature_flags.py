@@ -146,9 +146,9 @@ SESSION_MAX_MESSAGES = 100  # Max messages per session
 # ========================================
 
 # Reranker type: "bge" or "openai"
-DEFAULT_RERANKER_TYPE: Literal["bge", "openai"] = "bge"
+DEFAULT_RERANKER_TYPE: Literal["bge", "openai"] = "openai"
 
-# BGE Reranker (singleton pattern - PRODUCTION READY ✅)
+# BGE Reranker
 BGE_MODEL_NAME = "BAAI/bge-reranker-v2-m3"
 BGE_DEVICE = "auto"  # auto-detect GPU/CPU
 

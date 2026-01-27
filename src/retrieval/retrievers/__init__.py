@@ -5,6 +5,7 @@ from typing import Optional, Literal
 from .base_vector_retriever import BaseVectorRetriever
 from .enhanced_retriever import EnhancedRetriever
 from .fusion_retriever import FusionRetriever
+
 # NOTE: AdaptiveKRetriever removed - use balanced mode instead
 
 logger = logging.getLogger(__name__)
@@ -16,13 +17,14 @@ from src.retrieval.ranking import (
     get_singleton_reranker,
     OpenAIReranker,
 )
+from src.config.feature_flags import DEFAULT_RERANKER_TYPE
 
 
 def create_retriever(
     mode: str = "balanced",
     enable_reranking: bool = True,
     reranker: Optional[BaseReranker] = None,
-    reranker_type: Literal["bge", "openai"] = "bge",
+    reranker_type: Literal["bge", "openai"] = DEFAULT_RERANKER_TYPE,
     filter_status: Optional[str] = None,  # ⚠️ Deprecated
 ):
     """
@@ -120,4 +122,3 @@ __all__ = [
     "FusionRetriever",
     "create_retriever",
 ]
-

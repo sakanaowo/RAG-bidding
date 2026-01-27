@@ -336,7 +336,7 @@ def format_document_reference(doc, index: int, doc_status: str | None = None) ->
 def answer(
     question: str,
     mode: str | None = None,
-    reranker_type: Literal["bge", "openai"] = "bge",  # Default: OpenAI (API-based)
+    reranker_type: Literal["bge", "openai"] | None = None,  # None = use config default
     use_cache: bool = True,  # 🆕 Enable/disable answer cache
     original_query: (
         str | None
@@ -359,9 +359,16 @@ def answer(
     Returns:
         Dict with answer, sources, and metadata
     """
+    # 🔧 Resolve reranker_type from config if not specified
+    from src.config.feature_flags import DEFAULT_RERANKER_TYPE
+
+    if reranker_type is None:
+        reranker_type = DEFAULT_RERANKER_TYPE
+
     # 🆕 CoT: If enabled, delegate to reasoning chain
     if use_cot:
         from .reasoning_chain import answer_with_reasoning
+
         return answer_with_reasoning(
             query=original_query or question,
             mode=mode or "balanced",
@@ -524,14 +531,14 @@ def answer(
 
     # ✅ Create retriever dynamically based on selected_mode and reranker_type
     enable_reranking = settings.enable_reranking and selected_mode != "fast"
-    
+
     logger.info(
         f"🔧 Retriever Config | "
         f"mode={selected_mode} | "
         f"reranking={'enabled' if enable_reranking else 'disabled'} | "
         f"reranker_type={reranker_type if enable_reranking else 'N/A'}"
     )
-    
+
     retriever = create_retriever(
         mode=selected_mode,
         enable_reranking=enable_reranking,
@@ -561,21 +568,19 @@ def answer(
 
     # Chain that uses pre-retrieved docs
     answer_chain = prompt | model | StrOutputParser()
-    
+
     # Retrieve once, then generate answer
     retrieved = retrieve_and_format(question)
-    
-    logger.info(f"📄 Retrieved {len(retrieved['source_documents'])} documents (single call)")
-    
-    answer = answer_chain.invoke({
-        "context": retrieved["context"],
-        "question": retrieved["question"]
-    })
-    
-    result = {
-        "answer": answer,
-        "source_documents": retrieved["source_documents"]
-    }
+
+    logger.info(
+        f"📄 Retrieved {len(retrieved['source_documents'])} documents (single call)"
+    )
+
+    answer = answer_chain.invoke(
+        {"context": retrieved["context"], "question": retrieved["question"]}
+    )
+
+    result = {"answer": answer, "source_documents": retrieved["source_documents"]}
 
     # Enrich source documents with status from documents table
     doc_statuses = _get_document_statuses(result["source_documents"])
@@ -629,12 +634,9 @@ def answer(
             "Query Enhancement (Multi-Query, HyDE, Step-Back, Decomposition)"
         )
 
-
     # RAG-Fusion (only quality mode)
     if selected_mode == "quality":
         enhanced_features.append("RAG-Fusion with RRF")
-
-
 
     # Document Reranking (all modes except fast)
     if selected_mode != "fast" and settings.enable_reranking:
