@@ -57,7 +57,7 @@ async def create_conversation(
     Create a new conversation
 
     - **title**: Optional title (auto-generated from first message if not provided)
-    - **rag_mode**: RAG processing mode (fast, balanced, quality, adaptive)
+    - **rag_mode**: RAG processing mode (fast, balanced, quality)
     - **category_filter**: Optional document category filter
     """
     conversation = conversation_service.create_conversation(

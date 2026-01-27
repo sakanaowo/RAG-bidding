@@ -106,7 +106,7 @@ class UpdateProfileRequest(BaseModel):
     """Request body for profile update"""
     full_name: Optional[str] = Field(None, max_length=255)
     avatar_url: Optional[str] = Field(None, max_length=500)
-    preferred_rag_mode: Optional[str] = Field(None, pattern="^(fast|balanced|quality|adaptive)$")
+    preferred_rag_mode: Optional[str] = Field(None, pattern="^(fast|balanced|quality)$")
     preferred_categories: Optional[List[str]] = None
 
 

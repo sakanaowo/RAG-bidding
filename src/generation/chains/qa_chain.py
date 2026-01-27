@@ -513,8 +513,25 @@ def answer(
     selected_mode = mode or settings.rag_mode or "balanced"
     apply_preset(selected_mode)
 
+    # 📊 LOG: Mode selection details
+    logger.info(
+        f"📊 RAG Mode Selection | "
+        f"requested={mode or 'None'} | "
+        f"settings.rag_mode={settings.rag_mode} | "
+        f"actual={selected_mode} | "
+        f"reranker={reranker_type}"
+    )
+
     # ✅ Create retriever dynamically based on selected_mode and reranker_type
     enable_reranking = settings.enable_reranking and selected_mode != "fast"
+    
+    logger.info(
+        f"🔧 Retriever Config | "
+        f"mode={selected_mode} | "
+        f"reranking={'enabled' if enable_reranking else 'disabled'} | "
+        f"reranker_type={reranker_type if enable_reranking else 'N/A'}"
+    )
+    
     retriever = create_retriever(
         mode=selected_mode,
         enable_reranking=enable_reranking,
@@ -597,16 +614,13 @@ def answer(
         enhanced_features.append(
             "Query Enhancement (Multi-Query, HyDE, Step-Back, Decomposition)"
         )
-    elif selected_mode == "adaptive":
-        enhanced_features.append("Query Enhancement (Multi-Query, Step-Back)")
+
 
     # RAG-Fusion (only quality mode)
     if selected_mode == "quality":
         enhanced_features.append("RAG-Fusion with RRF")
 
-    # Adaptive K (only adaptive mode)
-    if selected_mode == "adaptive":
-        enhanced_features.append("Adaptive K Selection")
+
 
     # Document Reranking (all modes except fast)
     if selected_mode != "fast" and settings.enable_reranking:
