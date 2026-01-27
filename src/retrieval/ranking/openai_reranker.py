@@ -8,6 +8,7 @@ NEW: Parallel API calls với asyncio để tăng tốc 10-20x!
 """
 
 import asyncio
+import concurrent.futures
 import logging
 import time
 from typing import List, Tuple, Optional
@@ -254,6 +255,54 @@ Văn bản:
 
         return doc_scores
 
+    def score_pairs(
+        self, pairs: List[List[str]], show_progress_bar: bool = False
+    ) -> List[float]:
+        """
+        Score query-text pairs (interface compatible with BGE's model.predict).
+
+        This method provides a unified interface for semantic cache to use
+        either BGE or OpenAI reranker interchangeably.
+
+        Args:
+            pairs: List of [query, text] pairs to score
+            show_progress_bar: Ignored (for BGE compatibility)
+
+        Returns:
+            List of similarity scores (0.0 to 1.0)
+        """
+        if not pairs:
+            return []
+
+        async def _score_all():
+            tasks = [self._score_document_async(query, text) for query, text in pairs]
+            return await asyncio.gather(*tasks)
+
+        start_time = time.time()
+
+        # Handle both sync and async contexts (FastAPI uses uvloop)
+        try:
+            # Check if we're in an async context with a running loop
+            loop = asyncio.get_running_loop()
+
+            # Running loop detected - use thread pool to avoid conflict
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(asyncio.run, _score_all())
+                scores = future.result(timeout=30)  # 30s timeout for safety
+
+        except RuntimeError:
+            # No running loop - safe to use asyncio.run()
+            scores = asyncio.run(_score_all())
+
+        latency_ms = (time.time() - start_time) * 1000
+        logger.debug(
+            f"📊 OpenAI scored {len(pairs)} pairs in {latency_ms:.1f}ms (parallel)"
+        )
+
+        return list(scores)
+
     def rerank(
         self, query: str, documents: List[Document], top_k: int = 5
     ) -> List[Tuple[Document, float]]:
@@ -284,8 +333,24 @@ Văn bản:
 
         # 🆕 Use parallel or sequential processing
         if self.use_parallel:
-            # Parallel: Run async code in sync context
-            doc_scores = asyncio.run(self._rerank_parallel(query, documents))
+            # Parallel: Run async code safely in both sync and async contexts
+            try:
+                # Check if we're in an async context
+                loop = asyncio.get_running_loop()
+
+                # Running loop detected - use thread pool
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(
+                        asyncio.run, self._rerank_parallel(query, documents)
+                    )
+                    doc_scores = future.result(timeout=30)
+
+            except RuntimeError:
+                # No running loop - safe to use asyncio.run()
+                doc_scores = asyncio.run(self._rerank_parallel(query, documents))
+
             processing_mode = "PARALLEL"
         else:
             # Sequential: Original implementation
