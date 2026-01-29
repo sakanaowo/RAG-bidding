@@ -13,7 +13,7 @@ import json
 import logging
 from typing import Dict, Any, Optional
 
-from langchain_openai import ChatOpenAI
+from src.config.llm_provider import get_llm_client
 from langchain_core.prompts import ChatPromptTemplate
 
 logger = logging.getLogger(__name__)
@@ -62,11 +62,8 @@ Giải thích intent_type:
             rag_mode: Mode for RAG pipeline
             analysis_timeout: Timeout for analysis step in seconds
         """
-        self.analyzer = ChatOpenAI(
-            model=analyzer_model,
-            temperature=0,
-            timeout=analysis_timeout,
-        )
+        # Use LLM provider factory (supports OpenAI, Gemini, Vertex AI)
+        self.analyzer = get_llm_client(temperature=0)
         self.rag_mode = rag_mode
         self._prompt = ChatPromptTemplate.from_template(self.ANALYSIS_PROMPT)
         

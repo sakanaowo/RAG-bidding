@@ -339,7 +339,6 @@ def ask(body: AskIn):
     **RAG Modes:**
     - `fast`: Không enhancement, không reranking (~1s)
     - `balanced`: Multi-Query + BGE reranking (~2-3s) ⭐ Default
-    - `quality`: Full enhancement + RRF fusion (~3-5s)
     """
     if not body.question or not body.question.strip():
         raise HTTPException(400, detail="question is required")
@@ -347,7 +346,6 @@ def ask(body: AskIn):
         import time
 
         start_time = time.time()
-        # ✅ answer() sẽ tạo retriever với singleton pattern + reranker selection
         result = answer(
             body.question,
             mode=body.mode,
@@ -359,76 +357,3 @@ def ask(body: AskIn):
     except Exception as e:
         raise HTTPException(500, detail=str(e))
 
-
-@app.get("/stats", tags=["System"])
-def get_system_stats():
-    """
-    Get system statistics and configuration
-
-    Hiển thị cấu hình vector store, LLM, và các feature flags.
-    """
-    return {
-        "vector_store": {
-            "collection": settings.collection,
-            "embedding_model": settings.embed_model,
-        },
-        "llm": {"model": settings.llm_model},
-        "phase1_features": {
-            "adaptive_retrieval": settings.enable_adaptive_retrieval,
-            "enhanced_prompts": settings.enable_enhanced_prompts,
-            "query_enhancement": settings.enable_query_enhancement,
-            "reranking": settings.enable_reranking,
-            "answer_validation": settings.enable_answer_validation,
-        },
-    }
-
-
-@app.get("/features", tags=["System"])
-def get_feature_flags():
-    """
-    Get current feature flags and production readiness status
-
-    Shows:
-    - Database pooling status (pgBouncer vs NullPool)
-    - Cache configuration (L1/L2/L3 layers)
-    - Session storage (Redis vs In-Memory)
-    - Reranking settings (BGE singleton, OpenAI parallel)
-    """
-    from src.config.feature_flags import get_feature_status
-
-    return {
-        "status": "ok",
-        "features": get_feature_status(),
-        "deployment_guide": "/documents/technical/POOLING_CACHE_PLAN.md",
-    }
-
-
-@app.get("/", tags=["System"])
-def root():
-    """
-    API root with helpful links
-
-    Trang chủ API với danh sách các endpoints chính.
-    """
-    return {
-        "api": "RAG Bidding System",
-        "version": "3.0.0",
-        "endpoints": {
-            "health": "GET /health - Database connectivity check",
-            "stats": "GET /stats - System configuration",
-            "features": "GET /features - Feature flags",
-            "ask": "POST /ask - Quick Q&A (no auth)",
-            "auth": {
-                "register": "POST /api/auth/register",
-                "login": "POST /api/auth/login",
-                "me": "GET /api/auth/me",
-            },
-            "conversations": {
-                "create": "POST /api/conversations",
-                "list": "GET /api/conversations",
-                "send_message": "POST /api/conversations/{id}/messages",
-            },
-            "documents": "GET /api/documents",
-        },
-        "docs": {"swagger": "/docs", "redoc": "/redoc"},
-    }

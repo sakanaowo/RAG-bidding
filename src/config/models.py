@@ -94,6 +94,25 @@ class Settings:
         ).split(",")
     )
 
+    # ===== Provider Settings (Phase 1 Abstraction) =====
+    llm_provider: str = os.getenv("LLM_PROVIDER", "openai")  # openai, vertex, gemini
+    embed_provider: str = os.getenv("EMBED_PROVIDER", "openai")  # openai, vertex
+    reranker_provider: str = os.getenv("RERANKER_PROVIDER", "bge")  # bge, openai, vertex
+
+    # ===== Vertex AI / Google Cloud Settings =====
+    google_cloud_project: str = os.getenv("GOOGLE_CLOUD_PROJECT", "")
+    google_cloud_location: str = os.getenv("GOOGLE_CLOUD_LOCATION", "asia-southeast1")
+    vertex_llm_model: str = os.getenv("VERTEX_LLM_MODEL", "gemini-2.5-flash")
+    vertex_embed_model: str = os.getenv("VERTEX_EMBED_MODEL", "gemini-embedding-001")
+    embed_dimensions: int = int(os.getenv("EMBED_DIMENSIONS", "1536"))  # Match OpenAI
+    
+    # ===== Vertex AI Ranking API Settings =====
+    vertex_reranker_model: str = os.getenv("VERTEX_RERANKER_MODEL", "semantic-ranker-default@latest")
+
+    # ===== Gemini API Settings =====
+    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+
 
 settings = Settings()
 
