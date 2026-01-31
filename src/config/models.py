@@ -112,6 +112,21 @@ class Settings:
     # ===== Gemini API Settings =====
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
+    # ===== Environment Mode (Phase 3) =====
+    env_mode: str = os.getenv("ENV_MODE", "dev")  # dev, staging, production
+    
+    # ===== Cloud Database Settings (Phase 3) =====
+    use_cloud_db: bool = _env_bool("USE_CLOUD_DB", False)
+    cloud_db_host: str = os.getenv("CLOUD_DB_CONNECTION_PUBLICIP", "")
+    cloud_db_user: str = os.getenv("CLOUD_DB_USER", "")
+    cloud_db_password: str = os.getenv("CLOUD_DB_PASSWORD", "")
+    cloud_db_name: str = os.getenv("CLOUD_INSTANCE_DB", "")
+    cloud_db_connection_name: str = os.getenv("CLOUD_DB_CONNECTION_NAME", "")
+    
+    # ===== Cloud Storage Settings (Phase 3) =====
+    use_gcs_storage: bool = _env_bool("USE_GCS_STORAGE", False)
+    gcs_bucket: str = os.getenv("GCS_BUCKET", "")
+
 
 
 settings = Settings()

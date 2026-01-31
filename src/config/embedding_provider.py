@@ -37,6 +37,37 @@ class EmbeddingProvider(str, Enum):
     VERTEX_AI = "vertex"
 
 
+class _TruncatedEmbeddings(Embeddings):
+    """
+    Wrapper that truncates embeddings to target dimension.
+    
+    This is designed for MRL (Matryoshka Representation Learning) models like
+    gemini-embedding-001, which are trained to preserve quality when truncated.
+    
+    MRL ensures that the first N dimensions of an embedding still capture
+    meaningful representations, allowing dimension reduction without re-training.
+    """
+    
+    def __init__(self, base_embeddings: Embeddings, target_dim: int):
+        """
+        Args:
+            base_embeddings: Underlying embeddings provider
+            target_dim: Target dimension to truncate to (e.g., 1536)
+        """
+        self._base = base_embeddings
+        self._target_dim = target_dim
+    
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Embed documents and truncate to target dimension."""
+        full_embeddings = self._base.embed_documents(texts)
+        return [emb[:self._target_dim] for emb in full_embeddings]
+    
+    def embed_query(self, text: str) -> list[float]:
+        """Embed query and truncate to target dimension."""
+        full_embedding = self._base.embed_query(text)
+        return full_embedding[:self._target_dim]
+
+
 # Dimension mapping for different models
 # Note: gemini-embedding-001 supports 768/1536/3072 via output_dimensionality
 EMBEDDING_DIMENSIONS = {
@@ -111,38 +142,48 @@ def get_embeddings(
         return embeddings
     
     elif provider == EmbeddingProvider.VERTEX_AI or provider == "vertex":
+        # Use GoogleGenerativeAIEmbeddings (newer, not deprecated)
+        # instead of VertexAIEmbeddings which is deprecated in LangChain 3.2.0
         try:
-            from langchain_google_vertexai import VertexAIEmbeddings
+            from langchain_google_genai import GoogleGenerativeAIEmbeddings
         except ImportError:
             raise ImportError(
-                "langchain-google-vertexai package not installed. "
-                "Run: pip install langchain-google-vertexai"
+                "langchain-google-genai package not installed. "
+                "Run: pip install langchain-google-genai"
             )
         
         model_name = model or settings.vertex_embed_model
         
-        # Get configured dimension (for gemini-embedding-001 MRL support)
-        embed_dim = getattr(settings, 'embed_dimensions', None)
+        # Get target dimension from settings (default 1536 for database compatibility)
+        target_dim = getattr(settings, 'embed_dimensions', 1536)
         
         embed_kwargs = {
-            "model_name": model_name,
-            "project": settings.google_cloud_project or None,
-            "location": settings.google_cloud_location,
+            "model": f"models/{model_name}",  # Google GenAI expects "models/" prefix
             **kwargs
         }
         
-        # Add output_dimensionality for models that support MRL (like gemini-embedding-001)
-        if embed_dim and "gemini" in model_name.lower():
-            embed_kwargs["output_dimensionality"] = embed_dim
+        # Set task_type for retrieval-optimized embeddings
+        if "gemini" in model_name.lower():
+            embed_kwargs["task_type"] = "retrieval_document"
         
-        embeddings = VertexAIEmbeddings(**embed_kwargs)
+        base_embeddings = GoogleGenerativeAIEmbeddings(**embed_kwargs)
         
-        actual_dim = embed_dim if embed_dim else get_embedding_dimension(model_name)
-        logger.debug(
-            f"Created Vertex AI Embeddings: model={model_name}, "
-            f"dimensions={actual_dim}, "
-            f"project={settings.google_cloud_project}"
-        )
+        # Wrap with truncation support for MRL models (gemini-embedding-001)
+        # MRL (Matryoshka Representation Learning) models are designed to be
+        # truncated without significant quality loss
+        if "gemini" in model_name.lower() and target_dim < 3072:
+            embeddings = _TruncatedEmbeddings(base_embeddings, target_dim)
+            logger.info(
+                f"Created Google GenAI Embeddings with truncation: model={model_name}, "
+                f"base_dim=3072 -> target_dim={target_dim} (MRL compatible)"
+            )
+        else:
+            embeddings = base_embeddings
+            logger.info(
+                f"Created Google GenAI Embeddings: model={model_name}, "
+                f"dimensions={get_embedding_dimension(model_name)}"
+            )
+        
         return embeddings
     
     else:

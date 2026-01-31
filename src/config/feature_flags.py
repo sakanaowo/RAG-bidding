@@ -144,8 +144,12 @@ SESSION_MAX_MESSAGES = 100  # Max messages per session
 # RERANKING CONFIGURATION
 # ========================================
 
-# Reranker type: "bge" or "openai"
-DEFAULT_RERANKER_TYPE: Literal["bge", "openai"] = "bge"
+# Reranker type: "bge", "openai", or "vertex" (Vertex AI Ranking API)
+# Read from env var RERANKER_PROVIDER, default to "bge"
+_reranker_env = os.getenv("RERANKER_PROVIDER", "bge").lower()
+DEFAULT_RERANKER_TYPE: Literal["bge", "openai", "vertex"] = (
+    _reranker_env if _reranker_env in ("bge", "openai", "vertex") else "bge"
+)
 
 # BGE Reranker
 BGE_MODEL_NAME = "BAAI/bge-reranker-v2-m3"
