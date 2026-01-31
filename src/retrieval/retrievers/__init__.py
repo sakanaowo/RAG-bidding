@@ -12,11 +12,7 @@ logger = logging.getLogger(__name__)
 
 from src.embedding.store.pgvector_store import vector_store
 from src.retrieval.query_processing import EnhancementStrategy
-from src.retrieval.ranking import (
-    BaseReranker,
-    get_singleton_reranker,
-    OpenAIReranker,
-)
+from src.retrieval.ranking import BaseReranker
 from src.config.feature_flags import DEFAULT_RERANKER_TYPE
 
 
@@ -24,7 +20,7 @@ def create_retriever(
     mode: str = "balanced",
     enable_reranking: bool = True,
     reranker: Optional[BaseReranker] = None,
-    reranker_type: Literal["bge", "openai"] = DEFAULT_RERANKER_TYPE,
+    reranker_type: Literal["bge", "openai", "vertex"] = DEFAULT_RERANKER_TYPE,
     filter_status: Optional[str] = None,  # ⚠️ Deprecated
 ):
     """
@@ -34,7 +30,7 @@ def create_retriever(
         mode: Retrieval mode (fast, balanced, quality)
         enable_reranking: Whether to enable reranking (default: True)
         reranker: Custom reranker instance (if None, creates based on reranker_type)
-        reranker_type: Type of reranker to use ("bge" or "openai")
+        reranker_type: Type of reranker to use ("bge", "openai", or "vertex")
         filter_status: ⚠️ DEPRECATED - status not in embedding metadata
 
     Modes:
@@ -51,16 +47,13 @@ def create_retriever(
     Reranking:
     - BGE (default): BAAI/bge-reranker-v2-m3, singleton pattern, GPU accelerated
     - OpenAI: GPT-4o-mini API-based reranking
+    - Vertex: Google Cloud Discovery Engine Ranking API
     """
 
-    # ✅ Reranking với BGE hoặc OpenAI nếu enable
+    # ✅ Reranking với BGE, OpenAI, hoặc Vertex nếu enable
     if enable_reranking and reranker is None:
-        if reranker_type == "bge":
-            reranker = get_singleton_reranker()
-        elif reranker_type == "openai":
-            reranker = OpenAIReranker()
-        else:
-            raise ValueError(f"Unknown reranker_type: {reranker_type}")
+        from src.config.reranker_provider import get_reranker
+        reranker = get_reranker(provider=reranker_type)
 
     # Base retriever
     base = BaseVectorRetriever(k=5, filter_status=None)

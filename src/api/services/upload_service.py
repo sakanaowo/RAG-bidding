@@ -37,10 +37,10 @@ from .document_classifier import DocumentClassifier
 from ...preprocessing.upload_pipeline import WorkingUploadPipeline
 from ...preprocessing.loaders import DocxLoader, PdfLoader, TxtLoader
 from ...preprocessing.utils.document_id_generator import DocumentIDGenerator
-from ...embedding.embedders.openai_embedder import OpenAIEmbedder
 from ...embedding.store.pgvector_store import PGVectorStore
 from ...config.models import settings
 from ...config.database import get_db_sync
+from ...config.embedding_provider import get_default_embeddings
 
 logger = logging.getLogger(__name__)
 
@@ -393,7 +393,7 @@ class UploadProcessingService:
 
     def __init__(self):
         self.classifier = DocumentClassifier()
-        self.embedder = OpenAIEmbedder()
+        self.embedder = get_default_embeddings()  # Uses provider factory (OpenAI or Vertex AI)
         self.vector_store = PGVectorStore()
         self.doc_id_generator = DocumentIDGenerator()
         self.job_repo = UploadJobRepository()
