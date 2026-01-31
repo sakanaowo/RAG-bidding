@@ -27,13 +27,13 @@
 
 Project RAG-Bidding sử dụng Redis cho **5 mục đích chính**, với **5 Redis databases riêng biệt**:
 
-| Redis DB | Mục Đích | Environment Variable | TTL Mặc Định | File Source |
-|----------|----------|---------------------|--------------|-------------|
-| **DB 0** | Retrieval Cache (L2) | `REDIS_DB_CACHE` | 3600s (1 giờ) | `src/retrieval/cached_retrieval.py` |
-| **DB 1** | Chat Sessions | `REDIS_DB_SESSIONS` | 3600s (1 giờ) | `src/retrieval/context_cache.py` |
-| **DB 2** | Answer Cache | `ANSWER_CACHE_DB` | 86400s (24 giờ) | `src/retrieval/answer_cache.py` |
-| **DB 3** | Semantic Cache (Embeddings) | `SEMANTIC_CACHE_DB` | Không giới hạn | `src/retrieval/semantic_cache_v2.py` |
-| **DB 4** | Rate Limiting | `RATE_LIMIT_REDIS_DB` | 86400s (24 giờ) | `src/api/services/rate_limit_service.py` |
+| Redis DB | Mục Đích                    | Environment Variable  | TTL Mặc Định    | File Source                              |
+| -------- | --------------------------- | --------------------- | --------------- | ---------------------------------------- |
+| **DB 0** | Retrieval Cache (L2)        | `REDIS_DB_CACHE`      | 3600s (1 giờ)   | `src/retrieval/cached_retrieval.py`      |
+| **DB 1** | Chat Sessions               | `REDIS_DB_SESSIONS`   | 3600s (1 giờ)   | `src/retrieval/context_cache.py`         |
+| **DB 2** | Answer Cache                | `ANSWER_CACHE_DB`     | 86400s (24 giờ) | `src/retrieval/answer_cache.py`          |
+| **DB 3** | Semantic Cache (Embeddings) | `SEMANTIC_CACHE_DB`   | Không giới hạn  | `src/retrieval/semantic_cache_v2.py`     |
+| **DB 4** | Rate Limiting               | `RATE_LIMIT_REDIS_DB` | 86400s (24 giờ) | `src/api/services/rate_limit_service.py` |
 
 ### 1.2 Kiến Trúc Cache Multi-Layer
 
@@ -128,10 +128,10 @@ echo "Redis Instance: $REDIS_INSTANCE_ID"
 
 ### 3.2 Chọn Redis Tier
 
-| Tier | Mô Tả | Use Case | Giá (ước tính) |
-|------|-------|----------|----------------|
-| **BASIC** | Single node, không HA | Development, staging | ~$0.049/GB/hour |
-| **STANDARD_HA** | Replica tự động, failover | Production | ~$0.098/GB/hour |
+| Tier            | Mô Tả                     | Use Case             | Giá (ước tính)  |
+| --------------- | ------------------------- | -------------------- | --------------- |
+| **BASIC**       | Single node, không HA     | Development, staging | ~$0.049/GB/hour |
+| **STANDARD_HA** | Replica tự động, failover | Production           | ~$0.098/GB/hour |
 
 ### 3.3 Tạo Redis Instance
 
@@ -255,12 +255,12 @@ export SUBNET_NAME="rag-bidding-subnet"
 
 ### 5.1 Tại Sao Chọn Direct VPC Egress?
 
-| Tiêu Chí | Direct VPC Egress ✅ | VPC Connector |
-|----------|---------------------|---------------|
-| **Latency** | Thấp hơn | Cao hơn |
-| **Throughput** | Cao hơn | Thấp hơn |
-| **Chi phí** | Chỉ network traffic | + VM charges |
-| **Setup** | Đơn giản | Phức tạp hơn |
+| Tiêu Chí       | Direct VPC Egress ✅ | VPC Connector |
+| -------------- | -------------------- | ------------- |
+| **Latency**    | Thấp hơn             | Cao hơn       |
+| **Throughput** | Cao hơn              | Thấp hơn      |
+| **Chi phí**    | Chỉ network traffic  | + VM charges  |
+| **Setup**      | Đơn giản             | Phức tạp hơn  |
 
 > 📌 **Google khuyến nghị:** "Use Direct VPC egress because it offers lower latency, higher throughput, and lower costs."
 
@@ -662,6 +662,7 @@ gcloud redis instances describe $REDIS_INSTANCE_ID \
 **Nguyên nhân:** Cloud Run không thể kết nối đến Redis.
 
 **Giải pháp:**
+
 ```bash
 # Kiểm tra VPC network
 gcloud run services describe rag-bidding-api --region $REGION | grep -A5 "vpcAccess"
@@ -675,6 +676,7 @@ gcloud redis instances describe $REDIS_INSTANCE_ID --region $REGION | grep autho
 **Nguyên nhân:** Redis yêu cầu AUTH nhưng code chưa gửi password.
 
 **Giải pháp:**
+
 1. Kiểm tra AUTH đã enable chưa: `gcloud redis instances describe $REDIS_INSTANCE_ID --region $REGION | grep authEnabled`
 2. Nếu đã enable, cập nhật code theo [Bước 7](#7-bước-5-cập-nhật-code-hỗ-trợ-auth-tùy-chọn)
 
@@ -683,6 +685,7 @@ gcloud redis instances describe $REDIS_INSTANCE_ID --region $REGION | grep autho
 **Nguyên nhân:** Network latency hoặc firewall rules.
 
 **Giải pháp:**
+
 ```bash
 # Kiểm tra firewall rules
 gcloud compute firewall-rules list --filter="network:default"
@@ -699,6 +702,7 @@ gcloud compute firewall-rules create allow-redis \
 **Nguyên nhân:** Redis hết bộ nhớ.
 
 **Giải pháp:**
+
 ```bash
 # Tăng kích thước instance
 gcloud redis instances update $REDIS_INSTANCE_ID \
@@ -712,27 +716,27 @@ gcloud redis instances update $REDIS_INSTANCE_ID \
 
 ### Google Cloud Official Documentation
 
-| Tài liệu | Link |
-|----------|------|
-| Memorystore for Redis Overview | https://cloud.google.com/memorystore/docs/redis/memorystore-for-redis-overview |
-| Connect Redis from Cloud Run | https://cloud.google.com/memorystore/docs/redis/connect-redis-instance-cloud-run |
-| Direct VPC Egress Configuration | https://cloud.google.com/run/docs/configuring/vpc-direct-vpc |
-| Redis AUTH | https://cloud.google.com/memorystore/docs/redis/auth-overview |
-| Memorystore Best Practices | https://cloud.google.com/memorystore/docs/redis/general-best-practices |
-| Memory Management | https://cloud.google.com/memorystore/docs/redis/memory-management-best-practices |
-| Troubleshooting | https://cloud.google.com/memorystore/docs/redis/troubleshoot-issues |
+| Tài liệu                        | Link                                                                             |
+| ------------------------------- | -------------------------------------------------------------------------------- |
+| Memorystore for Redis Overview  | https://cloud.google.com/memorystore/docs/redis/memorystore-for-redis-overview   |
+| Connect Redis from Cloud Run    | https://cloud.google.com/memorystore/docs/redis/connect-redis-instance-cloud-run |
+| Direct VPC Egress Configuration | https://cloud.google.com/run/docs/configuring/vpc-direct-vpc                     |
+| Redis AUTH                      | https://cloud.google.com/memorystore/docs/redis/auth-overview                    |
+| Memorystore Best Practices      | https://cloud.google.com/memorystore/docs/redis/general-best-practices           |
+| Memory Management               | https://cloud.google.com/memorystore/docs/redis/memory-management-best-practices |
+| Troubleshooting                 | https://cloud.google.com/memorystore/docs/redis/troubleshoot-issues              |
 
 ### Project Files Reference
 
-| File | Mô tả |
-|------|-------|
-| `src/config/feature_flags.py` | Cấu hình Redis và feature flags |
-| `src/retrieval/cached_retrieval.py` | CachedVectorStore với Redis L2 |
-| `src/retrieval/answer_cache.py` | Answer-level cache |
-| `src/retrieval/semantic_cache_v2.py` | Semantic similarity cache |
-| `src/retrieval/context_cache.py` | Conversation context cache |
-| `src/api/services/rate_limit_service.py` | Rate limiting service |
-| `src/api/routers/cache.py` | Cache management API endpoints |
+| File                                     | Mô tả                           |
+| ---------------------------------------- | ------------------------------- |
+| `src/config/feature_flags.py`            | Cấu hình Redis và feature flags |
+| `src/retrieval/cached_retrieval.py`      | CachedVectorStore với Redis L2  |
+| `src/retrieval/answer_cache.py`          | Answer-level cache              |
+| `src/retrieval/semantic_cache_v2.py`     | Semantic similarity cache       |
+| `src/retrieval/context_cache.py`         | Conversation context cache      |
+| `src/api/services/rate_limit_service.py` | Rate limiting service           |
+| `src/api/routers/cache.py`               | Cache management API endpoints  |
 
 ---
 
