@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 from src.config.llm_provider import get_llm_client
-from langchain.schema import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage
 import os
 import re
 import logging
