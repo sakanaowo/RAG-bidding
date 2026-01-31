@@ -211,3 +211,5 @@ __marimo__/
 # Database backups
 backup/
 data/uploads/
+/AIRunnerCredentials.json
+/DataManagerCredentials.json
