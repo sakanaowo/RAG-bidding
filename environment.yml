@@ -1,0 +1,10 @@
+name: venv
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - cuda-toolkit=12.8
+  - cudnn
+  - tiktoken
+  - aiohttp
+prefix: /home/sakana/anaconda3/envs/venv
