@@ -213,3 +213,4 @@ backup/
 data/uploads/
 /AIRunnerCredentials.json
 /DataManagerCredentials.json
+/client_secret*.json 

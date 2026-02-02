@@ -17,10 +17,12 @@ from typing import List, Tuple, Optional
 
 from langchain_core.documents import Document
 
+from .base_reranker import BaseReranker
+
 logger = logging.getLogger(__name__)
 
 
-class VertexAIReranker:
+class VertexAIReranker(BaseReranker):
     """
     Reranker using Vertex AI / Discovery Engine Ranking API.
     
