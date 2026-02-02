@@ -27,13 +27,21 @@ class AuthConfig:
     password_require_digit: bool = True
     password_require_special: bool = False
     
-    # OAuth Settings (skeleton for future)
+    # OAuth Settings - Google
     google_client_id: str = field(
-        default_factory=lambda: os.getenv("GOOGLE_CLIENT_ID", "")
+        default_factory=lambda: os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
     )
     google_client_secret: str = field(
-        default_factory=lambda: os.getenv("GOOGLE_CLIENT_SECRET", "")
+        default_factory=lambda: os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
     )
+    google_redirect_uri: str = field(
+        default_factory=lambda: os.getenv("GOOGLE_OAUTH_REDIRECT_URI", "http://localhost:8000/api/auth/oauth/google/callback")
+    )
+    frontend_url: str = field(
+        default_factory=lambda: os.getenv("FRONTEND_URL", "http://localhost:3000")
+    )
+    
+    # OAuth Settings - GitHub (future)
     github_client_id: str = field(
         default_factory=lambda: os.getenv("GITHUB_CLIENT_ID", "")
     )
