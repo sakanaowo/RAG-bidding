@@ -34,6 +34,7 @@ from src.api.schemas.conversation_schemas import SourceInfo
 from src.utils.token_counter import count_message_tokens, estimate_cost_usd
 from src.api.services.summary_service import SummaryService
 from src.api.services.rate_limit_service import RateLimitService, RateLimitExceededError
+from src.config.models import settings
 
 logger = logging.getLogger(__name__)
 
@@ -462,10 +463,19 @@ class ConversationService:
         )
         total_tokens = token_counts["total_tokens"]
 
-        # Estimate cost
+        # Estimate cost based on current LLM provider/model
+        # Get model name from settings for accurate cost estimation
+        if settings.llm_provider == "gemini":
+            model_name = settings.gemini_model
+        elif settings.llm_provider == "vertex":
+            model_name = settings.vertex_llm_model
+        else:
+            model_name = settings.llm_model  # OpenAI fallback
+
         estimated_cost = estimate_cost_usd(
             input_tokens=token_counts["input_tokens"],
             output_tokens=token_counts["output_tokens"],
+            model=model_name,
         )
 
         # Create assistant message with rag_mode and tokens

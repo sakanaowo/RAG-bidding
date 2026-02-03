@@ -833,7 +833,7 @@ class UploadProcessingService:
                             "category"
                         ) or category_mapping.get(doc_type, "Khác")
 
-                        self._insert_into_documents_table(
+                        doc_uuid = self._insert_into_documents_table(
                             document_id=document_id,
                             document_name=document_name,
                             document_type=doc_type,
@@ -842,6 +842,12 @@ class UploadProcessingService:
                             source_file=file_info["file_path"],
                             total_chunks=len(chunks),
                         )
+
+                        # Insert chunks into document_chunks table
+                        chunk_id_map = self._insert_chunks_to_db(doc_uuid, chunks)
+
+                        # Link embeddings to chunks
+                        self._link_embeddings_to_chunks(chunk_id_map)
 
                         file_progress["document_id"] = document_id
 
@@ -932,7 +938,7 @@ class UploadProcessingService:
         source_file: str,
         total_chunks: int,
     ):
-        """Insert document record into documents table."""
+        """Insert document record into documents table and return document UUID."""
         conn = None
         try:
             conn = get_db_sync()
@@ -962,6 +968,7 @@ class UploadProcessingService:
                     document_name = EXCLUDED.document_name,
                     total_chunks = EXCLUDED.total_chunks,
                     updated_at = NOW()
+                RETURNING id
             """,
                 {
                     "document_id": document_id,
@@ -973,10 +980,120 @@ class UploadProcessingService:
                     "total_chunks": total_chunks,
                 },
             )
+            result = cursor.fetchone()
+            doc_uuid = result[0] if result else None
             conn.commit()
             logger.info(f"✅ Inserted document: {document_id} ({total_chunks} chunks)")
+            return doc_uuid
         except Exception as e:
             logger.error(f"❌ Failed to insert document: {e}")
+            if conn:
+                conn.rollback()
+            return None
+        finally:
+            if conn:
+                conn.close()
+
+    def _insert_chunks_to_db(self, doc_uuid, chunks: list) -> dict:
+        """
+        Insert chunks into document_chunks table and return mapping chunk_id -> uuid.
+
+        Returns:
+            Dict mapping chunk_id string -> chunk UUID
+        """
+        if not doc_uuid:
+            return {}
+
+        conn = None
+        chunk_id_map = {}
+
+        try:
+            conn = get_db_sync()
+            cursor = conn.cursor()
+
+            for chunk in chunks:
+                chunk_dict = chunk.to_dict()
+                chunk_id = (
+                    chunk_dict.get("chunk_id")
+                    or f"{chunk_dict.get('document_id')}_{chunk_dict.get('chunk_index', 0)}"
+                )
+
+                cursor.execute(
+                    """
+                    INSERT INTO document_chunks (
+                        document_id, chunk_id, content, chunk_index,
+                        section_title, hierarchy_path, keywords,
+                        char_count, created_at, updated_at
+                    ) VALUES (
+                        %(document_id)s, %(chunk_id)s, %(content)s, %(chunk_index)s,
+                        %(section_title)s, %(hierarchy_path)s, %(keywords)s,
+                        %(char_count)s, NOW(), NOW()
+                    )
+                    ON CONFLICT (chunk_id) DO UPDATE SET
+                        content = EXCLUDED.content,
+                        updated_at = NOW()
+                    RETURNING id
+                """,
+                    {
+                        "document_id": doc_uuid,
+                        "chunk_id": chunk_id,
+                        "content": chunk.content,
+                        "chunk_index": chunk_dict.get("chunk_index", 0),
+                        "section_title": chunk_dict.get("section_title"),
+                        "hierarchy_path": chunk_dict.get("hierarchy_path"),
+                        "keywords": chunk_dict.get("keywords"),
+                        "char_count": len(chunk.content),
+                    },
+                )
+
+                result = cursor.fetchone()
+                if result:
+                    chunk_id_map[chunk_id] = result[0]
+
+            conn.commit()
+            logger.info(f"✅ Inserted {len(chunk_id_map)} chunks into document_chunks")
+            return chunk_id_map
+
+        except Exception as e:
+            logger.error(f"❌ Failed to insert chunks: {e}")
+            if conn:
+                conn.rollback()
+            return {}
+        finally:
+            if conn:
+                conn.close()
+
+    def _link_embeddings_to_chunks(self, chunk_id_map: dict):
+        """
+        Update langchain_pg_embedding to set chunk_id references.
+        """
+        if not chunk_id_map:
+            return
+
+        conn = None
+        try:
+            conn = get_db_sync()
+            cursor = conn.cursor()
+
+            updated = 0
+            for chunk_id_str, chunk_uuid in chunk_id_map.items():
+                cursor.execute(
+                    """
+                    UPDATE langchain_pg_embedding 
+                    SET chunk_id = %(chunk_uuid)s
+                    WHERE cmetadata->>'chunk_id' = %(chunk_id)s
+                    AND chunk_id IS NULL
+                """,
+                    {"chunk_uuid": chunk_uuid, "chunk_id": chunk_id_str},
+                )
+                updated += cursor.rowcount
+
+            conn.commit()
+            if updated > 0:
+                logger.info(f"✅ Linked {updated} embeddings to chunks")
+
+        except Exception as e:
+            logger.error(f"❌ Failed to link embeddings to chunks: {e}")
             if conn:
                 conn.rollback()
         finally:

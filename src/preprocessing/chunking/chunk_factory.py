@@ -738,13 +738,17 @@ def create_chunker(document_type: str):
     elif doc_type == "bidding":
         return SemanticChunker(document_type="bidding")
 
-    # Report → SemanticChunker (report mode)
-    elif doc_type == "report":
+    # Report/Template → SemanticChunker (report mode)
+    elif doc_type in ["report", "template"]:
         return SemanticChunker(document_type="report")
 
     # Exam → SemanticChunker (exam mode)
     elif doc_type == "exam":
         return SemanticChunker(document_type="exam")
+
+    # Other/Unknown → Default to SemanticChunker (report mode)
+    elif doc_type in ["other", "unknown"]:
+        return SemanticChunker(document_type="report")
 
     else:
         raise ValueError(f"Unsupported document type: {document_type}")
