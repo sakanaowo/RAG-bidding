@@ -393,7 +393,9 @@ class UploadProcessingService:
 
     def __init__(self):
         self.classifier = DocumentClassifier()
-        self.embedder = get_default_embeddings()  # Uses provider factory (OpenAI or Vertex AI)
+        self.embedder = (
+            get_default_embeddings()
+        )  # Uses provider factory (OpenAI or Vertex AI)
         self.vector_store = PGVectorStore()
         self.doc_id_generator = DocumentIDGenerator()
         self.job_repo = UploadJobRepository()
@@ -803,10 +805,18 @@ class UploadProcessingService:
                     if chunks:
                         first_chunk = chunks[0]
                         document_id = first_chunk.document_id
+
+                        # Extract document name with priority: title from metadata > section_title > filename
                         document_name = (
-                            first_chunk.section_title
+                            first_chunk.extra_metadata.get("document_title")
                             or first_chunk.extra_metadata.get("title")
-                            or file_info["filename"]
+                            or first_chunk.section_title
+                            or Path(file_info["filename"]).stem
+                        )
+
+                        # Log for debugging
+                        logger.info(
+                            f"📄 Document metadata - ID: {document_id}, Name: {document_name[:100]}..."
                         )
 
                         category_mapping = {
@@ -928,6 +938,15 @@ class UploadProcessingService:
             conn = get_db_sync()
             cursor = conn.cursor()
 
+            # Validate document_name length (database limit is 500 chars)
+            if len(document_name) > 500:
+                logger.warning(
+                    f"⚠️  Document name too long ({len(document_name)} chars), truncating to 500"
+                )
+                document_name_truncated = document_name[:497] + "..."
+            else:
+                document_name_truncated = document_name
+
             cursor.execute(
                 """
                 INSERT INTO documents (
@@ -946,7 +965,7 @@ class UploadProcessingService:
             """,
                 {
                     "document_id": document_id,
-                    "document_name": document_name[:200],
+                    "document_name": document_name_truncated,
                     "document_type": document_type,
                     "category": category,
                     "filename": filename,

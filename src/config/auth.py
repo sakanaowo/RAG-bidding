@@ -14,7 +14,7 @@ class AuthConfig:
     
     # JWT Settings
     secret_key: str = field(
-        default_factory=lambda: os.getenv("JWT_SECRET_KEY", "change-me-in-production-use-strong-key")
+        default_factory=lambda: os.getenv("JWT_SECRET_KEY")
     )
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30

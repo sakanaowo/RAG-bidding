@@ -8,8 +8,9 @@ DocxLoader → ProcessedDocument → ChunkFactory → ChunkEnricher → Universa
 
 import time
 import logging
+import re
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 from datetime import datetime
 
 from .loaders.docx_loader import DocxLoader
@@ -105,17 +106,25 @@ class WorkingUploadPipeline:
             if not content or len(content.strip()) < 50:
                 return False, None, "Empty or too short content"
 
-            # Step 2: Generate document ID
+            # Step 2: Extract document title (from first lines or metadata)
+            document_title = self._extract_document_title(
+                content,
+                file_path,
+                doc_metadata if file_path.suffix.lower() == ".doc" else {},
+            )
+
+            # Step 3: Generate document ID
             document_id = self.doc_id_generator.generate(
                 filename=file_path.name,
                 doc_type=document_type,
-                title=None,  # Could extract from content later
+                title=document_title,
             )
 
-            # Step 3: Create ProcessedDocument
+            # Step 4: Create ProcessedDocument
             processed_doc = ProcessedDocument(
                 metadata={
                     "document_id": document_id,
+                    "document_title": document_title,  # Store extracted title
                     "source_file": file_path.name,
                     "document_type": document_type,
                     "file_path": str(file_path),
@@ -152,7 +161,7 @@ class WorkingUploadPipeline:
                     )
                     # Continue with unenriched chunks
 
-            # Step 6: Add processing metadata
+            # Step 6: Add processing metadata and ensure document_title is set
             processing_time = time.time() - start_time
             for chunk in chunks:
                 if hasattr(chunk, "extra_metadata"):
@@ -161,8 +170,11 @@ class WorkingUploadPipeline:
                     )
                     chunk.extra_metadata["batch_name"] = batch_name
                     chunk.extra_metadata["pipeline_version"] = (
-                        "working_upload_pipeline_v2.0"
+                        "working_upload_pipeline_v2.1"
                     )
+                    # Ensure document_title is available in metadata
+                    if "document_title" not in chunk.extra_metadata:
+                        chunk.extra_metadata["document_title"] = document_title
 
                 # document_id is already set in chunk.document_id during chunking
                 # No need to set it again (UniversalChunk has direct fields, not .metadata)
@@ -201,6 +213,76 @@ class WorkingUploadPipeline:
             # If enrichment fails, return original chunks
             logger.warning(f"Enrichment failed: {e}")
             return chunks
+
+    def _extract_document_title(
+        self, content: str, file_path: Path, doc_metadata: Dict
+    ) -> str:
+        """
+        Extract document title from content or metadata.
+
+        Priority:
+        1. Title from metadata (if available)
+        2. First meaningful line from content (legal document pattern)
+        3. Filename as fallback
+
+        Args:
+            content: Document text content
+            file_path: Path to the document
+            doc_metadata: Metadata from doc_loader (for .doc files)
+
+        Returns:
+            Extracted or inferred document title
+        """
+        # Try metadata first (from .doc files)
+        if doc_metadata and "title" in doc_metadata:
+            title = doc_metadata["title"].strip()
+            if title and len(title) > 3:
+                logger.info(f"📋 Extracted title from metadata: {title[:50]}...")
+                return title
+
+        # Try to extract from first lines (for legal documents)
+        lines = content.split("\n")
+        for i, line in enumerate(lines[:10]):  # Check first 10 lines
+            line = line.strip()
+
+            # Skip empty lines
+            if not line:
+                continue
+
+            # Vietnamese legal document patterns
+            legal_patterns = [
+                r"^(LUẬT|NGHỊ ĐỊNH|THÔNG TƯ|QUYẾT ĐỊNH|VĂN BẢN)",
+                r"^\d+/\d{4}/(QH|NĐ-CP|TT-|QĐ-)",
+                r"^(Law|Decree|Circular|Decision) (No\.|số)",
+            ]
+
+            # Check if line matches legal document pattern
+            import re
+
+            for pattern in legal_patterns:
+                if re.search(pattern, line, re.IGNORECASE):
+                    # Found a legal document title
+                    # Try to get the next line as well for full title
+                    full_title = line
+                    if i + 1 < len(lines):
+                        next_line = lines[i + 1].strip()
+                        if next_line and len(next_line) > 10:
+                            full_title += " " + next_line
+
+                    logger.info(
+                        f"📋 Extracted title from content: {full_title[:80]}..."
+                    )
+                    return full_title[:500]  # Limit to 500 chars
+
+            # If first non-empty line is substantial, use it as title
+            if len(line) > 20 and len(line) < 300:
+                logger.info(f"📋 Using first substantial line as title: {line[:80]}...")
+                return line
+
+        # Fallback: use filename without extension
+        title = file_path.stem
+        logger.info(f"📋 Using filename as title: {title}")
+        return title
 
     def get_supported_extensions(self) -> List[str]:
         """Get list of supported file extensions"""
