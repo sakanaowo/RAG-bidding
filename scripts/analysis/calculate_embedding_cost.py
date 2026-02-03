@@ -2,6 +2,7 @@
 """
 Calculate embedding costs for processed chunks.
 Estimates token count using tiktoken and calculates API costs.
+Supports both OpenAI and Google Cloud (Vertex AI) embedding models.
 """
 import json
 import sys
@@ -37,21 +38,27 @@ def load_chunk_file(file_path: Path) -> List[Dict]:
 
 
 def calculate_cost(
-    total_tokens: int, model: str = "text-embedding-3-large"
+    total_tokens: int, model: str = "gemini-embedding-001"
 ) -> Dict[str, float]:
     """Calculate embedding cost for different models."""
-    # Pricing per 1M tokens (as of 2024)
+    # Pricing per 1M tokens (as of Feb 2026)
     pricing = {
+        # Google Cloud / Vertex AI models (primary)
+        "gemini-embedding-001": 0.15,  # $0.15 per 1M tokens
+        "text-embedding-004": 0.025,  # $0.025 per 1M tokens
+        "multilingual-e5-large": 0.025,  # $0.025 per 1M tokens
+        "multilingual-e5-small": 0.015,  # $0.015 per 1M tokens
+        # Legacy OpenAI models (for reference)
         "text-embedding-3-large": 0.13,  # $0.13 per 1M tokens
         "text-embedding-3-small": 0.02,  # $0.02 per 1M tokens
         "text-embedding-ada-002": 0.10,  # $0.10 per 1M tokens
     }
 
-    cost_per_token = pricing.get(model, 0.13) / 1_000_000
+    cost_per_token = pricing.get(model, 0.15) / 1_000_000
     return {
         "total_tokens": total_tokens,
         "cost_usd": total_tokens * cost_per_token,
-        "cost_per_1m_tokens": pricing.get(model, 0.13),
+        "cost_per_1m_tokens": pricing.get(model, 0.15),
         "model": model,
     }
 
@@ -126,9 +133,13 @@ def main():
     print("-" * 80)
 
     models = [
+        # Google Cloud / Vertex AI models (primary)
+        "gemini-embedding-001",
+        "text-embedding-004",
+        "multilingual-e5-large",
+        # Legacy OpenAI models (for comparison)
         "text-embedding-3-large",
         "text-embedding-3-small",
-        "text-embedding-ada-002",
     ]
 
     for model in models:
