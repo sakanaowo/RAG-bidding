@@ -30,6 +30,9 @@ from src.generation.intent_detector import (
     QueryIntent,
     get_intent_detector,
 )
+from src.retrieval.query_processing.complexity_analyzer import (
+    QuestionComplexityAnalyzer,
+)
 from src.api.schemas.conversation_schemas import SourceInfo
 from src.utils.token_counter import count_message_tokens, estimate_cost_usd
 from src.api.services.summary_service import SummaryService
@@ -37,6 +40,55 @@ from src.api.services.rate_limit_service import RateLimitService, RateLimitExcee
 from src.config.models import settings
 
 logger = logging.getLogger(__name__)
+
+# Singleton complexity analyzer for CoT triggering
+_complexity_analyzer: Optional[QuestionComplexityAnalyzer] = None
+
+
+def _get_complexity_analyzer() -> QuestionComplexityAnalyzer:
+    """Get singleton complexity analyzer instance."""
+    global _complexity_analyzer
+    if _complexity_analyzer is None:
+        _complexity_analyzer = QuestionComplexityAnalyzer()
+    return _complexity_analyzer
+
+
+def _should_use_cot(query: str) -> bool:
+    """
+    Determine if Chain of Thought reasoning should be used.
+
+    Triggers CoT for:
+    - Complex queries (complexity="complex")
+    - Analytical/comparative/evaluative questions
+    - Queries requiring multi-step reasoning
+
+    Args:
+        query: User query to analyze
+
+    Returns:
+        True if CoT should be enabled, False otherwise
+    """
+    analyzer = _get_complexity_analyzer()
+    analysis = analyzer.analyze_question_complexity(query)
+
+    # Trigger conditions
+    complexity = analysis.get("complexity", "simple")
+    question_type = analysis.get("question_type", "general")
+
+    # Enable CoT for complex queries or analytical question types
+    should_enable = complexity == "complex" or question_type in [
+        "analytical",
+        "comparative",
+        "evaluative",
+    ]
+
+    if should_enable:
+        logger.info(
+            f"🧠 CoT enabled: complexity={complexity}, "
+            f"type={question_type}, confidence={analysis.get('confidence_score', 0):.2f}"
+        )
+
+    return should_enable
 
 
 class ConversationService:
@@ -425,6 +477,9 @@ class ConversationService:
 {content}"""
                 logger.info("📎 Context attached for follow-up query")
 
+        # 🧠 Determine if Chain of Thought reasoning should be used
+        use_cot = _should_use_cot(content)
+
         # Call RAG pipeline with enhanced question
         try:
             rag_result = rag_answer(
@@ -432,6 +487,7 @@ class ConversationService:
                 mode=effective_rag_mode,
                 reranker_type=None,  # Use config default (DEFAULT_RERANKER_TYPE)
                 original_query=content,  # 🆕 Pass original query for cache key
+                use_cot=use_cot,  # 🧠 Enable CoT for complex queries
             )
 
             assistant_content = rag_result.get(
