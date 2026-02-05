@@ -1,8 +1,0 @@
-{
-  "source_file": "data/raw/Mau bao cao/14. Báo cáo đánh giá/14D. Mau BCĐG Tư vấn .docx",
-  "document_type": "bidding",
-  "category": "14. Báo cáo đánh giá",
-  "chunk_count": 20,
-  "output_file": "data/processed_enriched/chunks/14D._Mau_BCĐG_Tư_vấn_.jsonl",
-  "processed_at": "2025-11-04T12:13:50.000755"
-}

@@ -1,8 +1,0 @@
-{
-  "source_file": "data/raw/Ho so moi thau/11. Máy đặt máy mượn/11. Mẫu số 11A_E-HSMT_Máy đặt máy mượn 1 túi.docx",
-  "document_type": "bidding",
-  "category": "11. Máy đặt máy mượn",
-  "chunk_count": 100,
-  "output_file": "data/processed/chunks/11._Mẫu_số_11A_E-HSMT_Máy_đặt_máy_mượn_1_túi.jsonl",
-  "processed_at": "2025-11-04T12:13:42.502256"
-}
