@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache
+.mypy_cache
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# Logs & Data
+logs/
+*.log
+data/
+documents/
+
+# Tests & Development
+tests/
+notebooks/
+scripts/
+postman/
+
+# Docker nested
+docker/
+
+# Credentials (will be mounted or set via env)
+*.json
+!alembic.ini
+
+# Extensions
+extensions/
