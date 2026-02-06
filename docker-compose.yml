@@ -1,0 +1,106 @@
+services:
+  rag-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-bidding-api
+    ports:
+      - "8000:8000"
+    environment:
+      # Server
+      - PORT=8000
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      
+      # Redis (embedded in container)
+      - REDIS_HOST=127.0.0.1
+      - REDIS_PORT=6379
+      - REDIS_DB_CACHE=0
+      - REDIS_DB_SESSIONS=1
+      - ENABLE_REDIS_CACHE=true
+      - ENABLE_REDIS_SESSIONS=true
+      - CACHE_TTL=3600
+      
+      # Answer Cache
+      - ENABLE_ANSWER_CACHE=true
+      - ANSWER_CACHE_TTL=86400
+      - ANSWER_CACHE_DB=2
+      
+      # Semantic Cache
+      - ENABLE_SEMANTIC_CACHE=true
+      - SEMANTIC_CACHE_THRESHOLD=0.95
+      - SEMANTIC_CACHE_DB=3
+      - MAX_SEMANTIC_SEARCH=100
+      
+      # Rate Limiting
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_DAILY_QUERIES=200
+      - RATE_LIMIT_REDIS_DB=4
+      
+      # Database (use local or cloud based on env)
+      - DB_USER=${DB_USER:-sakana}
+      - DB_PASSWORD=${DB_PASSWORD:-sakana123}
+      - DB_NAME=${DB_NAME:-rag_bidding_v3}
+      - DB_HOST=host.docker.internal
+      - DB_PORT=${DB_PORT:-5432}
+      - DATABASE_URL=postgresql+psycopg://${DB_USER:-sakana}:${DB_PASSWORD:-sakana123}@host.docker.internal:${DB_PORT:-5432}/${DB_NAME:-rag_bidding_v3}
+      
+      # Environment mode
+      - ENV_MODE=${ENV_MODE:-development}
+      - USE_CLOUD_DB=${USE_CLOUD_DB:-false}
+      
+      # Embedding
+      - EMBED_PROVIDER=${EMBED_PROVIDER:-vertex}
+      - EMBED_MODEL=${EMBED_MODEL:-gemini-embedding-001}
+      - EMBED_DIMENSIONS=${EMBED_DIMENSIONS:-1536}
+      
+      # LLM
+      - LLM_PROVIDER=${LLM_PROVIDER:-gemini}
+      - LLM_MODEL=${LLM_MODEL:-gemini-2.5-flash}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+      
+      # Vertex AI
+      - VERTEXAI_API_KEY=${VERTEXAI_API_KEY}
+      - VERTEX_EMBED_MODEL=${VERTEX_EMBED_MODEL:-gemini-embedding-001}
+      - GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-asia-southeast1}
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      
+      # Reranker
+      - RERANKER_PROVIDER=${RERANKER_PROVIDER:-vertex}
+      - VERTEX_RERANKER_MODEL=${VERTEX_RERANKER_MODEL:-semantic-ranker-default@latest}
+      - ENABLE_RERANKING=${ENABLE_RERANKING:-true}
+      
+      # RAG Settings
+      - ENABLE_ADAPTIVE_RETRIEVAL=${ENABLE_ADAPTIVE_RETRIEVAL:-true}
+      - ENABLE_QUERY_ENHANCEMENT=${ENABLE_QUERY_ENHANCEMENT:-true}
+      - RAG_MODE=${RAG_MODE:-balanced}
+      
+      # Auth
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID}
+      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET}
+      - GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-http://localhost:8000/api/auth/oauth/google/callback}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      
+      # CORS
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_JSON=${LOG_JSON:-False}
+    volumes:
+      # Mount logs directory
+      - ./logs:/app/logs
+      # Mount data for development
+      - ./data:/app/data
+    extra_hosts:
+      # Allow container to connect to host machine's PostgreSQL
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health && redis-cli -h 127.0.0.1 ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped

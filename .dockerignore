@@ -33,8 +33,9 @@ notebooks/
 scripts/
 postman/
 
-# Docker nested
+# Docker nested (except supervisord.conf)
 docker/
+!docker/supervisord.conf
 
 # Credentials (will be mounted or set via env)
 *.json
