@@ -24,13 +24,71 @@ from src.models.repositories import (
     QueryRepository,
     UserUsageMetricRepository,
 )
-from src.generation.chains.qa_chain import answer as rag_answer, is_casual_query
+from src.generation.chains.qa_chain import answer as rag_answer
+from src.generation.intent_detector import (
+    IntentDetector,
+    QueryIntent,
+    get_intent_detector,
+)
+from src.retrieval.query_processing.complexity_analyzer import (
+    QuestionComplexityAnalyzer,
+)
 from src.api.schemas.conversation_schemas import SourceInfo
 from src.utils.token_counter import count_message_tokens, estimate_cost_usd
 from src.api.services.summary_service import SummaryService
 from src.api.services.rate_limit_service import RateLimitService, RateLimitExceededError
+from src.config.models import settings
 
 logger = logging.getLogger(__name__)
+
+# Singleton complexity analyzer for CoT triggering
+_complexity_analyzer: Optional[QuestionComplexityAnalyzer] = None
+
+
+def _get_complexity_analyzer() -> QuestionComplexityAnalyzer:
+    """Get singleton complexity analyzer instance."""
+    global _complexity_analyzer
+    if _complexity_analyzer is None:
+        _complexity_analyzer = QuestionComplexityAnalyzer()
+    return _complexity_analyzer
+
+
+def _should_use_cot(query: str) -> bool:
+    """
+    Determine if Chain of Thought reasoning should be used.
+
+    Triggers CoT for:
+    - Complex queries (complexity="complex")
+    - Analytical/comparative/evaluative questions
+    - Queries requiring multi-step reasoning
+
+    Args:
+        query: User query to analyze
+
+    Returns:
+        True if CoT should be enabled, False otherwise
+    """
+    analyzer = _get_complexity_analyzer()
+    analysis = analyzer.analyze_question_complexity(query)
+
+    # Trigger conditions
+    complexity = analysis.get("complexity", "simple")
+    question_type = analysis.get("question_type", "general")
+
+    # Enable CoT for complex queries or analytical question types
+    should_enable = complexity == "complex" or question_type in [
+        "analytical",
+        "comparative",
+        "evaluative",
+    ]
+
+    if should_enable:
+        logger.info(
+            f"🧠 CoT enabled: complexity={complexity}, "
+            f"type={question_type}, confidence={analysis.get('confidence_score', 0):.2f}"
+        )
+
+    return should_enable
 
 
 class ConversationService:
@@ -279,7 +337,7 @@ class ConversationService:
             raise RateLimitExceededError(
                 f"Daily query limit reached ({rate_limit_result.limit} queries/day). "
                 f"Remaining: {rate_limit_result.remaining}. Resets at: {rate_limit_result.reset_at}",
-                rate_limit_result
+                rate_limit_result,
             )
 
         # Verify conversation ownership
@@ -317,54 +375,119 @@ class ConversationService:
             db.commit()
             db.refresh(conversation)
 
-        # 🚀 EARLY EXIT: Check if query is casual/conversational (no RAG needed)
-        # This avoids expensive context building for simple greetings/thanks
-        is_casual, direct_response = is_casual_query(content)
-        if is_casual and direct_response:
+        # 🆕 INTENT DETECTION: Check query intent BEFORE attaching context
+        # This prevents gibberish/off-topic queries from polluting RAG with irrelevant context
+        intent_detector = get_intent_detector()
+        intent_result = intent_detector.detect(content)
+
+        logger.info(
+            f"🎯 Intent detected: {intent_result.intent.value} "
+            f"(confidence: {intent_result.confidence:.2f}, reason: {intent_result.reason})"
+        )
+
+        # Handle GIBBERISH: Skip RAG entirely, return polite error
+        if intent_result.intent == QueryIntent.GIBBERISH:
             processing_time = int((time.time() - start_time) * 1000)
             logger.info(
-                f"💬 Casual query early exit in {processing_time}ms: '{content[:30]}...'"
+                f"🚫 Gibberish query rejected in {processing_time}ms: '{content[:30]}...'"
             )
 
-            # Create assistant message with direct response (no RAG)
             assistant_message = MessageRepository.add_message(
                 db=db,
                 conversation_id=conversation_id,
                 user_id=user_id,
                 role="assistant",
-                content=direct_response,
-                sources=None,  # No sources for casual responses
+                content=intent_result.suggested_response
+                or "Xin lỗi, tôi không hiểu câu hỏi của bạn.",
+                sources=None,
                 processing_time_ms=processing_time,
-                rag_mode="casual",  # Mark as casual mode
-                tokens_total=0,  # No LLM tokens used
+                rag_mode="gibberish",
+                tokens_total=0,
             )
-
-            # Update conversation usage stats
             ConversationRepository.update_last_message(db, conversation_id)
-
             return user_message, assistant_message, [], processing_time
 
-        # Build conversation context for RAG (summary + recent messages)
-        conversation_context, _ = SummaryService.build_context_for_rag(
-            db, conversation_id, content
-        )
+        # Handle OFF_TOPIC: Skip RAG, redirect to domain
+        if intent_result.intent == QueryIntent.OFF_TOPIC:
+            processing_time = int((time.time() - start_time) * 1000)
+            logger.info(
+                f"🔄 Off-topic query redirected in {processing_time}ms: '{content[:30]}...'"
+            )
 
-        # Enhance question with conversation context if available
+            assistant_message = MessageRepository.add_message(
+                db=db,
+                conversation_id=conversation_id,
+                user_id=user_id,
+                role="assistant",
+                content=intent_result.suggested_response
+                or "Tôi chỉ hỗ trợ về pháp luật đấu thầu.",
+                sources=None,
+                processing_time_ms=processing_time,
+                rag_mode="off_topic",
+                tokens_total=0,
+            )
+            ConversationRepository.update_last_message(db, conversation_id)
+            return user_message, assistant_message, [], processing_time
+
+        # Handle CASUAL: Skip RAG, return direct response
+        if intent_result.intent == QueryIntent.CASUAL:
+            processing_time = int((time.time() - start_time) * 1000)
+            logger.info(
+                f"💬 Casual query early exit in {processing_time}ms: '{content[:30]}...'"
+            )
+
+            assistant_message = MessageRepository.add_message(
+                db=db,
+                conversation_id=conversation_id,
+                user_id=user_id,
+                role="assistant",
+                content=intent_result.suggested_response
+                or "Xin chào! Tôi có thể giúp gì cho bạn?",
+                sources=None,
+                processing_time_ms=processing_time,
+                rag_mode="casual",
+                tokens_total=0,
+            )
+            ConversationRepository.update_last_message(db, conversation_id)
+            return user_message, assistant_message, [], processing_time
+
+        # 🆕 SMART CONTEXT: Only attach context for ON_TOPIC or CONTEXT_FOLLOW_UP
         enhanced_question = content
-        if conversation_context:
-            enhanced_question = f"""[CONTEXT HỘI THOẠI]
+        conversation_context = None
+
+        if intent_result.intent in [
+            QueryIntent.ON_TOPIC,
+            QueryIntent.CONTEXT_FOLLOW_UP,
+        ]:
+            # Build conversation context for RAG (summary + recent messages)
+            conversation_context, _ = SummaryService.build_context_for_rag(
+                db, conversation_id, content
+            )
+
+            # Only attach context if query is a context follow-up
+            # For ON_TOPIC with context, we still pass context but let RAG prioritize docs
+            if (
+                conversation_context
+                and intent_result.intent == QueryIntent.CONTEXT_FOLLOW_UP
+            ):
+                enhanced_question = f"""[CONTEXT HỘI THOẠI]
 {conversation_context}
 
 [CÂU HỎI HIỆN TẠI]
 {content}"""
+                logger.info("📎 Context attached for follow-up query")
+
+        # 🧠 Determine if Chain of Thought reasoning should be used
+        use_cot = _should_use_cot(content)
 
         # Call RAG pipeline with enhanced question
         try:
             rag_result = rag_answer(
                 question=enhanced_question,
                 mode=effective_rag_mode,
-                reranker_type="bge",
+                reranker_type=None,  # Use config default (DEFAULT_RERANKER_TYPE)
                 original_query=content,  # 🆕 Pass original query for cache key
+                use_cot=use_cot,  # 🧠 Enable CoT for complex queries
             )
 
             assistant_content = rag_result.get(
@@ -396,10 +519,19 @@ class ConversationService:
         )
         total_tokens = token_counts["total_tokens"]
 
-        # Estimate cost
+        # Estimate cost based on current LLM provider/model
+        # Get model name from settings for accurate cost estimation
+        if settings.llm_provider == "gemini":
+            model_name = settings.gemini_model
+        elif settings.llm_provider == "vertex":
+            model_name = settings.vertex_llm_model
+        else:
+            model_name = settings.llm_model  # OpenAI fallback
+
         estimated_cost = estimate_cost_usd(
             input_tokens=token_counts["input_tokens"],
             output_tokens=token_counts["output_tokens"],
+            model=model_name,
         )
 
         # Create assistant message with rag_mode and tokens
@@ -424,10 +556,10 @@ class ConversationService:
 
         # Extract actual categories from retrieved documents for analytics
         # This provides better insights than just using the user's category filter
-        actual_categories = list(set(
-            doc.get("category") for doc in raw_sources 
-            if doc.get("category")
-        )) or conversation.category_filter  # Fallback to filter if no categories in docs
+        actual_categories = (
+            list(set(doc.get("category") for doc in raw_sources if doc.get("category")))
+            or conversation.category_filter
+        )  # Fallback to filter if no categories in docs
 
         # Log query for analytics with token info
         try:

@@ -37,10 +37,10 @@ from .document_classifier import DocumentClassifier
 from ...preprocessing.upload_pipeline import WorkingUploadPipeline
 from ...preprocessing.loaders import DocxLoader, PdfLoader, TxtLoader
 from ...preprocessing.utils.document_id_generator import DocumentIDGenerator
-from ...embedding.embedders.openai_embedder import OpenAIEmbedder
 from ...embedding.store.pgvector_store import PGVectorStore
 from ...config.models import settings
 from ...config.database import get_db_sync
+from ...config.embedding_provider import get_default_embeddings
 
 logger = logging.getLogger(__name__)
 
@@ -115,13 +115,15 @@ class UploadJobRepository:
             cursor.execute(
                 """
                 SELECT 
-                    upload_id, status, total_files, completed_files, failed_files,
-                    files_data, storage_path, extracted_metadata, admin_metadata,
-                    options, error_message, uploaded_by, confirmed_by,
-                    created_at, updated_at, confirmed_at, cancelled_at, cancel_reason,
-                    progress_data
-                FROM document_upload_jobs
-                WHERE upload_id = %(upload_id)s
+                    j.upload_id, j.status, j.total_files, j.completed_files, j.failed_files,
+                    j.files_data, j.storage_path, j.extracted_metadata, j.admin_metadata,
+                    j.options, j.error_message, j.uploaded_by, j.confirmed_by,
+                    j.created_at, j.updated_at, j.confirmed_at, j.cancelled_at, j.cancel_reason,
+                    j.progress_data,
+                    u.email as uploader_email, u.username as uploader_username, u.full_name as uploader_full_name
+                FROM document_upload_jobs j
+                LEFT JOIN users u ON j.uploaded_by::uuid = u.id
+                WHERE j.upload_id = %(upload_id)s
             """,
                 {"upload_id": upload_id},
             )
@@ -150,6 +152,9 @@ class UploadJobRepository:
                 "cancelled_at": row[16].isoformat() if row[16] else None,
                 "cancel_reason": row[17],
                 "progress_data": row[18] if row[18] else [],
+                "uploader_email": row[19],
+                "uploader_username": row[20],
+                "uploader_full_name": row[21],
             }
         except Exception as e:
             logger.error(f"Failed to get upload job: {e}")
@@ -169,12 +174,14 @@ class UploadJobRepository:
             cursor.execute(
                 """
                 SELECT 
-                    upload_id, status, total_files,
-                    files_data, extracted_metadata, admin_metadata,
-                    uploaded_by, created_at, updated_at
-                FROM document_upload_jobs
-                WHERE status = 'pending_review'
-                ORDER BY created_at DESC
+                    j.upload_id, j.status, j.total_files,
+                    j.files_data, j.extracted_metadata, j.admin_metadata,
+                    j.uploaded_by, j.created_at, j.updated_at,
+                    u.email as uploader_email, u.username as uploader_username, u.full_name as uploader_full_name
+                FROM document_upload_jobs j
+                LEFT JOIN users u ON j.uploaded_by::uuid = u.id
+                WHERE j.status = 'pending_review'
+                ORDER BY j.created_at DESC
                 LIMIT %(limit)s OFFSET %(offset)s
             """,
                 {"limit": limit, "offset": offset},
@@ -193,6 +200,9 @@ class UploadJobRepository:
                         "uploaded_by": str(row[6]) if row[6] else None,
                         "created_at": row[7].isoformat() if row[7] else None,
                         "updated_at": row[8].isoformat() if row[8] else None,
+                        "uploader_email": row[9],
+                        "uploader_username": row[10],
+                        "uploader_full_name": row[11],
                     }
                 )
             return jobs
@@ -383,7 +393,9 @@ class UploadProcessingService:
 
     def __init__(self):
         self.classifier = DocumentClassifier()
-        self.embedder = OpenAIEmbedder()
+        self.embedder = (
+            get_default_embeddings()
+        )  # Uses provider factory (OpenAI or Vertex AI)
         self.vector_store = PGVectorStore()
         self.doc_id_generator = DocumentIDGenerator()
         self.job_repo = UploadJobRepository()
@@ -592,6 +604,9 @@ class UploadProcessingService:
             },
             "admin_metadata": job.get("admin_metadata", {}),
             "uploaded_by": job.get("uploaded_by"),
+            "uploader_email": job.get("uploader_email"),
+            "uploader_username": job.get("uploader_username"),
+            "uploader_full_name": job.get("uploader_full_name"),
             "created_at": job.get("created_at"),
             "updated_at": job.get("updated_at"),
         }
@@ -790,10 +805,18 @@ class UploadProcessingService:
                     if chunks:
                         first_chunk = chunks[0]
                         document_id = first_chunk.document_id
+
+                        # Extract document name with priority: title from metadata > section_title > filename
                         document_name = (
-                            first_chunk.section_title
+                            first_chunk.extra_metadata.get("document_title")
                             or first_chunk.extra_metadata.get("title")
-                            or file_info["filename"]
+                            or first_chunk.section_title
+                            or Path(file_info["filename"]).stem
+                        )
+
+                        # Log for debugging
+                        logger.info(
+                            f"📄 Document metadata - ID: {document_id}, Name: {document_name[:100]}..."
                         )
 
                         category_mapping = {
@@ -810,7 +833,7 @@ class UploadProcessingService:
                             "category"
                         ) or category_mapping.get(doc_type, "Khác")
 
-                        self._insert_into_documents_table(
+                        doc_uuid = self._insert_into_documents_table(
                             document_id=document_id,
                             document_name=document_name,
                             document_type=doc_type,
@@ -819,6 +842,12 @@ class UploadProcessingService:
                             source_file=file_info["file_path"],
                             total_chunks=len(chunks),
                         )
+
+                        # Insert chunks into document_chunks table
+                        chunk_id_map = self._insert_chunks_to_db(doc_uuid, chunks)
+
+                        # Link embeddings to chunks
+                        self._link_embeddings_to_chunks(chunk_id_map)
 
                         file_progress["document_id"] = document_id
 
@@ -909,11 +938,20 @@ class UploadProcessingService:
         source_file: str,
         total_chunks: int,
     ):
-        """Insert document record into documents table."""
+        """Insert document record into documents table and return document UUID."""
         conn = None
         try:
             conn = get_db_sync()
             cursor = conn.cursor()
+
+            # Validate document_name length (database limit is 500 chars)
+            if len(document_name) > 500:
+                logger.warning(
+                    f"⚠️  Document name too long ({len(document_name)} chars), truncating to 500"
+                )
+                document_name_truncated = document_name[:497] + "..."
+            else:
+                document_name_truncated = document_name
 
             cursor.execute(
                 """
@@ -930,10 +968,11 @@ class UploadProcessingService:
                     document_name = EXCLUDED.document_name,
                     total_chunks = EXCLUDED.total_chunks,
                     updated_at = NOW()
+                RETURNING id
             """,
                 {
                     "document_id": document_id,
-                    "document_name": document_name[:200],
+                    "document_name": document_name_truncated,
                     "document_type": document_type,
                     "category": category,
                     "filename": filename,
@@ -941,10 +980,120 @@ class UploadProcessingService:
                     "total_chunks": total_chunks,
                 },
             )
+            result = cursor.fetchone()
+            doc_uuid = result[0] if result else None
             conn.commit()
             logger.info(f"✅ Inserted document: {document_id} ({total_chunks} chunks)")
+            return doc_uuid
         except Exception as e:
             logger.error(f"❌ Failed to insert document: {e}")
+            if conn:
+                conn.rollback()
+            return None
+        finally:
+            if conn:
+                conn.close()
+
+    def _insert_chunks_to_db(self, doc_uuid, chunks: list) -> dict:
+        """
+        Insert chunks into document_chunks table and return mapping chunk_id -> uuid.
+
+        Returns:
+            Dict mapping chunk_id string -> chunk UUID
+        """
+        if not doc_uuid:
+            return {}
+
+        conn = None
+        chunk_id_map = {}
+
+        try:
+            conn = get_db_sync()
+            cursor = conn.cursor()
+
+            for chunk in chunks:
+                chunk_dict = chunk.to_dict()
+                chunk_id = (
+                    chunk_dict.get("chunk_id")
+                    or f"{chunk_dict.get('document_id')}_{chunk_dict.get('chunk_index', 0)}"
+                )
+
+                cursor.execute(
+                    """
+                    INSERT INTO document_chunks (
+                        document_id, chunk_id, content, chunk_index,
+                        section_title, hierarchy_path, keywords,
+                        char_count, created_at, updated_at
+                    ) VALUES (
+                        %(document_id)s, %(chunk_id)s, %(content)s, %(chunk_index)s,
+                        %(section_title)s, %(hierarchy_path)s, %(keywords)s,
+                        %(char_count)s, NOW(), NOW()
+                    )
+                    ON CONFLICT (chunk_id) DO UPDATE SET
+                        content = EXCLUDED.content,
+                        updated_at = NOW()
+                    RETURNING id
+                """,
+                    {
+                        "document_id": doc_uuid,
+                        "chunk_id": chunk_id,
+                        "content": chunk.content,
+                        "chunk_index": chunk_dict.get("chunk_index", 0),
+                        "section_title": chunk_dict.get("section_title"),
+                        "hierarchy_path": chunk_dict.get("hierarchy_path"),
+                        "keywords": chunk_dict.get("keywords"),
+                        "char_count": len(chunk.content),
+                    },
+                )
+
+                result = cursor.fetchone()
+                if result:
+                    chunk_id_map[chunk_id] = result[0]
+
+            conn.commit()
+            logger.info(f"✅ Inserted {len(chunk_id_map)} chunks into document_chunks")
+            return chunk_id_map
+
+        except Exception as e:
+            logger.error(f"❌ Failed to insert chunks: {e}")
+            if conn:
+                conn.rollback()
+            return {}
+        finally:
+            if conn:
+                conn.close()
+
+    def _link_embeddings_to_chunks(self, chunk_id_map: dict):
+        """
+        Update langchain_pg_embedding to set chunk_id references.
+        """
+        if not chunk_id_map:
+            return
+
+        conn = None
+        try:
+            conn = get_db_sync()
+            cursor = conn.cursor()
+
+            updated = 0
+            for chunk_id_str, chunk_uuid in chunk_id_map.items():
+                cursor.execute(
+                    """
+                    UPDATE langchain_pg_embedding 
+                    SET chunk_id = %(chunk_uuid)s
+                    WHERE cmetadata->>'chunk_id' = %(chunk_id)s
+                    AND chunk_id IS NULL
+                """,
+                    {"chunk_uuid": chunk_uuid, "chunk_id": chunk_id_str},
+                )
+                updated += cursor.rowcount
+
+            conn.commit()
+            if updated > 0:
+                logger.info(f"✅ Linked {updated} embeddings to chunks")
+
+        except Exception as e:
+            logger.error(f"❌ Failed to link embeddings to chunks: {e}")
             if conn:
                 conn.rollback()
         finally:

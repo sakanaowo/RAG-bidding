@@ -10,7 +10,6 @@ See: documents/technical/POOLING_CACHE_PLAN.md
 import os
 from typing import Literal
 
-# ✅ Load .env before reading environment variables
 try:
     from dotenv import load_dotenv
 
@@ -145,10 +144,14 @@ SESSION_MAX_MESSAGES = 100  # Max messages per session
 # RERANKING CONFIGURATION
 # ========================================
 
-# Reranker type: "bge" or "openai"
-DEFAULT_RERANKER_TYPE: Literal["bge", "openai"] = "bge"
+# Reranker type: "bge", "openai", or "vertex" (Vertex AI Ranking API)
+# Read from env var RERANKER_PROVIDER, default to "bge"
+_reranker_env = os.getenv("RERANKER_PROVIDER", "vertex").lower()
+DEFAULT_RERANKER_TYPE: Literal["bge", "openai", "vertex"] = (
+    _reranker_env if _reranker_env in ("bge", "openai", "vertex") else "bge"
+)
 
-# BGE Reranker (singleton pattern - PRODUCTION READY ✅)
+# BGE Reranker
 BGE_MODEL_NAME = "BAAI/bge-reranker-v2-m3"
 BGE_DEVICE = "auto"  # auto-detect GPU/CPU
 

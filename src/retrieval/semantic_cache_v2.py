@@ -197,15 +197,15 @@ class HybridSemanticCache:
         return self._embedder
 
     def _get_reranker(self):
-        """Get BGE reranker singleton (no model loading!)."""
+        """Get reranker based on DEFAULT_RERANKER_TYPE config using provider factory."""
         if self._reranker is None:
             try:
-                from src.retrieval.ranking.bge_reranker import get_singleton_reranker
-
-                self._reranker = get_singleton_reranker()
-                logger.debug("✅ BGE reranker obtained (singleton)")
+                from src.config.reranker_provider import get_default_reranker
+                
+                self._reranker = get_default_reranker()
+                logger.debug(f"✅ Reranker obtained for semantic cache: {type(self._reranker).__name__}")
             except Exception as e:
-                logger.warning(f"⚠️ Failed to get BGE reranker: {e}")
+                logger.warning(f"⚠️ Failed to get reranker: {e}")
         return self._reranker
 
     def _compute_embedding(self, text: str) -> Optional[np.ndarray]:
@@ -278,35 +278,43 @@ class HybridSemanticCache:
         candidates.sort(key=lambda x: x[1], reverse=True)
         return candidates[: self.cosine_top_k]
 
-    def _bge_rerank(
+    def _rerank_candidates(
         self,
         query: str,
         candidates: List[Tuple[str, float, Dict[str, Any]]],
     ) -> Optional[Tuple[Dict[str, Any], float, float]]:
         """
-        Rerank candidates using BGE cross-encoder.
+        Rerank candidates using configured reranker (BGE or OpenAI).
 
         Returns:
-            (cached_data, bge_score, cosine_score) of best match, or None
+            (cached_data, rerank_score, cosine_score) of best match, or None
         """
         if not candidates:
             return None
 
         reranker = self._get_reranker()
         if reranker is None:
-            # Fallback to cosine-only if BGE unavailable
-            logger.warning("⚠️ BGE reranker unavailable, using cosine-only")
+            # Fallback to cosine-only if reranker unavailable
+            logger.warning("⚠️ Reranker unavailable, using cosine-only")
             best = candidates[0]
-            if best[1] >= 0.7:  # Higher threshold for cosine-only
+            if best[1] >= 0.85:  # Higher threshold for cosine-only fallback
                 return (best[2], best[1], best[1])
             return None
 
-        # Prepare pairs for BGE
+        # Prepare pairs for reranking
         pairs = [[query, data["query"]] for _, _, data in candidates]
 
         try:
-            # Use BGE model directly (not the rerank method which expects Documents)
-            scores = reranker.model.predict(pairs, show_progress_bar=False)
+            # Detect reranker type and call appropriate method
+            if hasattr(reranker, "model") and hasattr(reranker.model, "predict"):
+                # BGE path - use model.predict directly
+                scores = reranker.model.predict(pairs, show_progress_bar=False)
+            elif hasattr(reranker, "score_pairs"):
+                # OpenAI path - use score_pairs method
+                scores = reranker.score_pairs(pairs)
+            else:
+                logger.warning("⚠️ Reranker has no compatible scoring method")
+                return None
 
             # Find best match above threshold
             best_idx = -1
@@ -326,7 +334,12 @@ class HybridSemanticCache:
             return None
 
         except Exception as e:
-            logger.warning(f"⚠️ BGE reranking failed: {e}")
+            logger.warning(f"⚠️ Reranking failed: {e}")
+            # Fallback to cosine-only on error
+            best = candidates[0]
+            if best[1] >= 0.85:
+                logger.info("📊 Falling back to cosine-only match")
+                return (best[2], best[1], best[1])
             return None
 
     def find_similar(
@@ -376,10 +389,10 @@ class HybridSemanticCache:
             f"(threshold={self.cosine_threshold}, time={cosine_time_ms:.1f}ms)"
         )
 
-        # Step 3: BGE rerank
-        bge_start = time.time()
-        result = self._bge_rerank(query, candidates)
-        bge_time_ms = (time.time() - bge_start) * 1000
+        # Step 3: Rerank with configured reranker (BGE or OpenAI)
+        rerank_start = time.time()
+        result = self._rerank_candidates(query, candidates)
+        rerank_time_ms = (time.time() - rerank_start) * 1000
 
         total_time_ms = (time.time() - start_time) * 1000
 
@@ -390,7 +403,7 @@ class HybridSemanticCache:
                 self._stats.avg_cosine_prefilter_time_ms * (n - 1) + cosine_time_ms
             ) / n
             self._stats.avg_bge_rerank_time_ms = (
-                self._stats.avg_bge_rerank_time_ms * (n - 1) + bge_time_ms
+                self._stats.avg_bge_rerank_time_ms * (n - 1) + rerank_time_ms
             ) / n
             self._stats.avg_total_time_ms = (
                 self._stats.avg_total_time_ms * (n - 1) + total_time_ms
@@ -400,30 +413,30 @@ class HybridSemanticCache:
             with self._lock:
                 self._stats.semantic_misses += 1
             logger.debug(
-                f"🔍 Semantic cache MISS: no BGE match above {bge_threshold} "
-                f"(cosine={cosine_time_ms:.1f}ms, bge={bge_time_ms:.1f}ms)"
+                f"🔍 Semantic cache MISS: no rerank match above {bge_threshold} "
+                f"(cosine={cosine_time_ms:.1f}ms, rerank={rerank_time_ms:.1f}ms)"
             )
             return None
 
-        cached_data, bge_score, cosine_score = result
+        cached_data, rerank_score, cosine_score = result
 
         with self._lock:
             self._stats.semantic_hits += 1
             n = self._stats.semantic_hits
             self._stats.avg_bge_score = (
-                self._stats.avg_bge_score * (n - 1) + bge_score
+                self._stats.avg_bge_score * (n - 1) + rerank_score
             ) / n
 
         match = SemanticMatchV2(
             original_query=cached_data["query"],
             cosine_similarity=cosine_score,
-            bge_score=bge_score,
+            bge_score=rerank_score,  # Keep field name for compatibility
             answer_cache_key=cached_data.get("answer_cache_key", ""),
             cached_at=cached_data.get("cached_at", ""),
         )
 
         logger.info(
-            f"🔍 Semantic cache HIT: bge_score={bge_score:.4f}, "
+            f"🔍 Semantic cache HIT: rerank_score={rerank_score:.4f}, "
             f"cosine={cosine_score:.4f}, "
             f"time={total_time_ms:.1f}ms, "
             f"original='{match.original_query[:50]}...'"

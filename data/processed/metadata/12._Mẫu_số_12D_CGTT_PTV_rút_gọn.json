@@ -1,8 +1,0 @@
-{
-  "source_file": "data/raw/Ho so moi thau/12. Chào giá trực tuyến/12. Mẫu số 12D CGTT PTV rút gọn.docx",
-  "document_type": "bidding",
-  "category": "12. Chào giá trực tuyến",
-  "chunk_count": 12,
-  "output_file": "data/processed/chunks/12._Mẫu_số_12D_CGTT_PTV_rút_gọn.jsonl",
-  "processed_at": "2025-11-04T12:13:35.974627"
-}

@@ -1,5 +1,7 @@
 import os
 import logging
+import asyncio
+import multiprocessing
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.openapi.utils import get_openapi
@@ -16,6 +18,7 @@ from src.retrieval.query_processing.query_enhancer import (
     QueryEnhancerConfig,
 )
 from .routers import upload
+from .routers import user_upload  # User document contribution
 from .routers import documents_management
 from .routers import auth
 from .routers import conversations
@@ -29,6 +32,17 @@ from .middleware import (
 )
 
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# WORKER COORDINATION (for synchronized logging with multiple workers)
+# ============================================================================
+# Shared state between workers for startup coordination
+worker_manager = multiprocessing.Manager()
+worker_states = (
+    worker_manager.dict()
+)  # {worker_pid: {"status": "...", "config": {...}}}
+worker_lock = worker_manager.Lock()  # Synchronize log output
+expected_workers = int(os.getenv("GUNICORN_WORKERS", "4"))  # Expected number of workers
 
 try:
     from dotenv import load_dotenv
@@ -61,33 +75,88 @@ async def lifespan(app: FastAPI):
     - Close database connections
     """
     # STARTUP
-    logger.info(f"🚀 [Worker {os.getpid()}] Starting up...")
+    worker_pid = os.getpid()
+    worker_config = {}  # Track this worker's configuration
+
+    with worker_lock:
+        logger.info(f"🚀 [Worker {worker_pid}] Starting up...")
 
     # 1. Initialize database
-    logger.info(f"📦 [Worker {os.getpid()}] Initializing database connection pool...")
+    with worker_lock:
+        logger.info(
+            f"📦 [Worker {worker_pid}] Initializing database connection pool..."
+        )
     init_database()
     await startup_database()
 
+    # Store database config
+    from src.config.database import get_db_config
+
+    db_config = get_db_config()
+    pool_status = await db_config.get_pool_status()
+    pool_metrics = pool_status.get("pool_metrics", {})
+
+    # Handle both NullPool and AsyncAdaptedQueuePool
+    worker_config["database"] = {
+        "pool_class": pool_metrics.get("pool_class", "Unknown"),
+        "pool_size": pool_metrics.get("pool_size", "N/A"),
+        "max_overflow": pool_metrics.get("max_overflow", "N/A"),
+    }
+
     # 2. Bootstrap vector store (sync operation)
-    logger.info(f"📦 [Worker {os.getpid()}] Bootstrapping vector store...")
+    with worker_lock:
+        logger.info(f"📦 [Worker {worker_pid}] Bootstrapping vector store...")
     bootstrap()
+    worker_config["vector_store"] = "bootstrapped"
 
-    # 3. Pre-load BGEReranker model
-    logger.info(f"🔧 [Worker {os.getpid()}] Pre-loading BGEReranker model...")
-    try:
-        from src.retrieval.ranking.bge_reranker import get_singleton_reranker
+    # 3. Pre-load Reranker based on config
+    from src.config.feature_flags import DEFAULT_RERANKER_TYPE
 
-        reranker = get_singleton_reranker()
+    with worker_lock:
         logger.info(
-            f"✅ [Worker {os.getpid()}] BGEReranker loaded successfully (device: {reranker.device})"
+            f"🔧 [Worker {worker_pid}] Pre-loading Reranker (type: {DEFAULT_RERANKER_TYPE})..."
         )
+    try:
+        from src.config.reranker_provider import get_default_reranker
+
+        reranker = get_default_reranker()
+
+        # Store reranker config
+        if DEFAULT_RERANKER_TYPE == "bge":
+            device = getattr(reranker, "device", "N/A")
+            worker_config["reranker"] = {
+                "type": DEFAULT_RERANKER_TYPE,
+                "device": str(device),
+            }
+            with worker_lock:
+                logger.info(
+                    f"✅ [Worker {worker_pid}] BGEReranker loaded (device: {device})"
+                )
+        elif DEFAULT_RERANKER_TYPE == "vertex":
+            model = getattr(reranker, "model", "N/A")
+            worker_config["reranker"] = {"type": DEFAULT_RERANKER_TYPE, "model": model}
+            with worker_lock:
+                logger.info(
+                    f"✅ [Worker {worker_pid}] Vertex AI Reranker configured (model: {model})"
+                )
+        else:
+            worker_config["reranker"] = {"type": DEFAULT_RERANKER_TYPE}
+            with worker_lock:
+                logger.info(
+                    f"✅ [Worker {worker_pid}] {DEFAULT_RERANKER_TYPE.upper()} Reranker configured"
+                )
     except Exception as e:
-        logger.error(f"❌ [Worker {os.getpid()}] Failed to load BGEReranker: {e}")
+        worker_config["reranker"] = {"type": DEFAULT_RERANKER_TYPE, "error": str(e)}
+        with worker_lock:
+            logger.error(
+                f"❌ [Worker {worker_pid}] Failed to load Reranker ({DEFAULT_RERANKER_TYPE}): {e}"
+            )
 
     # 4. Pre-load QueryEnhancer
-    logger.info(
-        f"🔧 [Worker {os.getpid()}] Pre-loading QueryEnhancer (multi_query + step_back)..."
-    )
+    with worker_lock:
+        logger.info(
+            f"🔧 [Worker {worker_pid}] Pre-loading QueryEnhancer (multi_query + step_back)..."
+        )
     try:
         enhancer = QueryEnhancer(
             config=QueryEnhancerConfig(
@@ -98,18 +167,123 @@ async def lifespan(app: FastAPI):
                 max_queries=3,
             )
         )
-        logger.info(f"✅ [Worker {os.getpid()}] QueryEnhancer loaded successfully")
+        worker_config["query_enhancer"] = {
+            "strategies": ["multi_query", "step_back"],
+            "max_queries": 3,
+        }
+        with worker_lock:
+            logger.info(f"✅ [Worker {worker_pid}] QueryEnhancer loaded successfully")
     except Exception as e:
-        logger.error(f"❌ [Worker {os.getpid()}] Failed to load QueryEnhancer: {e}")
+        worker_config["query_enhancer"] = {"error": str(e)}
+        with worker_lock:
+            logger.error(f"❌ [Worker {worker_pid}] Failed to load QueryEnhancer: {e}")
 
-    logger.info(f"🎉 [Worker {os.getpid()}] Startup complete! Ready to serve requests.")
+    # Register this worker as ready
+    with worker_lock:
+        worker_states[worker_pid] = {"status": "ready", "config": worker_config}
+        logger.info(
+            f"🎉 [Worker {worker_pid}] Startup complete! Ready to serve requests."
+        )
+        logger.info(
+            f"📊 [Worker {worker_pid}] Workers ready: {len(worker_states)}/{expected_workers}"
+        )
+
+    # Wait a bit for other workers to startup
+    await asyncio.sleep(0.5)
+
+    # Verification: If this is the last worker, verify all workers have same config
+    with worker_lock:
+        if len(worker_states) == expected_workers:
+            await _verify_workers_consistency()
 
     yield
 
     # SHUTDOWN
-    logger.info(f"👋 [Worker {os.getpid()}] Shutting down...")
+    with worker_lock:
+        logger.info(f"👋 [Worker {worker_pid}] Shutting down...")
     await shutdown_database()
-    logger.info(f"✅ [Worker {os.getpid()}] Shutdown complete")
+
+    # Unregister this worker
+    with worker_lock:
+        if worker_pid in worker_states:
+            del worker_states[worker_pid]
+        logger.info(f"✅ [Worker {worker_pid}] Shutdown complete")
+
+
+async def _verify_workers_consistency():
+    """
+    Verify all workers have consistent configuration.
+    This runs once when all workers are ready.
+    """
+    if len(worker_states) == 0:
+        return
+
+    logger.info("\n" + "=" * 70)
+    logger.info(f"🔍 WORKER VERIFICATION: {len(worker_states)} workers ready")
+    logger.info("=" * 70)
+
+    # Get reference config from first worker
+    first_pid = list(worker_states.keys())[0]
+    reference_config = worker_states[first_pid]["config"]
+
+    # Check consistency
+    all_consistent = True
+    inconsistencies = []
+
+    for pid, state in worker_states.items():
+        if state["status"] != "ready":
+            all_consistent = False
+            inconsistencies.append(
+                f"Worker {pid}: Not ready (status={state['status']})"
+            )
+            continue
+
+        worker_config = state["config"]
+
+        # Check database config
+        if worker_config.get("database") != reference_config.get("database"):
+            all_consistent = False
+            inconsistencies.append(
+                f"Worker {pid}: Database config mismatch\n"
+                f"  Expected: {reference_config.get('database')}\n"
+                f"  Got: {worker_config.get('database')}"
+            )
+
+        # Check reranker config
+        if worker_config.get("reranker") != reference_config.get("reranker"):
+            all_consistent = False
+            inconsistencies.append(
+                f"Worker {pid}: Reranker config mismatch\n"
+                f"  Expected: {reference_config.get('reranker')}\n"
+                f"  Got: {worker_config.get('reranker')}"
+            )
+
+        # Check query enhancer config
+        if worker_config.get("query_enhancer") != reference_config.get(
+            "query_enhancer"
+        ):
+            all_consistent = False
+            inconsistencies.append(
+                f"Worker {pid}: QueryEnhancer config mismatch\n"
+                f"  Expected: {reference_config.get('query_enhancer')}\n"
+                f"  Got: {worker_config.get('query_enhancer')}"
+            )
+
+    # Log results
+    if all_consistent:
+        logger.info("✅ All workers configured identically")
+        logger.info(f"\n📋 Shared Configuration:")
+        logger.info(f"   Database: {reference_config.get('database')}")
+        logger.info(f"   Reranker: {reference_config.get('reranker')}")
+        logger.info(f"   Query Enhancer: {reference_config.get('query_enhancer')}")
+        logger.info("\n✅ System ready to handle requests")
+    else:
+        logger.warning("⚠️  Worker configuration inconsistencies detected:")
+        for inconsistency in inconsistencies:
+            logger.warning(f"   {inconsistency}")
+        logger.warning("\n⚠️  System may behave unpredictably!")
+
+    logger.info("=" * 70 + "\n")
 
 
 # ============================================================================
@@ -150,7 +324,6 @@ Sử dụng JWT Bearer token. Các bước:
 - **fast**: Không enhancement, không reranking (~1s)
 - **balanced**: Multi-Query + Step-Back + BGE reranking (~2-3s) ⭐ Default
 - **quality**: All 4 strategies + RRF fusion (~3-5s)
-- **adaptive**: Dynamic K selection dựa trên query complexity
 """
 
 SWAGGER_TAGS = [
@@ -214,6 +387,7 @@ app.include_router(
     conversations.router, prefix="/api"
 )  # Conversations - /conversations/*
 app.include_router(upload.router, prefix="/api")
+app.include_router(user_upload.router, prefix="/api")  # User document contribution
 app.include_router(
     documents_management.router, prefix="/api"
 )  # Document Management - /documents endpoints
@@ -234,12 +408,13 @@ class AskIn(BaseModel):
             "example": "Điều kiện để nhà thầu được tham gia đấu thầu là gì?"
         },
     )
-    mode: Literal["fast", "balanced", "quality", "adaptive"] = Field(
-        default="fast",
-        description="RAG mode: fast (1s), balanced (2-3s), quality (3-5s), adaptive",
+    mode: Literal["fast", "balanced", "quality"] = Field(
+        default="balanced",
+        description="RAG mode: fast (1s), balanced (2-3s), quality (3-5s)",
     )
-    reranker: Literal["bge", "openai"] = Field(
-        default="bge", description="Reranker: bge (local, free) hoặc openai (API, paid)"
+    reranker: Literal["bge", "openai"] | None = Field(
+        default=None,
+        description="Reranker: bge (local, free) hoặc openai (API, paid). None = use config default",
     )
 
     model_config = {
@@ -248,12 +423,10 @@ class AskIn(BaseModel):
                 {
                     "question": "Điều kiện để nhà thầu được tham gia đấu thầu là gì?",
                     "mode": "balanced",
-                    "reranker": "bge",
                 },
                 {
                     "question": "Quy trình lựa chọn nhà thầu qua mạng như thế nào?",
                     "mode": "quality",
-                    "reranker": "bge",
                 },
             ]
         }
@@ -324,9 +497,7 @@ def ask(body: AskIn):
 
     **RAG Modes:**
     - `fast`: Không enhancement, không reranking (~1s)
-    - `balanced`: Multi-Query + BGE reranking (~2-3s) ⭐ Recommended
-    - `quality`: Full enhancement + RRF fusion (~3-5s)
-    - `adaptive`: Dynamic K selection
+    - `balanced`: Multi-Query + BGE reranking (~2-3s) ⭐ Default
     """
     if not body.question or not body.question.strip():
         raise HTTPException(400, detail="question is required")
@@ -334,7 +505,6 @@ def ask(body: AskIn):
         import time
 
         start_time = time.time()
-        # ✅ answer() sẽ tạo retriever với singleton pattern + reranker selection
         result = answer(
             body.question,
             mode=body.mode,
@@ -345,77 +515,3 @@ def ask(body: AskIn):
         return result
     except Exception as e:
         raise HTTPException(500, detail=str(e))
-
-
-@app.get("/stats", tags=["System"])
-def get_system_stats():
-    """
-    Get system statistics and configuration
-
-    Hiển thị cấu hình vector store, LLM, và các feature flags.
-    """
-    return {
-        "vector_store": {
-            "collection": settings.collection,
-            "embedding_model": settings.embed_model,
-        },
-        "llm": {"model": settings.llm_model},
-        "phase1_features": {
-            "adaptive_retrieval": settings.enable_adaptive_retrieval,
-            "enhanced_prompts": settings.enable_enhanced_prompts,
-            "query_enhancement": settings.enable_query_enhancement,
-            "reranking": settings.enable_reranking,
-            "answer_validation": settings.enable_answer_validation,
-        },
-    }
-
-
-@app.get("/features", tags=["System"])
-def get_feature_flags():
-    """
-    Get current feature flags and production readiness status
-
-    Shows:
-    - Database pooling status (pgBouncer vs NullPool)
-    - Cache configuration (L1/L2/L3 layers)
-    - Session storage (Redis vs In-Memory)
-    - Reranking settings (BGE singleton, OpenAI parallel)
-    """
-    from src.config.feature_flags import get_feature_status
-
-    return {
-        "status": "ok",
-        "features": get_feature_status(),
-        "deployment_guide": "/documents/technical/POOLING_CACHE_PLAN.md",
-    }
-
-
-@app.get("/", tags=["System"])
-def root():
-    """
-    API root with helpful links
-
-    Trang chủ API với danh sách các endpoints chính.
-    """
-    return {
-        "api": "RAG Bidding System",
-        "version": "3.0.0",
-        "endpoints": {
-            "health": "GET /health - Database connectivity check",
-            "stats": "GET /stats - System configuration",
-            "features": "GET /features - Feature flags",
-            "ask": "POST /ask - Quick Q&A (no auth)",
-            "auth": {
-                "register": "POST /api/auth/register",
-                "login": "POST /api/auth/login",
-                "me": "GET /api/auth/me",
-            },
-            "conversations": {
-                "create": "POST /api/conversations",
-                "list": "GET /api/conversations",
-                "send_message": "POST /api/conversations/{id}/messages",
-            },
-            "documents": "GET /api/documents",
-        },
-        "docs": {"swagger": "/docs", "redoc": "/redoc"},
-    }

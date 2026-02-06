@@ -1,7 +1,7 @@
 import os
 import time
 from typing import Dict, Literal
-from langchain_openai import ChatOpenAI
+from src.config.llm_provider import get_default_llm
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import (
@@ -20,7 +20,8 @@ from src.retrieval.semantic_cache_v2 import get_semantic_cache_v2
 from src.config.models import settings, apply_preset
 
 
-model = ChatOpenAI(model=settings.llm_model, temperature=0)
+# Use LLM from provider factory (supports OpenAI, Vertex AI, Gemini)
+model = get_default_llm()
 
 
 def is_complex_query(question: str) -> bool:
@@ -336,26 +337,44 @@ def format_document_reference(doc, index: int, doc_status: str | None = None) ->
 def answer(
     question: str,
     mode: str | None = None,
-    reranker_type: Literal["bge", "openai"] = "bge",  # Default: OpenAI (API-based)
+    reranker_type: Literal["bge", "openai"] | None = None,  # None = use config default
     use_cache: bool = True,  # 🆕 Enable/disable answer cache
     original_query: (
         str | None
     ) = None,  # 🆕 Original query for cache key (without context)
+    use_cot: bool = False,  # 🆕 Enable Chain of Thought reasoning
 ) -> Dict:
     """
     Answer a question using RAG pipeline.
 
     Args:
         question: User's question (may include conversation context)
-        mode: RAG mode (fast/balanced/quality/adaptive)
+        mode: RAG mode (fast/balanced/quality)
         reranker_type: Reranker to use ("bge" or "openai")
         use_cache: Enable answer caching (default: True)
         original_query: Original user query for cache key (without conversation context).
                        If None, uses question as cache key.
+        use_cot: Enable 2-step Chain of Thought reasoning (default: False).
+                 Adds ~1s latency but improves quality for complex queries.
 
     Returns:
         Dict with answer, sources, and metadata
     """
+    # 🔧 Resolve reranker_type from config if not specified
+    from src.config.feature_flags import DEFAULT_RERANKER_TYPE
+
+    if reranker_type is None:
+        reranker_type = DEFAULT_RERANKER_TYPE
+
+    # 🆕 CoT: If enabled, delegate to reasoning chain
+    if use_cot:
+        from .reasoning_chain import answer_with_reasoning
+
+        return answer_with_reasoning(
+            query=original_query or question,
+            mode=mode or "balanced",
+            context=question if original_query else None,
+        )
     # 🆕 Use original_query for cache operations if provided
     cache_key_query = original_query or question
     import logging
@@ -502,8 +521,25 @@ def answer(
     selected_mode = mode or settings.rag_mode or "balanced"
     apply_preset(selected_mode)
 
+    # 📊 LOG: Mode selection details
+    logger.info(
+        f"📊 RAG Mode Selection | "
+        f"requested={mode or 'None'} | "
+        f"settings.rag_mode={settings.rag_mode} | "
+        f"actual={selected_mode} | "
+        f"reranker={reranker_type}"
+    )
+
     # ✅ Create retriever dynamically based on selected_mode and reranker_type
     enable_reranking = settings.enable_reranking and selected_mode != "fast"
+
+    logger.info(
+        f"🔧 Retriever Config | "
+        f"mode={selected_mode} | "
+        f"reranking={'enabled' if enable_reranking else 'disabled'} | "
+        f"reranker_type={reranker_type if enable_reranking else 'N/A'}"
+    )
+
     retriever = create_retriever(
         mode=selected_mode,
         enable_reranking=enable_reranking,
@@ -523,17 +559,29 @@ def answer(
         [("system", system_prompt), ("user", USER_TEMPLATE)]
     )
 
-    # Build chain dynamically with the correct retriever and prompt
-    rag_chain = (
-        {"context": retriever | fmt_docs, "question": RunnablePassthrough()}
-        | prompt
-        | model
-        | StrOutputParser()
+    # Build chain - retrieve docs ONCE, reuse for context AND source_documents
+    # BUG FIX: Previously retriever was called twice (once in rag_chain, once in RunnableParallel)
+    def retrieve_and_format(question: str):
+        """Retrieve docs once, return both formatted context and raw docs."""
+        docs = retriever.invoke(question)
+        context = fmt_docs(docs)
+        return {"context": context, "source_documents": docs, "question": question}
+
+    # Chain that uses pre-retrieved docs
+    answer_chain = prompt | model | StrOutputParser()
+
+    # Retrieve once, then generate answer
+    retrieved = retrieve_and_format(question)
+
+    logger.info(
+        f"📄 Retrieved {len(retrieved['source_documents'])} documents (single call)"
     )
 
-    chain = RunnableParallel(answer=rag_chain, source_documents=retriever)
+    answer = answer_chain.invoke(
+        {"context": retrieved["context"], "question": retrieved["question"]}
+    )
 
-    result = chain.invoke(question)
+    result = {"answer": answer, "source_documents": retrieved["source_documents"]}
 
     # Enrich source documents with status from documents table
     doc_statuses = _get_document_statuses(result["source_documents"])
@@ -586,16 +634,10 @@ def answer(
         enhanced_features.append(
             "Query Enhancement (Multi-Query, HyDE, Step-Back, Decomposition)"
         )
-    elif selected_mode == "adaptive":
-        enhanced_features.append("Query Enhancement (Multi-Query, Step-Back)")
 
     # RAG-Fusion (only quality mode)
     if selected_mode == "quality":
         enhanced_features.append("RAG-Fusion with RRF")
-
-    # Adaptive K (only adaptive mode)
-    if selected_mode == "adaptive":
-        enhanced_features.append("Adaptive K Selection")
 
     # Document Reranking (all modes except fast)
     if selected_mode != "fast" and settings.enable_reranking:

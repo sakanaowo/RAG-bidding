@@ -1,8 +1,0 @@
-{
-  "source_file": "data/raw/Ho so moi thau/15. Phu luc.docx",
-  "document_type": "bidding",
-  "category": "15. Phu luc.docx",
-  "chunk_count": 46,
-  "output_file": "data/processed_enriched/chunks/15._Phu_luc.jsonl",
-  "processed_at": "2025-11-04T12:13:32.663619"
-}

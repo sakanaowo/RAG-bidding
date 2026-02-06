@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     AsyncEngine,
 )
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import AsyncAdaptedQueuePool
 from sqlalchemy.engine.events import event
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -53,19 +53,26 @@ class DatabaseConfig:
     def _setup_engine(self):
         """Setup SQLAlchemy async engine với optimized connection pool"""
 
+        # Always use connection pooling for better performance
+        # Cloud SQL db-perf-optimized-N-8 has ~220 max connections
+        # With 1 worker: pool_size=50, max_overflow=50 → max 100 connections
         self._engine = create_async_engine(
             self.database_url,
             # Connection Pool Configuration
-            # Note: NullPool is used for async compatibility
-            poolclass=NullPool,
+            poolclass=AsyncAdaptedQueuePool,
+            pool_size=50,  # Base pool size (increased for single worker)
+            max_overflow=50,  # Additional connections when pool exhausted
+            pool_timeout=30,  # Wait time for connection
+            pool_recycle=1800,  # Recycle connections after 30 mins
             pool_pre_ping=True,  # Validate connections before use
             # Performance Settings
             echo=False,  # Set True for SQL debugging
             echo_pool=False,  # Set True for pool debugging
             future=True,  # Enable SQLAlchemy 2.0 style
         )
-
-        logger.info(f"Database engine initialized with NullPool (async compatible)")
+        logger.info(
+            f"Database engine initialized with AsyncAdaptedQueuePool (pool_size=50, max_overflow=50)"
+        )
 
     def _setup_session_factory(self):
         """Setup async session factory"""
@@ -160,23 +167,42 @@ class DatabaseConfig:
 
         Returns:
             Dict containing pool metrics
-
-        Note: With NullPool, most metrics are not available.
         """
         if not self._engine:
             return {"error": "Engine not initialized"}
 
         pool = self._engine.pool
+        pool_class = pool.__class__.__name__
+
+        # Build metrics based on pool type
+        if pool_class == "AsyncAdaptedQueuePool":
+            pool_metrics = {
+                "pool_class": pool_class,
+                "pool_size": pool.size(),
+                "checked_out": pool.checkedout(),
+                "overflow": pool.overflow(),
+                "checked_in": pool.checkedin(),
+                "max_overflow": pool._max_overflow,
+                "utilization": f"{pool.checkedout()}/{pool.size() + pool._max_overflow}",
+            }
+            recommendations = [
+                "Using AsyncAdaptedQueuePool for local testing",
+                "Monitor checked_out vs pool_size for saturation",
+            ]
+        else:
+            pool_metrics = {
+                "pool_class": pool_class,
+                "note": "NullPool creates connections on-demand, no persistent pool",
+            }
+            recommendations = [
+                "Using NullPool - connections created per request",
+                "Consider pgBouncer for production connection pooling",
+            ]
 
         return {
-            "pool_metrics": {
-                "pool_class": pool.__class__.__name__,
-                "note": "NullPool creates connections on-demand, no persistent pool",
-            },
+            "pool_metrics": pool_metrics,
             "performance_stats": self._pool_stats,
-            "recommendations": [
-                "Using NullPool - connections created per request. Consider implementing connection pooling with pgBouncer for production."
-            ],
+            "recommendations": recommendations,
         }
 
     async def warm_up_pool(self, min_connections: int = 5):
@@ -185,10 +211,27 @@ class DatabaseConfig:
 
         Args:
             min_connections: Minimum connections to pre-create
-
-        Note: With NullPool, this has minimal effect.
         """
-        logger.info(f"NullPool in use - connection warm-up not applicable")
+        pool = self._engine.pool
+        pool_class = pool.__class__.__name__
+
+        if pool_class == "NullPool":
+            logger.info("NullPool in use - connection warm-up not applicable")
+            return
+
+        # For QueuePool-based pools, warm up by creating initial connections
+        logger.info(f"Warming up {pool_class} with {min_connections} connections...")
+        try:
+            connections = []
+            for i in range(min(min_connections, pool.size())):
+                async with self._engine.begin() as conn:
+                    await conn.execute(text("SELECT 1"))
+                    connections.append(conn)
+            logger.info(
+                f"Pool warm-up complete: {len(connections)} connections pre-created"
+            )
+        except Exception as e:
+            logger.warning(f"Pool warm-up failed: {e}")
 
     async def execute_health_check(self) -> Dict[str, Any]:
         """
@@ -244,12 +287,71 @@ class DatabaseConfig:
 _db_config: DatabaseConfig = None
 
 
+def build_cloud_database_url() -> str:
+    """
+    Build Cloud SQL connection URL for direct IP connection.
+
+    Uses settings:
+        - cloud_db_host: Public IP of Cloud SQL instance
+        - cloud_db_user: Database username
+        - cloud_db_password: Database password
+        - cloud_db_name: Database name
+
+    Returns:
+        PostgreSQL connection URL for Cloud SQL
+    """
+    from urllib.parse import quote_plus
+
+    if not all(
+        [
+            settings.cloud_db_host,
+            settings.cloud_db_user,
+            settings.cloud_db_password,
+            settings.cloud_db_name,
+        ]
+    ):
+        raise ValueError(
+            "Cloud DB configuration incomplete. Required: "
+            "CLOUD_DB_CONNECTION_PUBLICIP, CLOUD_DB_USER, CLOUD_DB_PASSWORD, CLOUD_INSTANCE_DB"
+        )
+
+    # URL-encode password to handle special characters
+    encoded_password = quote_plus(settings.cloud_db_password)
+
+    url = (
+        f"postgresql+psycopg://{settings.cloud_db_user}:{encoded_password}"
+        f"@{settings.cloud_db_host}:5432/{settings.cloud_db_name}"
+    )
+
+    logger.info(f"Cloud DB URL built for host: {settings.cloud_db_host}")
+    return url
+
+
+def get_effective_database_url() -> str:
+    """
+    Get the effective database URL based on environment configuration.
+
+    Auto-switches between local and cloud DB:
+        - USE_CLOUD_DB=true  -> Cloud SQL (direct IP)
+        - USE_CLOUD_DB=false -> Local DB (DATABASE_URL)
+
+    Returns:
+        Database connection URL
+    """
+    if settings.use_cloud_db:
+        logger.info(f"🌐 Using Cloud SQL database (ENV_MODE={settings.env_mode})")
+        return build_cloud_database_url()
+    else:
+        logger.info(f"💻 Using local database (ENV_MODE={settings.env_mode})")
+        return settings.database_url
+
+
 def init_database(database_url: str = None) -> DatabaseConfig:
     """
     Initialize database connection pool
 
     Args:
-        database_url: Database connection string (uses settings if not provided)
+        database_url: Database connection string (uses auto-switch if not provided)
 
     Returns:
         DatabaseConfig: Initialized database configuration
@@ -257,7 +359,7 @@ def init_database(database_url: str = None) -> DatabaseConfig:
     global _db_config
 
     if database_url is None:
-        database_url = settings.database_url
+        database_url = get_effective_database_url()
 
     if not database_url:
         raise ValueError("DATABASE_URL must be provided in environment or as parameter")
@@ -355,7 +457,7 @@ def get_db_sync():
         Database session (psycopg style)
     """
     import psycopg
-    from urllib.parse import urlparse
+    from urllib.parse import urlparse, unquote
 
     # Parse database URL
     db_url = settings.database_url
@@ -370,12 +472,13 @@ def get_db_sync():
     parsed = urlparse(db_url)
 
     # Create psycopg connection
+    # Note: unquote() decodes URL-encoded password (e.g., %7C -> |, %3D -> =)
     conn = psycopg.connect(
         host=parsed.hostname,
-        port=parsed.port or 5432,
+        port=parsed.port,
         dbname=parsed.path.lstrip("/"),
         user=parsed.username,
-        password=parsed.password,
+        password=unquote(parsed.password) if parsed.password else None,
     )
 
     return conn

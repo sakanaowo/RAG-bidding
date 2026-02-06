@@ -1,8 +1,0 @@
-{
-  "source_file": "data/raw/Ho so moi thau/5. Mẫu báo cáo tình hình thực hiện hoạt động đấu thầu/05. Mẫu Báo cáo đấu thầu.docx",
-  "document_type": "bidding",
-  "category": "5. Mẫu báo cáo tình hình thực hiện hoạt động đấu thầu",
-  "chunk_count": 6,
-  "output_file": "data/processed_enriched/chunks/05._Mẫu_Báo_cáo_đấu_thầu.jsonl",
-  "processed_at": "2025-11-04T12:13:37.584023"
-}
