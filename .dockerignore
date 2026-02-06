@@ -33,9 +33,10 @@ notebooks/
 scripts/
 postman/
 
-# Docker nested (except supervisord.conf)
-docker/
+# Docker config files (include supervisord.conf and redis.conf)
+docker/*
 !docker/supervisord.conf
+!docker/redis.conf
 
 # Credentials (will be mounted or set via env)
 *.json

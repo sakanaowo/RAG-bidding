@@ -66,57 +66,11 @@ COPY alembic.ini .
 
 # ===== Supervisord Configuration =====
 # Manages both Redis and Gunicorn processes
-COPY <<EOF /etc/supervisor/conf.d/supervisord.conf
-[supervisord]
-nodaemon=true
-user=root
-logfile=/var/log/supervisor/supervisord.log
-pidfile=/var/run/supervisord.pid
-loglevel=info
-
-[program:redis]
-command=/usr/bin/redis-server --port 6379 --daemonize no --maxmemory 256mb --maxmemory-policy allkeys-lru
-autostart=true
-autorestart=true
-priority=10
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-stderr_logfile=/dev/stderr
-stderr_logfile_maxbytes=0
-
-[program:gunicorn]
-command=/usr/local/bin/gunicorn --bind 0.0.0.0:%(ENV_PORT)s --workers 1 --worker-class uvicorn.workers.UvicornWorker --timeout 300 --graceful-timeout 30 --keep-alive 5 --max-requests 1000 --max-requests-jitter 100 --access-logfile - --error-logfile - src.api.main:app
-directory=/app
-autostart=true
-autorestart=true
-priority=20
-startsecs=5
-startretries=3
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-stderr_logfile=/dev/stderr
-stderr_logfile_maxbytes=0
-EOF
+RUN mkdir -p /etc/supervisor/conf.d /etc/redis
+COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # ===== Redis Configuration =====
-COPY <<EOF /etc/redis/redis.conf
-# Redis configuration for embedded use
-port 6379
-bind 127.0.0.1
-daemonize no
-
-# Memory management
-maxmemory 256mb
-maxmemory-policy allkeys-lru
-
-# Persistence (optional - disable for stateless)
-save ""
-appendonly no
-
-# Performance
-tcp-keepalive 300
-timeout 0
-EOF
+COPY docker/redis.conf /etc/redis/redis.conf
 
 # ===== Health Check =====
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
