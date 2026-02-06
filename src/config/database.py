@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     AsyncEngine,
 )
-from sqlalchemy.pool import NullPool, AsyncAdaptedQueuePool
+from sqlalchemy.pool import AsyncAdaptedQueuePool
 from sqlalchemy.engine.events import event
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -52,57 +52,27 @@ class DatabaseConfig:
 
     def _setup_engine(self):
         """Setup SQLAlchemy async engine với optimized connection pool"""
-        
-        # Check if connection pooling is enabled (default: True for local, False for production)
-        use_pool = getattr(settings, 'use_connection_pool', not settings.use_cloud_db)
-        
-        if use_pool:
-            # Real connection pooling for local testing
-            # PostgreSQL max_connections=200, with 4 workers → 50 connections per worker
-            self._engine = create_async_engine(
-                self.database_url,
-                # Connection Pool Configuration
-                poolclass=AsyncAdaptedQueuePool,
-                pool_size=20,             # Base pool size per worker
-                max_overflow=30,          # Additional connections when pool exhausted
-                pool_timeout=30,          # Wait time for connection
-                pool_recycle=1800,        # Recycle connections after 30 mins
-                pool_pre_ping=True,       # Validate connections before use
-                # Performance Settings
-                echo=False,               # Set True for SQL debugging
-                echo_pool=False,          # Set True for pool debugging
-                future=True,              # Enable SQLAlchemy 2.0 style
-            )
-            logger.info(f"Database engine initialized with AsyncAdaptedQueuePool (pool_size=20, max_overflow=30)")
-        else:
-            # TODO [PRODUCTION POOL SETUP]:
-            # Hiện tại đang dùng NullPool (mỗi request tạo connection mới)
-            # Để tối ưu production, có 2 lựa chọn:
-            #
-            # 1. SỬ DỤNG EXTERNAL POOLER (Khuyến nghị cho Cloud SQL):
-            #    - Triển khai pgBouncer hoặc PgCat trước Cloud SQL
-            #    - Cấu hình pgBouncer với pool_mode=transaction
-            #    - Giữ NullPool ở đây để tránh double-pooling
-            #
-            # 2. SỬ DỤNG AsyncAdaptedQueuePool NHƯ LOCAL:
-            #    - Thay đổi use_pool thành True
-            #    - Điều chỉnh pool_size theo Cloud SQL max_connections
-            #    - Cloud SQL default: 100 connections (basic), tùy tier có thể cao hơn
-            #
-            # Lưu ý Cloud Run:
-            #    - Mỗi instance có thể có nhiều workers
-            #    - Cần tính: (instances × workers × pool_size) < Cloud SQL max_connections
-            #    - Sử dụng Cloud SQL Proxy nếu cần IAM authentication
-            #
-            self._engine = create_async_engine(
-                self.database_url,
-                poolclass=NullPool,
-                pool_pre_ping=True,
-                echo=False,
-                echo_pool=False,
-                future=True,
-            )
-            logger.info(f"Database engine initialized with NullPool (async compatible)")
+
+        # Always use connection pooling for better performance
+        # Cloud SQL db-perf-optimized-N-8 has ~220 max connections
+        # With 1 worker: pool_size=50, max_overflow=50 → max 100 connections
+        self._engine = create_async_engine(
+            self.database_url,
+            # Connection Pool Configuration
+            poolclass=AsyncAdaptedQueuePool,
+            pool_size=50,  # Base pool size (increased for single worker)
+            max_overflow=50,  # Additional connections when pool exhausted
+            pool_timeout=30,  # Wait time for connection
+            pool_recycle=1800,  # Recycle connections after 30 mins
+            pool_pre_ping=True,  # Validate connections before use
+            # Performance Settings
+            echo=False,  # Set True for SQL debugging
+            echo_pool=False,  # Set True for pool debugging
+            future=True,  # Enable SQLAlchemy 2.0 style
+        )
+        logger.info(
+            f"Database engine initialized with AsyncAdaptedQueuePool (pool_size=50, max_overflow=50)"
+        )
 
     def _setup_session_factory(self):
         """Setup async session factory"""
@@ -244,11 +214,11 @@ class DatabaseConfig:
         """
         pool = self._engine.pool
         pool_class = pool.__class__.__name__
-        
+
         if pool_class == "NullPool":
             logger.info("NullPool in use - connection warm-up not applicable")
             return
-            
+
         # For QueuePool-based pools, warm up by creating initial connections
         logger.info(f"Warming up {pool_class} with {min_connections} connections...")
         try:
@@ -257,7 +227,9 @@ class DatabaseConfig:
                 async with self._engine.begin() as conn:
                     await conn.execute(text("SELECT 1"))
                     connections.append(conn)
-            logger.info(f"Pool warm-up complete: {len(connections)} connections pre-created")
+            logger.info(
+                f"Pool warm-up complete: {len(connections)} connections pre-created"
+            )
         except Exception as e:
             logger.warning(f"Pool warm-up failed: {e}")
 
@@ -318,33 +290,39 @@ _db_config: DatabaseConfig = None
 def build_cloud_database_url() -> str:
     """
     Build Cloud SQL connection URL for direct IP connection.
-    
+
     Uses settings:
         - cloud_db_host: Public IP of Cloud SQL instance
         - cloud_db_user: Database username
         - cloud_db_password: Database password
         - cloud_db_name: Database name
-    
+
     Returns:
         PostgreSQL connection URL for Cloud SQL
     """
     from urllib.parse import quote_plus
-    
-    if not all([settings.cloud_db_host, settings.cloud_db_user, 
-                settings.cloud_db_password, settings.cloud_db_name]):
+
+    if not all(
+        [
+            settings.cloud_db_host,
+            settings.cloud_db_user,
+            settings.cloud_db_password,
+            settings.cloud_db_name,
+        ]
+    ):
         raise ValueError(
             "Cloud DB configuration incomplete. Required: "
             "CLOUD_DB_CONNECTION_PUBLICIP, CLOUD_DB_USER, CLOUD_DB_PASSWORD, CLOUD_INSTANCE_DB"
         )
-    
+
     # URL-encode password to handle special characters
     encoded_password = quote_plus(settings.cloud_db_password)
-    
+
     url = (
         f"postgresql+psycopg://{settings.cloud_db_user}:{encoded_password}"
         f"@{settings.cloud_db_host}:5432/{settings.cloud_db_name}"
     )
-    
+
     logger.info(f"Cloud DB URL built for host: {settings.cloud_db_host}")
     return url
 
@@ -352,11 +330,11 @@ def build_cloud_database_url() -> str:
 def get_effective_database_url() -> str:
     """
     Get the effective database URL based on environment configuration.
-    
+
     Auto-switches between local and cloud DB:
         - USE_CLOUD_DB=true  -> Cloud SQL (direct IP)
         - USE_CLOUD_DB=false -> Local DB (DATABASE_URL)
-    
+
     Returns:
         Database connection URL
     """
@@ -479,7 +457,7 @@ def get_db_sync():
         Database session (psycopg style)
     """
     import psycopg
-    from urllib.parse import urlparse
+    from urllib.parse import urlparse, unquote
 
     # Parse database URL
     db_url = settings.database_url
@@ -494,12 +472,13 @@ def get_db_sync():
     parsed = urlparse(db_url)
 
     # Create psycopg connection
+    # Note: unquote() decodes URL-encoded password (e.g., %7C -> |, %3D -> =)
     conn = psycopg.connect(
         host=parsed.hostname,
-        port=parsed.port ,
+        port=parsed.port,
         dbname=parsed.path.lstrip("/"),
         user=parsed.username,
-        password=parsed.password,
+        password=unquote(parsed.password) if parsed.password else None,
     )
 
     return conn
