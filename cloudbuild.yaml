@@ -10,7 +10,9 @@
 substitutions:
   _REGION: "asia-southeast1"
   _SERVICE_NAME: "rag-bidding-api"
-  _CLOUD_SQL_INSTANCE: "bid-information-484813:asia-southeast1:rag-bid-db"
+  _CLOUD_SQL_INSTANCE_NAME: "rag-bid-db" # Just the instance name, project & region added automatically
+  _GOOGLE_OAUTH_CLIENT_ID: "" # Set in Cloud Build trigger
+  _FRONTEND_URL: "" # Set in Cloud Build trigger
 
 steps:
   # ===== Build Docker Image =====
@@ -48,14 +50,13 @@ steps:
       - "--max-instances=10"
       - "--timeout=300s"
       - "--concurrency=80"
-      # Cloud SQL connection
-      - "--add-cloudsql-instances=${_CLOUD_SQL_INSTANCE}"
-      # Secrets from Secret Manager (format: ENV_VAR=secret-name:version)
-      - "--set-secrets=DATABASE_URL=rag-db-url:latest"
-      - "--set-secrets=GOOGLE_API_KEY=rag-google-api-key:latest"
-      - "--set-secrets=JWT_SECRET_KEY=rag-jwt-secret:latest"
-      - "--set-secrets=GOOGLE_OAUTH_CLIENT_ID=rag-oauth-client-id:latest"
-      - "--set-secrets=GOOGLE_OAUTH_CLIENT_SECRET=rag-oauth-client-secret:latest"
+      # Cloud SQL connection (format: project:region:instance)
+      - "--add-cloudsql-instances=$PROJECT_ID:${_REGION}:${_CLOUD_SQL_INSTANCE_NAME}"
+      # Secrets from Secret Manager
+      - "--set-secrets=DATABASE_URL=rag-bidding-db-url:latest"
+      - "--set-secrets=GOOGLE_API_KEY=rag-bidding-google-api-key:latest"
+      - "--set-secrets=JWT_SECRET_KEY=rag-bidding-jwt-secret:latest"
+      - "--set-secrets=GOOGLE_OAUTH_CLIENT_SECRET=rag-bidding-oauth-secret:latest"
       # Environment variables (non-sensitive)
       - "--set-env-vars=PYTHONUNBUFFERED=1"
       - "--set-env-vars=EMBED_PROVIDER=vertex"
@@ -66,8 +67,11 @@ steps:
       - "--set-env-vars=ENABLE_ANSWER_CACHE=true"
       - "--set-env-vars=ENABLE_SEMANTIC_CACHE=true"
       - "--set-env-vars=RATE_LIMIT_ENABLED=true"
-      - "--set-env-vars=FRONTEND_URL=https://rag-bidding.vercel.app"
-      - "--set-env-vars=CORS_ORIGINS=https://rag-bidding.vercel.app,http://localhost:3000"
+      # OAuth Client ID (set via substitution in trigger)
+      - "--set-env-vars=GOOGLE_OAUTH_CLIENT_ID=${_GOOGLE_OAUTH_CLIENT_ID}"
+      # Frontend URL (set via substitution in trigger)
+      - "--set-env-vars=FRONTEND_URL=${_FRONTEND_URL}"
+      - "--set-env-vars=CORS_ORIGINS=${_FRONTEND_URL}"
 
 options:
   logging: CLOUD_LOGGING_ONLY
