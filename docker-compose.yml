@@ -38,12 +38,13 @@ services:
       - RATE_LIMIT_REDIS_DB=4
       
       # Database (use local or cloud based on env)
-      - DB_USER=${DB_USER:-sakana}
-      - DB_PASSWORD=${DB_PASSWORD:-sakana123}
-      - DB_NAME=${DB_NAME:-rag_bidding_v3}
-      - DB_HOST=host.docker.internal
+      # Set these in .env file - DO NOT hardcode credentials here
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-rag_bidding}
+      - DB_HOST=${DB_HOST:-host.docker.internal}
       - DB_PORT=${DB_PORT:-5432}
-      - DATABASE_URL=postgresql+psycopg://${DB_USER:-sakana}:${DB_PASSWORD:-sakana123}@host.docker.internal:${DB_PORT:-5432}/${DB_NAME:-rag_bidding_v3}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}}
       
       # Environment mode
       - ENV_MODE=${ENV_MODE:-development}

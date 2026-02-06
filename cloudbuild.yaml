@@ -1,71 +1,80 @@
 # Cloud Build configuration for RAG Bidding API
 # Triggered by Git repo push to deploy to Cloud Run
 #
-# Setup:
+# Prerequisites:
 # 1. Connect GitHub repo to Cloud Build
-# 2. Create trigger with this config file
-# 3. Ensure Service Account has Secret Manager access
+# 2. Create secrets in Secret Manager (see DEPLOYMENT_GUIDE.md)
+# 3. Grant Cloud Build SA access to Secret Manager
+# 4. Create Cloud Build trigger
+
+substitutions:
+  _REGION: "asia-southeast1"
+  _SERVICE_NAME: "rag-bidding-api"
+  _CLOUD_SQL_INSTANCE: "bid-information-484813:asia-southeast1:rag-bid-db"
 
 steps:
   # ===== Build Docker Image =====
-  - name: 'gcr.io/cloud-builders/docker'
+  - name: "gcr.io/cloud-builders/docker"
     args:
-      - 'build'
-      - '-t'
-      - 'gcr.io/$PROJECT_ID/rag-bidding-api:$COMMIT_SHA'
-      - '-t'
-      - 'gcr.io/$PROJECT_ID/rag-bidding-api:latest'
-      - '.'
-    timeout: '1200s'  # 20 min timeout for build
+      - "build"
+      - "-t"
+      - "gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$COMMIT_SHA"
+      - "-t"
+      - "gcr.io/$PROJECT_ID/${_SERVICE_NAME}:latest"
+      - "."
+    timeout: "1200s"
 
   # ===== Push to Container Registry =====
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - 'push'
-      - 'gcr.io/$PROJECT_ID/rag-bidding-api:$COMMIT_SHA'
+  - name: "gcr.io/cloud-builders/docker"
+    args: ["push", "gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$COMMIT_SHA"]
 
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - 'push'
-      - 'gcr.io/$PROJECT_ID/rag-bidding-api:latest'
+  - name: "gcr.io/cloud-builders/docker"
+    args: ["push", "gcr.io/$PROJECT_ID/${_SERVICE_NAME}:latest"]
 
   # ===== Deploy to Cloud Run =====
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'gcloud'
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: "gcloud"
     args:
-      - 'run'
-      - 'deploy'
-      - 'rag-bidding-api'
-      - '--image=gcr.io/$PROJECT_ID/rag-bidding-api:$COMMIT_SHA'
-      - '--region=asia-southeast1'
-      - '--platform=managed'
-      - '--allow-unauthenticated'
-      - '--memory=2Gi'
-      - '--cpu=2'
-      - '--min-instances=0'
-      - '--max-instances=10'
-      - '--timeout=300s'
-      - '--concurrency=80'
-      # Secrets from Secret Manager
-      - '--set-secrets=DATABASE_PASSWORD=rag-bidding-db-password:latest'
-      - '--set-secrets=GOOGLE_API_KEY=rag-bidding-google-api-key:latest'
-      - '--set-secrets=JWT_SECRET_KEY=rag-bidding-jwt-secret:latest'
-      - '--set-secrets=OAUTH_CLIENT_SECRET=rag-bidding-oauth-secret:latest'
-      - '--set-secrets=OPENAI_API_KEY=rag-bidding-openai-key:latest'
+      - "run"
+      - "deploy"
+      - "${_SERVICE_NAME}"
+      - "--image=gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$COMMIT_SHA"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--allow-unauthenticated"
+      - "--memory=2Gi"
+      - "--cpu=2"
+      - "--min-instances=0"
+      - "--max-instances=10"
+      - "--timeout=300s"
+      - "--concurrency=80"
+      # Cloud SQL connection
+      - "--add-cloudsql-instances=${_CLOUD_SQL_INSTANCE}"
+      # Secrets from Secret Manager (format: ENV_VAR=secret-name:version)
+      - "--set-secrets=DATABASE_URL=rag-db-url:latest"
+      - "--set-secrets=GOOGLE_API_KEY=rag-google-api-key:latest"
+      - "--set-secrets=JWT_SECRET_KEY=rag-jwt-secret:latest"
+      - "--set-secrets=GOOGLE_OAUTH_CLIENT_ID=rag-oauth-client-id:latest"
+      - "--set-secrets=GOOGLE_OAUTH_CLIENT_SECRET=rag-oauth-client-secret:latest"
       # Environment variables (non-sensitive)
-      - '--set-env-vars=PYTHONUNBUFFERED=1'
-      - '--set-env-vars=RERANKER_PROVIDER=vertex'
-      - '--set-env-vars=ENABLE_REDIS_CACHE=true'
-      - '--set-env-vars=RATE_LIMIT_ENABLED=true'
+      - "--set-env-vars=PYTHONUNBUFFERED=1"
+      - "--set-env-vars=EMBED_PROVIDER=vertex"
+      - "--set-env-vars=RERANKER_PROVIDER=vertex"
+      - "--set-env-vars=GOOGLE_CLOUD_PROJECT=$PROJECT_ID"
+      - "--set-env-vars=GOOGLE_CLOUD_LOCATION=${_REGION}"
+      - "--set-env-vars=ENABLE_REDIS_CACHE=true"
+      - "--set-env-vars=ENABLE_ANSWER_CACHE=true"
+      - "--set-env-vars=ENABLE_SEMANTIC_CACHE=true"
+      - "--set-env-vars=RATE_LIMIT_ENABLED=true"
+      - "--set-env-vars=FRONTEND_URL=https://rag-bidding.vercel.app"
+      - "--set-env-vars=CORS_ORIGINS=https://rag-bidding.vercel.app,http://localhost:3000"
 
-# Build options
 options:
   logging: CLOUD_LOGGING_ONLY
-  machineType: 'E2_HIGHCPU_8'  # Faster build
+  machineType: "E2_HIGHCPU_8"
 
-# Store images in Container Registry
 images:
-  - 'gcr.io/$PROJECT_ID/rag-bidding-api:$COMMIT_SHA'
-  - 'gcr.io/$PROJECT_ID/rag-bidding-api:latest'
+  - "gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$COMMIT_SHA"
+  - "gcr.io/$PROJECT_ID/${_SERVICE_NAME}:latest"
 
-timeout: '1800s'  # 30 min total timeout
+timeout: "1800s"
