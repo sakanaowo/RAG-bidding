@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from langchain_openai import ChatOpenAI
-from langchain.schema import SystemMessage, HumanMessage
+from src.config.llm_provider import get_llm_client
+from langchain_core.messages import SystemMessage, HumanMessage
 import os
 import re
 import logging
@@ -15,7 +15,7 @@ class BaseEnhancementStrategy(ABC):
     Abstract base class cho tất cả enhancement strategies
 
     Provides:
-    - LLM client (LangChain ChatOpenAI)
+    - LLM client (from provider factory - supports OpenAI, Vertex AI, Gemini)
     - Common LLM calling method
     - Response parsing utilities
     - Error handling & retries
@@ -26,23 +26,16 @@ class BaseEnhancementStrategy(ABC):
         Initialize strategy
 
         Args:
-            llm_model: OpenAI model name (gpt-4o-mini, gpt-4, etc.)
+            llm_model: Model name (uses provider from settings)
             temperature: Sampling temperature (0.0-1.0)
         """
         self.llm_model = llm_model
         self.temperature = temperature
 
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable not set")
-
-        # Initialize LangChain ChatOpenAI
-        self.client = ChatOpenAI(
-            model=llm_model,
+        # Use LLM provider factory (supports OpenAI, Vertex AI, Gemini)
+        self.client = get_llm_client(
             temperature=temperature,
-            openai_api_key=api_key,
             max_tokens=500,
-            request_timeout=30,
         )
 
         logger.info(

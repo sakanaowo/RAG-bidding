@@ -4,7 +4,7 @@ Demonstration implementation cho các cải thiện được đề xuất
 """
 
 from typing import Dict, List
-from langchain_openai import ChatOpenAI
+from src.config.llm_provider import get_default_llm, get_llm_client
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda, RunnableParallel
@@ -19,12 +19,10 @@ from src.retrieval.retrievers.base_retriever import retriever
 from src.config.models import settings
 
 
-# Models cho các giai đoạn khác nhau
-main_model = ChatOpenAI(model=settings.llm_model, temperature=0)
-enhancer_model = ChatOpenAI(
-    model=settings.llm_model, temperature=0.3
-)  # Creativity cho query expansion
-ranker_model = ChatOpenAI(model=settings.llm_model, temperature=0)
+# Models cho các giai đoạn khác nhau (uses provider factory)
+main_model = get_default_llm()
+enhancer_model = get_llm_client(temperature=0.3)  # Creativity cho query expansion
+ranker_model = get_default_llm()
 
 
 def enhance_query(question: str) -> str:

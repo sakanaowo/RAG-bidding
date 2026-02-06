@@ -1,8 +1,11 @@
-# TODO: update later after onnx implementation is done
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
 *$py.class
+
+# Sensitive documentation (contains secrets)
+docs/ADMIN_SECRET_SETUP_GUIDE.md
 
 # C extensions
 *.so
@@ -211,3 +214,34 @@ __marimo__/
 # Database backups
 backup/
 data/uploads/
+/AIRunnerCredentials.json
+/DataManagerCredentials.json
+/client_secret*.json 
+
+# ===========================================
+# Files không cần cho production deployment
+# ===========================================
+
+# Processed data (có thể tái tạo từ raw)
+data/processed/
+data/archive/
+
+# Notebooks (chỉ dùng cho development)
+notebooks/
+
+# Postman collections (testing only)
+postman/
+
+# Logs
+logs/
+*.log
+
+# Local config
+*.local.yaml
+*.local.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

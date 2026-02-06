@@ -61,9 +61,9 @@
 │                    RAG PIPELINE LAYER                                │
 │  ┌────────────────┐  ┌────────────────┐  ┌──────────────────┐     │
 │  │ Query          │→ │ Vector         │→ │ Reranking        │     │
-│  │ Enhancement    │  │ Retrieval      │  │ (BGE-M3)         │     │
-│  │ - Multi-Query  │  │ (PGVector)     │  │ - Cross-Encoder  │     │
-│  │ - HyDE         │  │ - Cosine Sim   │  │ - Singleton      │     │
+│  │ Enhancement    │  │ Retrieval      │  │ (Vertex AI)      │     │
+│  │ - Multi-Query  │  │ (PGVector)     │  │ - Semantic Ranker│     │
+│  │ - HyDE         │  │ - Cosine Sim   │  │ - or BGE-M3      │     │
 │  │ - Step-Back    │  │ - Top-K        │  │ - GPU/CPU        │     │
 │  │ - RRF Fusion   │  │ - Filters      │  │                  │     │
 │  └────────────────┘  └────────────────┘  └──────────────────┘     │
@@ -71,7 +71,7 @@
 │                                 ▼                                    │
 │                      ┌──────────────────┐                           │
 │                      │ LLM Generation   │                           │
-│                      │ (GPT-4o-mini)    │                           │
+│                      │ (Gemini 2.5 Flash)│                           │
 │                      │ - Context Prep   │                           │
 │                      │ - Prompt Eng     │                           │
 │                      └──────────────────┘                           │
@@ -81,10 +81,10 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    EMBEDDING LAYER                                   │
 │  ┌────────────────────────────────────────────────────────┐         │
-│  │  OpenAI text-embedding-3-large                         │         │
-│  │  - Dimensions: 3,072 (native, no reduction)           │         │
-│  │  - Context: 8,191 tokens                               │         │
-│  │  - Cost: $0.13 per 1M tokens                           │         │
+│  │  Google Vertex AI gemini-embedding-001                 │         │
+│  │  - Dimensions: 1,536 (default, supports 768/1536/3072)│         │
+│  │  - Context: 2,048 tokens                               │         │
+│  │  - Cost: $0.15 per 1M tokens                           │         │
 │  └────────────────────────────────────────────────────────┘         │
 └─────────────────────────────────────────────────────────────────────┘
                                  │
@@ -107,7 +107,7 @@
 │  │  ┌──────────────┐  ┌─────────────────────────────────┐ │        │
 │  │  │ documents    │  │ langchain_pg_embedding          │ │        │
 │  │  │ - 64 docs    │  │ - 7,892 chunks                  │ │        │
-│  │  │ - Metadata   │  │ - VECTOR(3072)                  │ │        │
+│  │  │ - Metadata   │  │ - VECTOR(1536)                  │ │        │
 │  │  └──────────────┘  │ - JSONB metadata                │ │        │
 │  │                    │ - HNSW/IVFFlat index            │ │        │
 │  │  ┌──────────────┐  └─────────────────────────────────┘ │        │
@@ -123,9 +123,9 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    EXTERNAL SERVICES                                 │
 │  ┌──────────────┐    ┌──────────────┐    ┌───────────────────┐    │
-│  │ OpenAI API   │    │ Redis Server │    │ Background Workers│    │
-│  │ - Embeddings │    │ localhost    │    │ - Doc Processing  │    │
-│  │ - GPT-4o-mini│    │ :6379        │    │ - Async Jobs      │    │
+│  │ Google Cloud │    │ Redis Server │    │ Background Workers│    │
+│  │ - Vertex AI  │    │ localhost    │    │ - Doc Processing  │    │
+│  │ - Gemini API │    │ :6379        │    │ - Async Jobs      │    │
 │  └──────────────┘    └──────────────┘    └───────────────────┘    │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -143,21 +143,18 @@
 **Core Modules:**
 
 1. **Question Answering Module** (`src/api/ask.py`)
-
    - Endpoint: `POST /ask`
    - Handles query processing
    - Integrates RAG pipeline
    - Returns answers with sources
 
 2. **Document Management Module** (`src/api/upload.py`)
-
    - Endpoint: `POST /api/upload/files`
    - Handles file uploads
    - Background processing
    - Status tracking
 
 3. **Chat Session Module** (`src/api/chat.py`)
-
    - Endpoints: `/api/chat/sessions/*`
    - Session management
    - Message history
@@ -244,25 +241,25 @@ python-multipart==0.0.6
 
 ### 2.3. Embedding Layer
 
-**Model:** OpenAI text-embedding-3-large
+**Model:** Google Vertex AI gemini-embedding-001
 
 **Specifications:**
 
-- **Dimensions:** 3,072 (native, no reduction)
-- **Context Window:** 8,191 tokens
-- **Cost:** $0.13 per 1M tokens
+- **Dimensions:** 1,536 (default, supports 768/1536/3072)
+- **Context Window:** 2,048 tokens
+- **Cost:** $0.15 per 1M tokens
 - **Latency:** 100-200ms per chunk
-- **Quality:** State-of-the-art (MTEB leaderboard)
+- **Quality:** High-quality with MRL (Matryoshka Representation Learning)
 
 **Implementation:**
 
 ```python
-from langchain_openai import OpenAIEmbeddings
+from langchain_google_vertexai import VertexAIEmbeddings
 
-embeddings = OpenAIEmbeddings(
-    model="text-embedding-3-large",
-    dimensions=3072,
-    openai_api_key=os.getenv("OPENAI_API_KEY")
+embeddings = VertexAIEmbeddings(
+    model_name="gemini-embedding-001",
+    project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+    location=os.getenv("GOOGLE_CLOUD_LOCATION", "asia-southeast1"),
 )
 ```
 
@@ -358,7 +355,7 @@ default_pool_size = 20
 
 6. EMBEDDING GENERATION
    ↓
-   - Call OpenAI API (text-embedding-3-large)
+   - Call Vertex AI API (gemini-embedding-001)
    - 4 embeddings (4 queries)
    - Latency: ~400ms total
 
@@ -394,7 +391,7 @@ default_pool_size = 20
 
 11. LLM GENERATION
     ↓
-    - Call OpenAI GPT-4o-mini
+    - Call Gemini 2.5 Flash (via Vertex AI)
     - Prompt: system + context + query
     - Max tokens: 500
     - Temperature: 0.3
@@ -515,8 +512,8 @@ Total Latency Breakdown:
 10. EMBEDDING GENERATION
     ↓
     - Batch process chunks (10 at a time)
-    - Call OpenAI API
-    - Generate 3,072-dim vectors
+    - Call Vertex AI API (gemini-embedding-001)
+    - Generate 1,536-dim vectors
     - Latency: ~100ms per chunk
     - Progress: 70-90%
 
@@ -582,10 +579,10 @@ INPUT: User Query + Filters + Mode
                    ↓
 ┌──────────────────────────────────────┐
 │  Embedding Module                    │
-│  - OpenAI text-embedding-3-large     │
+│  - Vertex AI gemini-embedding-001    │
 │  - Batch processing                  │
 │  - Error handling & retry            │
-│  Output: Vector embeddings (3072-dim)│
+│  Output: Vector embeddings (1536-dim)│
 └──────────────────┬───────────────────┘
                    ↓
 ┌──────────────────────────────────────┐
@@ -622,7 +619,7 @@ INPUT: User Query + Filters + Mode
                    ↓
 ┌──────────────────────────────────────┐
 │  LLM Generation Module               │
-│  - GPT-4o-mini                       │
+│  - Gemini 2.5 Flash                  │
 │  - Temperature: 0.3                  │
 │  - Max tokens: 500                   │
 │  Output: Natural language answer     │

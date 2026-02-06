@@ -197,23 +197,13 @@ class HybridSemanticCache:
         return self._embedder
 
     def _get_reranker(self):
-        """Get reranker based on DEFAULT_RERANKER_TYPE config."""
+        """Get reranker based on DEFAULT_RERANKER_TYPE config using provider factory."""
         if self._reranker is None:
             try:
-                from src.config.feature_flags import DEFAULT_RERANKER_TYPE
-
-                if DEFAULT_RERANKER_TYPE == "openai":
-                    from src.retrieval.ranking.openai_reranker import OpenAIReranker
-
-                    self._reranker = OpenAIReranker()
-                    logger.debug("✅ OpenAI reranker obtained for semantic cache")
-                else:
-                    from src.retrieval.ranking.bge_reranker import (
-                        get_singleton_reranker,
-                    )
-
-                    self._reranker = get_singleton_reranker()
-                    logger.debug("✅ BGE reranker obtained (singleton)")
+                from src.config.reranker_provider import get_default_reranker
+                
+                self._reranker = get_default_reranker()
+                logger.debug(f"✅ Reranker obtained for semantic cache: {type(self._reranker).__name__}")
             except Exception as e:
                 logger.warning(f"⚠️ Failed to get reranker: {e}")
         return self._reranker

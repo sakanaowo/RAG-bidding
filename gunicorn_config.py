@@ -29,9 +29,9 @@ backlog = 2048
 # WORKER PROCESSES
 # =============================================================================
 
-# Number of workers: 4 (as specified)
-# Formula: 2-4 x $(NUM_CORES)
-workers = int(os.getenv("GUNICORN_WORKERS", "4"))
+# Number of workers: 1 (single worker for connection pooling efficiency)
+# With connection pooling, 1 worker can handle high concurrency
+workers = int(os.getenv("GUNICORN_WORKERS", "1"))
 
 # Worker class for async support
 worker_class = os.getenv("GUNICORN_WORKER_CLASS", "uvicorn.workers.UvicornWorker")

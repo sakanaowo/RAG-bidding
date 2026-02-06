@@ -1,7 +1,7 @@
 import os
 import time
 from typing import Dict, Literal
-from langchain_openai import ChatOpenAI
+from src.config.llm_provider import get_default_llm
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import (
@@ -20,7 +20,8 @@ from src.retrieval.semantic_cache_v2 import get_semantic_cache_v2
 from src.config.models import settings, apply_preset
 
 
-model = ChatOpenAI(model=settings.llm_model, temperature=0)
+# Use LLM from provider factory (supports OpenAI, Vertex AI, Gemini)
+model = get_default_llm()
 
 
 def is_complex_query(question: str) -> bool:

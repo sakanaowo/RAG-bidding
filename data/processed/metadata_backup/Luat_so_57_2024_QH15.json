@@ -1,8 +1,0 @@
-{
-  "source_file": "data/raw/Luat chinh/Luat so 57 2024 QH15.docx",
-  "document_type": "law",
-  "category": "Luat so 57 2024 QH15.docx",
-  "chunk_count": 128,
-  "output_file": "data/processed_enriched/chunks/Luat_so_57_2024_QH15.jsonl",
-  "processed_at": "2025-11-04T12:13:31.478055"
-}

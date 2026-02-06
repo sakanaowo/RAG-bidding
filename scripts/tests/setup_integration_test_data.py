@@ -129,7 +129,10 @@ def create_sample_queries(session, admin_user, regular_user, num_queries=20):
             tokens_total=total_tokens,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
-            estimated_cost_usd=Decimal(str(round(total_tokens * 0.00001, 6))),
+            # Gemini 2.5 Flash pricing: $0.30/1M input, $2.50/1M output
+            estimated_cost_usd=Decimal(
+                str(round((input_tokens * 0.30 + output_tokens * 2.50) / 1_000_000, 6))
+            ),
             total_latency_ms=random.randint(500, 5000),
             retrieval_count=random.randint(0, 5),
             created_at=query_time,

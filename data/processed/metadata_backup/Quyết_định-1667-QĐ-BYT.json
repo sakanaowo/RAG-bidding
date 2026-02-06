@@ -1,8 +1,0 @@
-{
-  "source_file": "data/raw/Quyet dinh/Quyết định-1667-QĐ-BYT.docx",
-  "document_type": "decision",
-  "category": "Quyết định-1667-QĐ-BYT.docx",
-  "chunk_count": 5,
-  "output_file": "data/processed_enriched/chunks/Quyết_định-1667-QĐ-BYT.jsonl",
-  "processed_at": "2025-11-04T12:13:49.241809"
-}

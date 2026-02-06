@@ -1,6 +1,5 @@
 import os
 import logging
-from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
 from src.config.models import settings
 from src.config.feature_flags import (
@@ -12,10 +11,12 @@ from src.config.feature_flags import (
     ENABLE_L1_CACHE,
     L1_CACHE_MAXSIZE,
 )
+from src.config.embedding_provider import get_default_embeddings
 
 logger = logging.getLogger(__name__)
 
-embeddings = OpenAIEmbeddings(model=settings.embed_model)
+# Use embedding factory (supports OpenAI, Vertex AI based on EMBED_PROVIDER)
+embeddings = get_default_embeddings()
 
 # Create base vector store
 _raw_vector_store = PGVector(
