@@ -25,8 +25,8 @@ def _env_bool(name: str, default: bool) -> bool:
 class Settings:
     database_url: str = os.getenv("DATABASE_URL", "")
     collection: str = os.getenv("LC_COLLECTION", "docs")
-    embed_model: str = os.getenv("EMBED_MODEL", "text-embedding-3-small")
-    llm_model: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
+    embed_model: str = os.getenv("EMBED_MODEL", "gemini-embedding-001")
+    llm_model: str = os.getenv("LLM_MODEL", "gemini-2.5-flash")
     chunk_size: int = int(os.getenv("CHUNK_SIZE", "1000"))
     chunk_overlap: int = int(os.getenv("CHUNK_OVERLAP", "200"))
     allowed_ext: list[str] = field(
@@ -79,7 +79,7 @@ class Settings:
 
     # Chain of Thought (CoT) reasoning
     enable_cot_reasoning: bool = _env_bool("ENABLE_COT_REASONING", False)
-    cot_analyzer_model: str = os.getenv("COT_ANALYZER_MODEL", "gpt-4o-mini")
+    cot_analyzer_model: str = os.getenv("COT_ANALYZER_MODEL", "gemini-2.5-flash")
 
     # Fallback behaviors
     fallback_to_basic_rag: bool = _env_bool("FALLBACK_TO_BASIC_RAG", True)
@@ -95,8 +95,8 @@ class Settings:
     )
 
     # ===== Provider Settings (Phase 1 Abstraction) =====
-    llm_provider: str = os.getenv("LLM_PROVIDER", "openai")  # openai, vertex, gemini
-    embed_provider: str = os.getenv("EMBED_PROVIDER", "openai")  # openai, vertex
+    llm_provider: str = os.getenv("LLM_PROVIDER", "gemini")  # openai, vertex, gemini
+    embed_provider: str = os.getenv("EMBED_PROVIDER", "vertex")  # openai, vertex
     reranker_provider: str = os.getenv(
         "RERANKER_PROVIDER", "vertex"
     )  # bge, openai, vertex
@@ -106,7 +106,9 @@ class Settings:
     google_cloud_location: str = os.getenv("GOOGLE_CLOUD_LOCATION", "asia-southeast1")
     vertex_llm_model: str = os.getenv("VERTEX_LLM_MODEL", "gemini-2.5-flash")
     vertex_embed_model: str = os.getenv("VERTEX_EMBED_MODEL", "gemini-embedding-001")
-    embed_dimensions: int = int(os.getenv("EMBED_DIMENSIONS", "1536"))  # Match OpenAI
+    embed_dimensions: int = int(
+        os.getenv("EMBED_DIMENSIONS", "1536")
+    )  # Vertex AI gemini-embedding-001 truncated to 1536
 
     # ===== Vertex AI Ranking API Settings =====
     vertex_reranker_model: str = os.getenv(

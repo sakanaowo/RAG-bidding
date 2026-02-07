@@ -32,7 +32,7 @@ class EnhancementStrategy(Enum):
 class QueryEnhancerConfig:
     """Configuration for QueryEnhancer"""
 
-    llm_model: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
+    llm_model: str = os.getenv("LLM_MODEL", "gemini-2.5-flash")
     temperature: float = 0.7
     max_queries: int = int(os.getenv("MAX_ENHANCED_QUERIES", "3"))
     strategies: List[EnhancementStrategy] = None

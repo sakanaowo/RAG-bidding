@@ -496,7 +496,7 @@ def get_db_sync():
 
     # Parse URL
     parsed = urlparse(db_url)
-    
+
     # Determine connection method: TCP (hostname) or Unix socket (query param)
     if parsed.hostname:
         # TCP connection
@@ -508,12 +508,12 @@ def get_db_sync():
         # Format: postgresql://user:pass@/db?host=/cloudsql/project:region:instance
         query_params = parse_qs(parsed.query)
         socket_path = query_params.get("host", [None])[0]
-        
+
         if not socket_path:
             raise ValueError(
                 f"Invalid DATABASE_URL: missing hostname and no socket path. URL: {db_url[:60]}..."
             )
-        
+
         host = socket_path  # psycopg accepts socket path as host
         port = None  # No port for Unix socket
         logger.debug(f"Using Unix socket connection: {socket_path}")
@@ -526,10 +526,10 @@ def get_db_sync():
         "user": parsed.username,
         "password": unquote(parsed.password) if parsed.password else None,
     }
-    
+
     if port:
         connect_args["port"] = port
-    
+
     conn = psycopg.connect(**connect_args)
 
     return conn

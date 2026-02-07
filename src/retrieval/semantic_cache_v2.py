@@ -189,9 +189,11 @@ class HybridSemanticCache:
         if self._embedder is None:
             try:
                 from src.config.embedding_provider import get_default_embeddings
-                
+
                 self._embedder = get_default_embeddings()
-                logger.debug("✅ Embedder loaded for semantic cache from provider factory")
+                logger.debug(
+                    "✅ Embedder loaded for semantic cache from provider factory"
+                )
             except Exception as e:
                 logger.warning(f"⚠️ Failed to load embedder: {e}")
         return self._embedder
@@ -201,9 +203,11 @@ class HybridSemanticCache:
         if self._reranker is None:
             try:
                 from src.config.reranker_provider import get_default_reranker
-                
+
                 self._reranker = get_default_reranker()
-                logger.debug(f"✅ Reranker obtained for semantic cache: {type(self._reranker).__name__}")
+                logger.debug(
+                    f"✅ Reranker obtained for semantic cache: {type(self._reranker).__name__}"
+                )
             except Exception as e:
                 logger.warning(f"⚠️ Failed to get reranker: {e}")
         return self._reranker
