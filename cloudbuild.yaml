@@ -57,6 +57,12 @@ steps:
       - "--set-secrets=GOOGLE_API_KEY=rag-bidding-google-api-key:latest"
       - "--set-secrets=JWT_SECRET_KEY=rag-bidding-jwt-secret:latest"
       - "--set-secrets=GOOGLE_OAUTH_CLIENT_SECRET=rag-bidding-oauth-secret:latest"
+      # ===== CRITICAL: Environment Mode (fixes "local database" bug) =====
+      - "--set-env-vars=ENV_MODE=production"
+      - "--set-env-vars=USE_CLOUD_DB=false"
+      # Note: USE_CLOUD_DB=false because DATABASE_URL from Secret Manager is used directly
+      # The code will use DATABASE_URL when provided, bypassing the cloud_db_host logic
+
       # Environment variables (non-sensitive)
       - "--set-env-vars=PYTHONUNBUFFERED=1"
       - "--set-env-vars=EMBED_PROVIDER=vertex"
@@ -67,6 +73,12 @@ steps:
       - "--set-env-vars=ENABLE_ANSWER_CACHE=true"
       - "--set-env-vars=ENABLE_SEMANTIC_CACHE=true"
       - "--set-env-vars=RATE_LIMIT_ENABLED=true"
+      - "--set-env-vars=ENABLE_RERANKING=true"
+      - "--set-env-vars=ENABLE_ADAPTIVE_RETRIEVAL=true"
+      - "--set-env-vars=ENABLE_QUERY_ENHANCEMENT=true"
+      - "--set-env-vars=RAG_MODE=balanced"
+      - "--set-env-vars=USE_GCS_STORAGE=true"
+      - "--set-env-vars=GCS_BUCKET=rag-bidding-documents"
       # OAuth Client ID (set via substitution in trigger)
       - "--set-env-vars=GOOGLE_OAUTH_CLIENT_ID=${_GOOGLE_OAUTH_CLIENT_ID}"
       # Frontend URL (set via substitution in trigger)

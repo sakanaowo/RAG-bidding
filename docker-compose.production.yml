@@ -1,0 +1,116 @@
+# ===================================================
+# Docker Compose - Production Override
+# ===================================================
+# Usage: 
+#   docker-compose -f docker-compose.yml -f docker-compose.production.yml up -d
+# 
+# Or with env file:
+#   docker-compose --env-file .env.production -f docker-compose.yml -f docker-compose.production.yml up -d
+# ===================================================
+
+services:
+  rag-api:
+    container_name: rag-bidding-api-prod
+    ports:
+      - "8080:8080"
+    environment:
+      # Server (Cloud Run port)
+      - PORT=8080
+      - API_HOST=0.0.0.0
+      - API_PORT=8080
+      
+      # ===== CRITICAL: Production Mode =====
+      - ENV_MODE=production
+      - USE_CLOUD_DB=true
+      
+      # Redis (embedded in container)
+      - REDIS_HOST=127.0.0.1
+      - REDIS_PORT=6379
+      - REDIS_DB_CACHE=0
+      - REDIS_DB_SESSIONS=1
+      - ENABLE_REDIS_CACHE=true
+      - ENABLE_REDIS_SESSIONS=true
+      - CACHE_TTL=3600
+      
+      # Answer Cache
+      - ENABLE_ANSWER_CACHE=true
+      - ANSWER_CACHE_TTL=86400
+      - ANSWER_CACHE_DB=2
+      
+      # Semantic Cache
+      - ENABLE_SEMANTIC_CACHE=true
+      - SEMANTIC_CACHE_THRESHOLD=0.95
+      - SEMANTIC_CACHE_DB=3
+      - MAX_SEMANTIC_SEARCH=100
+      
+      # Rate Limiting
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_DAILY_QUERIES=200
+      - RATE_LIMIT_REDIS_DB=4
+      
+      # ===== Cloud Database =====
+      - CLOUD_DB_USER=${CLOUD_DB_USER}
+      - CLOUD_DB_PASSWORD=${CLOUD_DB_PASSWORD}
+      - CLOUD_INSTANCE_DB=${CLOUD_INSTANCE_DB}
+      - CLOUD_DB_CONNECTION_PUBLICIP=${CLOUD_DB_CONNECTION_PUBLICIP}
+      - CLOUD_DB_CONNECTION_NAME=${CLOUD_DB_CONNECTION_NAME}
+      
+      # ===== Cloud Storage =====
+      - USE_GCS_STORAGE=true
+      - GCS_BUCKET=${GCS_BUCKET:-rag-bidding-documents}
+      
+      # Embedding
+      - EMBED_PROVIDER=vertex
+      - EMBED_MODEL=gemini-embedding-001
+      - EMBED_DIMENSIONS=1536
+      - VERTEX_EMBED_MODEL=gemini-embedding-001
+      
+      # LLM
+      - LLM_PROVIDER=gemini
+      - LLM_MODEL=gemini-2.5-flash
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GEMINI_MODEL=gemini-2.5-flash
+      
+      # Vertex AI
+      - VERTEXAI_API_KEY=${VERTEXAI_API_KEY}
+      - GOOGLE_CLOUD_LOCATION=asia-southeast1
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      
+      # Reranker
+      - RERANKER_PROVIDER=vertex
+      - VERTEX_RERANKER_MODEL=semantic-ranker-default@latest
+      - ENABLE_RERANKING=true
+      
+      # RAG Settings
+      - ENABLE_ADAPTIVE_RETRIEVAL=true
+      - ENABLE_QUERY_ENHANCEMENT=true
+      - RAG_MODE=balanced
+      
+      # Auth
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID}
+      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET}
+      - GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-https://rag-bid-api-381080458962.asia-southeast1.run.app/api/auth/oauth/google/callback}
+      - FRONTEND_URL=${FRONTEND_URL:-https://rag-frontend-381080458962.asia-southeast1.run.app}
+      
+      # CORS
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://rag-frontend-381080458962.asia-southeast1.run.app}
+      
+      # Logging
+      - LOG_LEVEL=INFO
+      - LOG_JSON=true
+    
+    # No volumes in production (stateless)
+    volumes: []
+    
+    # No extra_hosts needed for Cloud SQL
+    extra_hosts: []
+    
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health && redis-cli -h 127.0.0.1 ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    restart: always

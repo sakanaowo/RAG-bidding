@@ -331,19 +331,38 @@ def get_effective_database_url() -> str:
     """
     Get the effective database URL based on environment configuration.
 
-    Auto-switches between local and cloud DB:
-        - USE_CLOUD_DB=true  -> Cloud SQL (direct IP)
-        - USE_CLOUD_DB=false -> Local DB (DATABASE_URL)
+    Priority:
+        1. If USE_CLOUD_DB=true → Build URL from CLOUD_DB_* components
+        2. Else use DATABASE_URL from environment
+
+    Note: In Cloud Run, DATABASE_URL comes from Secret Manager and is a
+    Cloud SQL URL, so USE_CLOUD_DB=false is correct (no need to build URL).
 
     Returns:
         Database connection URL
     """
     if settings.use_cloud_db:
-        logger.info(f"🌐 Using Cloud SQL database (ENV_MODE={settings.env_mode})")
+        logger.info(
+            f"🌐 Using Cloud SQL database (ENV_MODE={settings.env_mode}, built from CLOUD_DB_* settings)"
+        )
         return build_cloud_database_url()
     else:
-        logger.info(f"💻 Using local database (ENV_MODE={settings.env_mode})")
-        return settings.database_url
+        # Check if DATABASE_URL looks like a cloud connection
+        db_url = settings.database_url
+        is_cloud = db_url and (
+            "cloud" in db_url.lower()
+            or "34.124" in db_url  # Cloud SQL public IP
+            or "/cloudsql/" in db_url
+        )
+
+        if is_cloud:
+            logger.info(
+                f"🌐 Using Cloud SQL database from DATABASE_URL (ENV_MODE={settings.env_mode})"
+            )
+        else:
+            logger.info(f"💻 Using local database (ENV_MODE={settings.env_mode})")
+
+        return db_url
 
 
 def init_database(database_url: str = None) -> DatabaseConfig:
