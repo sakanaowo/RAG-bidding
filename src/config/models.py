@@ -97,7 +97,9 @@ class Settings:
     # ===== Provider Settings (Phase 1 Abstraction) =====
     llm_provider: str = os.getenv("LLM_PROVIDER", "openai")  # openai, vertex, gemini
     embed_provider: str = os.getenv("EMBED_PROVIDER", "openai")  # openai, vertex
-    reranker_provider: str = os.getenv("RERANKER_PROVIDER", "bge")  # bge, openai, vertex
+    reranker_provider: str = os.getenv(
+        "RERANKER_PROVIDER", "vertex"
+    )  # bge, openai, vertex
 
     # ===== Vertex AI / Google Cloud Settings =====
     google_cloud_project: str = os.getenv("GOOGLE_CLOUD_PROJECT", "")
@@ -105,16 +107,18 @@ class Settings:
     vertex_llm_model: str = os.getenv("VERTEX_LLM_MODEL", "gemini-2.5-flash")
     vertex_embed_model: str = os.getenv("VERTEX_EMBED_MODEL", "gemini-embedding-001")
     embed_dimensions: int = int(os.getenv("EMBED_DIMENSIONS", "1536"))  # Match OpenAI
-    
+
     # ===== Vertex AI Ranking API Settings =====
-    vertex_reranker_model: str = os.getenv("VERTEX_RERANKER_MODEL", "semantic-ranker-default@latest")
+    vertex_reranker_model: str = os.getenv(
+        "VERTEX_RERANKER_MODEL", "semantic-ranker-default@latest"
+    )
 
     # ===== Gemini API Settings =====
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
     # ===== Environment Mode (Phase 3) =====
     env_mode: str = os.getenv("ENV_MODE", "dev")  # dev, staging, production
-    
+
     # ===== Cloud Database Settings (Phase 3) =====
     use_cloud_db: bool = _env_bool("USE_CLOUD_DB", False)
     cloud_db_host: str = os.getenv("CLOUD_DB_CONNECTION_PUBLICIP", "")
@@ -122,11 +126,10 @@ class Settings:
     cloud_db_password: str = os.getenv("CLOUD_DB_PASSWORD", "")
     cloud_db_name: str = os.getenv("CLOUD_INSTANCE_DB", "")
     cloud_db_connection_name: str = os.getenv("CLOUD_DB_CONNECTION_NAME", "")
-    
+
     # ===== Cloud Storage Settings (Phase 3) =====
     use_gcs_storage: bool = _env_bool("USE_GCS_STORAGE", False)
     gcs_bucket: str = os.getenv("GCS_BUCKET", "")
-
 
 
 settings = Settings()
