@@ -472,15 +472,19 @@ def get_db_sync():
     WARNING: This uses synchronous SQLAlchemy and should only be used
     in background tasks or non-async code paths. Prefer async get_db() for API endpoints.
 
+    Supports both TCP and Unix socket connections:
+    - TCP: postgresql://user:pass@host:port/db
+    - Unix socket: postgresql://user:pass@/db?host=/cloudsql/project:region:instance
+
     Returns:
         Database session (psycopg style)
     """
     import psycopg
-    from urllib.parse import urlparse, unquote
+    from urllib.parse import urlparse, unquote, parse_qs
 
     # Use the same database URL logic as async engine
     db_url = get_effective_database_url()
-    
+
     if not db_url:
         raise ValueError("DATABASE_URL not configured")
 
@@ -493,17 +497,39 @@ def get_db_sync():
     # Parse URL
     parsed = urlparse(db_url)
     
-    if not parsed.hostname:
-        raise ValueError(f"Invalid DATABASE_URL: missing hostname. URL pattern: {db_url[:50]}...")
+    # Determine connection method: TCP (hostname) or Unix socket (query param)
+    if parsed.hostname:
+        # TCP connection
+        host = parsed.hostname
+        port = parsed.port or 5432
+        logger.debug(f"Using TCP connection to {host}:{port}")
+    else:
+        # Unix socket connection (Cloud SQL style)
+        # Format: postgresql://user:pass@/db?host=/cloudsql/project:region:instance
+        query_params = parse_qs(parsed.query)
+        socket_path = query_params.get("host", [None])[0]
+        
+        if not socket_path:
+            raise ValueError(
+                f"Invalid DATABASE_URL: missing hostname and no socket path. URL: {db_url[:60]}..."
+            )
+        
+        host = socket_path  # psycopg accepts socket path as host
+        port = None  # No port for Unix socket
+        logger.debug(f"Using Unix socket connection: {socket_path}")
 
     # Create psycopg connection
     # Note: unquote() decodes URL-encoded password (e.g., %7C -> |, %3D -> =)
-    conn = psycopg.connect(
-        host=parsed.hostname,
-        port=parsed.port or 5432,
-        dbname=parsed.path.lstrip("/"),
-        user=parsed.username,
-        password=unquote(parsed.password) if parsed.password else None,
-    )
+    connect_args = {
+        "host": host,
+        "dbname": parsed.path.lstrip("/"),
+        "user": parsed.username,
+        "password": unquote(parsed.password) if parsed.password else None,
+    }
+    
+    if port:
+        connect_args["port"] = port
+    
+    conn = psycopg.connect(**connect_args)
 
     return conn
