@@ -478,8 +478,11 @@ def get_db_sync():
     import psycopg
     from urllib.parse import urlparse, unquote
 
-    # Parse database URL
-    db_url = settings.database_url
+    # Use the same database URL logic as async engine
+    db_url = get_effective_database_url()
+    
+    if not db_url:
+        raise ValueError("DATABASE_URL not configured")
 
     # Convert postgresql+asyncpg:// or postgresql+psycopg:// to postgresql://
     if db_url.startswith("postgresql+asyncpg://"):
@@ -489,12 +492,15 @@ def get_db_sync():
 
     # Parse URL
     parsed = urlparse(db_url)
+    
+    if not parsed.hostname:
+        raise ValueError(f"Invalid DATABASE_URL: missing hostname. URL pattern: {db_url[:50]}...")
 
     # Create psycopg connection
     # Note: unquote() decodes URL-encoded password (e.g., %7C -> |, %3D -> =)
     conn = psycopg.connect(
         host=parsed.hostname,
-        port=parsed.port,
+        port=parsed.port or 5432,
         dbname=parsed.path.lstrip("/"),
         user=parsed.username,
         password=unquote(parsed.password) if parsed.password else None,
