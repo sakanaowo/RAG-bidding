@@ -9,7 +9,7 @@
 
 substitutions:
   _REGION: "asia-southeast1"
-  _SERVICE_NAME: "rag-bidding-api"
+  _SERVICE_NAME: "rag-bid-api"
   _CLOUD_SQL_INSTANCE_NAME: "rag-bid-db" # Just the instance name, project & region added automatically
   _GOOGLE_OAUTH_CLIENT_ID: "" # Set in Cloud Build trigger
   _FRONTEND_URL: "" # Set in Cloud Build trigger
@@ -44,8 +44,8 @@ steps:
       - "--region=${_REGION}"
       - "--platform=managed"
       - "--allow-unauthenticated"
-      - "--memory=2Gi"
-      - "--cpu=2"
+      - "--memory=6Gi"
+      - "--cpu=4"
       - "--min-instances=0"
       - "--max-instances=10"
       - "--timeout=300s"
