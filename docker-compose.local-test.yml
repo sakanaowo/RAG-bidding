@@ -1,0 +1,89 @@
+# ===================================================
+# Docker Compose - Local Production Testing
+# ===================================================
+# Build production Docker image with full GCP config
+# but run locally for testing/debugging
+#
+# Usage:
+#   docker compose -f docker-compose.local-test.yml up --build
+#
+# Prerequisites:
+#   - Google Cloud credentials (AIRunnerCredentials.json)
+#   - .env.local with API keys (GOOGLE_API_KEY, etc.)
+# ===================================================
+
+services:
+  rag-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-bidding-local-test
+    network_mode: host
+    env_file:
+      - .env.local
+    environment:
+      # ===== Server =====
+      - PORT=8080
+      - API_HOST=0.0.0.0
+      - API_PORT=8080
+      - GUNICORN_BIND=0.0.0.0:8080
+
+      # ===== Environment Mode =====
+      - ENV_MODE=production
+      - USE_CLOUD_DB=true
+
+      # ===== Cloud Database (Public IP) =====
+      - CLOUD_DB_CONNECTION_PUBLICIP=34.124.182.97
+      - CLOUD_DB_USER=rag-bid-db
+      - CLOUD_DB_PASSWORD=i|qe=LcLRnH3=q|E
+      - CLOUD_INSTANCE_DB=rag_bidding_v3
+      - CLOUD_DB_CONNECTION_NAME=bid-information-484813:asia-southeast1:rag-bid-db
+
+      # ===== LLM & Embedding (Google services) =====
+      - LC_COLLECTION=docs
+      - LLM_PROVIDER=gemini
+      - LLM_MODEL=gemini-2.5-flash
+      - GEMINI_MODEL=gemini-2.5-flash
+      - EMBED_PROVIDER=vertex
+      - EMBED_MODEL=gemini-embedding-001
+      - EMBED_DIMENSIONS=1536
+      - VERTEX_EMBED_MODEL=gemini-embedding-001
+
+      # ===== Reranker =====
+      - RERANKER_PROVIDER=vertex
+      - VERTEX_RERANKER_MODEL=semantic-ranker-default@latest
+      - ENABLE_RERANKING=true
+
+      # ===== Google Cloud =====
+      - GOOGLE_CLOUD_LOCATION=asia-southeast1
+      - GOOGLE_CLOUD_PROJECT=bid-information-484813
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/service-account.json
+
+      # ===== Redis (embedded in container) =====
+      - REDIS_HOST=127.0.0.1
+      - REDIS_PORT=6379
+
+      # ===== RAG Settings =====
+      - ENABLE_ADAPTIVE_RETRIEVAL=true
+      - ENABLE_QUERY_ENHANCEMENT=true
+      - RAG_MODE=balanced
+
+      # ===== Storage =====
+      - USE_GCS_STORAGE=true
+      - GCS_BUCKET=rag-bidding-documents
+
+      # ===== Logging (verbose for debugging) =====
+      - LOG_LEVEL=DEBUG
+      - LOG_JSON=false
+
+      # ===== CORS =====
+      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+      - FRONTEND_URL=http://localhost:3000
+
+    volumes:
+      # Mount Google Cloud service account credentials
+      - ./AIRunnerCredentials.json:/app/credentials/service-account.json:ro
+      # Mount logs for debugging
+      - ./logs:/app/logs
+
+    restart: "no"

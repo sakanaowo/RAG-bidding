@@ -58,8 +58,10 @@ class PooledPGVectorStore:
         LangChain PGVector requires sync connection, so we convert from async URL
         """
         if not self._sync_connection_string:
-            # Convert async URL to sync for LangChain compatibility
-            async_url = settings.database_url
+            # Use effective database URL (respects USE_CLOUD_DB setting)
+            from src.config.database import get_effective_database_url
+
+            async_url = get_effective_database_url()
             self._sync_connection_string = async_url.replace(
                 "postgresql+asyncpg://", "postgresql://"
             ).replace("postgresql+psycopg://", "postgresql://")

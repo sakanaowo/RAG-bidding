@@ -308,11 +308,13 @@ def test_cached_retrieval():
     print("=" * 80)
 
     # Initialize vector store with provider-based embeddings
+    from src.config.database import get_effective_database_url
+
     embeddings = get_default_embeddings()
     vector_store = PGVector(
         embeddings=embeddings,
         collection_name=settings.collection,
-        connection=settings.database_url,
+        connection=get_effective_database_url(),
         use_jsonb=True,
     )
 

@@ -2,6 +2,7 @@ import os
 import logging
 from langchain_postgres import PGVector
 from src.config.models import settings
+from src.config.database import get_effective_database_url
 from src.config.feature_flags import (
     ENABLE_REDIS_CACHE,
     REDIS_HOST,
@@ -18,11 +19,17 @@ logger = logging.getLogger(__name__)
 # Use embedding factory (supports OpenAI, Vertex AI based on EMBED_PROVIDER)
 embeddings = get_default_embeddings()
 
+# Get effective database URL (respects USE_CLOUD_DB and env mode)
+_effective_db_url = get_effective_database_url()
+logger.info(
+    f"🔗 PGVector store connecting to: {'Cloud SQL' if '34.124' in _effective_db_url or '/cloudsql/' in _effective_db_url else 'Local DB'}"
+)
+
 # Create base vector store
 _raw_vector_store = PGVector(
     embeddings=embeddings,
     collection_name=settings.collection,
-    connection=settings.database_url,
+    connection=_effective_db_url,
     use_jsonb=True,
     create_extension=True,
 )
@@ -58,10 +65,14 @@ else:
 
 
 def bootstrap():
-    """Bootstrap database using raw vector store (not cached wrapper)"""
+    """Bootstrap database using raw vector store (not cached wrapper).
+
+    Note: Only creates extension and tables if they don't exist.
+    Does NOT call create_collection() to avoid generating a new UUID
+    that would orphan existing embeddings.
+    """
     _raw_vector_store.create_vector_extension()
     _raw_vector_store.create_tables_if_not_exists()
-    _raw_vector_store.create_collection()
 
 
 class PGVectorStore:

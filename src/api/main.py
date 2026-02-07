@@ -477,7 +477,9 @@ def health():
     try:
         import psycopg
 
-        dsn = settings.database_url.replace("postgresql+psycopg", "postgresql")
+        from src.config.database import get_effective_database_url
+
+        dsn = get_effective_database_url().replace("postgresql+psycopg", "postgresql")
         with psycopg.connect(dsn) as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT 1")
