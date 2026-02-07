@@ -293,7 +293,6 @@ def test_cached_retrieval():
     import sys
     from pathlib import Path
     from dotenv import load_dotenv
-    from langchain_openai import OpenAIEmbeddings
     import time
 
     # Add project root to path
@@ -302,13 +301,14 @@ def test_cached_retrieval():
     load_dotenv()
 
     from src.config.models import settings
+    from src.config.embedding_provider import get_default_embeddings
 
     print("=" * 80)
     print("CACHED RETRIEVAL TESTING")
     print("=" * 80)
 
-    # Initialize vector store
-    embeddings = OpenAIEmbeddings(model=settings.embed_model)
+    # Initialize vector store with provider-based embeddings
+    embeddings = get_default_embeddings()
     vector_store = PGVector(
         embeddings=embeddings,
         collection_name=settings.collection,

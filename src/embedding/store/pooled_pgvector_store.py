@@ -404,9 +404,8 @@ def create_optimized_vector_store(
         PooledPGVectorStore: Optimized vector store instance
     """
     if embeddings is None:
-        from ...embedding.embedders.openai_embedder import OpenAIEmbedder
+        from ...config.embedding_provider import get_default_embeddings
 
-        embedder = OpenAIEmbedder()
-        embeddings = embedder.embeddings
+        embeddings = get_default_embeddings()
 
     return PooledPGVectorStore(embeddings=embeddings, collection_name=collection_name)

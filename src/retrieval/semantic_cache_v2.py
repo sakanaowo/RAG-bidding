@@ -185,13 +185,13 @@ class HybridSemanticCache:
         self._lock = threading.Lock()
 
     def _get_embedder(self):
-        """Lazy load OpenAI embedder."""
+        """Lazy load embedder from provider factory (supports OpenAI, Vertex, etc)."""
         if self._embedder is None:
             try:
-                from src.embedding.embedders.openai_embedder import OpenAIEmbedder
-
-                self._embedder = OpenAIEmbedder()
-                logger.debug("✅ Embedder loaded for semantic cache")
+                from src.config.embedding_provider import get_default_embeddings
+                
+                self._embedder = get_default_embeddings()
+                logger.debug("✅ Embedder loaded for semantic cache from provider factory")
             except Exception as e:
                 logger.warning(f"⚠️ Failed to load embedder: {e}")
         return self._embedder
